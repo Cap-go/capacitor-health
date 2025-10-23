@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [7.1.1](https://github.com/Cap-go/capacitor-health/compare/7.1.0...7.1.1) (2025-10-23)
+
+
+### Bug Fixes
+
+* remove footer in discord ([c699d10](https://github.com/Cap-go/capacitor-health/commit/c699d10a6065e67f029871bcc9fda0e52e9b83d6))
+* update Discord webhook username to include repository name ([a9874e2](https://github.com/Cap-go/capacitor-health/commit/a9874e2263027321c0dd8c152e25e1301492be01))
+
 ## [7.1.0](https://github.com/Cap-go/capacitor-health/compare/7.0.10...7.1.0) (2025-10-23)
 
 
