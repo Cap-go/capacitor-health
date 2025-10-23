@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [7.1.0](https://github.com/Cap-go/capacitor-health/compare/7.0.10...7.1.0) (2025-10-23)
+
+
+### Features
+
+* add getPluginVersion method to HealthPlugin and HealthWeb, update workflows for changelog generation ([5a70720](https://github.com/Cap-go/capacitor-health/commit/5a7072006116b8daed5ef77e923d19c9f383acf2))
+
+
+### Bug Fixes
+
+* remove content field from Discord webhook configuration ([c9a54eb](https://github.com/Cap-go/capacitor-health/commit/c9a54eb9ba458f15af05b51dc81eb193acba4091))
+
 ## [7.0.10](https://github.com/Cap-go/capacitor-health/compare/7.0.9...7.0.10) (2025-10-16)
 
 ## [7.0.9](https://github.com/Cap-go/capacitor-health/compare/7.0.8...7.0.9) (2025-10-15)
