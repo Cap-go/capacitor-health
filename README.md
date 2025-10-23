@@ -91,6 +91,7 @@ All write operations expect the default unit shown above. On Android the `metada
 * [`checkAuthorization(...)`](#checkauthorization)
 * [`readSamples(...)`](#readsamples)
 * [`saveSample(...)`](#savesample)
+* [`getPluginVersion()`](#getpluginversion)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
@@ -174,6 +175,19 @@ Writes a single sample to the native health store.
 | Param         | Type                                                              |
 | ------------- | ----------------------------------------------------------------- |
 | **`options`** | <code><a href="#writesampleoptions">WriteSampleOptions</a></code> |
+
+--------------------
+
+
+### getPluginVersion()
+
+```typescript
+getPluginVersion() => Promise<{ version: string; }>
+```
+
+Get the native Capacitor plugin version
+
+**Returns:** <code>Promise&lt;{ version: string; }&gt;</code>
 
 --------------------
 
