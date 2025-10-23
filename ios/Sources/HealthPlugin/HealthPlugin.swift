@@ -3,6 +3,7 @@ import Capacitor
 
 @objc(HealthPlugin)
 public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
+    private let PLUGIN_VERSION: String = ""
     public let identifier = "HealthPlugin"
     public let jsName = "Health"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -10,7 +11,8 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "checkAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readSamples", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "saveSample", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "saveSample", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getPluginVersion", returnType: CAPPluginReturnPromise)
     ]
 
     private let implementation = Health()
@@ -127,4 +129,9 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject(error.localizedDescription, nil, error)
         }
     }
+
+    @objc func getPluginVersion(_ call: CAPPluginCall) {
+        call.resolve(["version": self.PLUGIN_VERSION])
+    }
+
 }

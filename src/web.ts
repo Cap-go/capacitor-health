@@ -34,4 +34,8 @@ export class HealthWeb extends WebPlugin implements HealthPlugin {
   async saveSample(_options: WriteSampleOptions): Promise<void> {
     throw this.unimplemented('Writing health data is only available on native platforms.');
   }
+
+  async getPluginVersion(): Promise<{ version: string }> {
+    return { version: 'web' };
+  }
 }

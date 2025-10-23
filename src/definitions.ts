@@ -77,4 +77,12 @@ export interface HealthPlugin {
   readSamples(options: QueryOptions): Promise<ReadSamplesResult>;
   /** Writes a single sample to the native health store. */
   saveSample(options: WriteSampleOptions): Promise<void>;
+
+  /**
+   * Get the native Capacitor plugin version
+   *
+   * @returns {Promise<{ id: string }>} an Promise with version for this device
+   * @throws An error if the something went wrong
+   */
+  getPluginVersion(): Promise<{ version: string }>;
 }
