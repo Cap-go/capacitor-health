@@ -8,6 +8,10 @@
 
 Capacitor plugin to read and write health metrics via Apple HealthKit (iOS) and Health Connect (Android). The TypeScript API keeps the same data types and units across platforms so you can build once and deploy everywhere.
 
+## Documentation
+
+The most complete doc is available here: https://capgo.app/docs/plugins/health/
+
 ## Install
 
 ```bash
