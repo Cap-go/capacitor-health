@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [7.2.3](https://github.com/Cap-go/capacitor-health/compare/7.2.2...7.2.3) (2025-10-27)
+
+
+### Bug Fixes
+
+* renovate capacitor dep ([a7cbce3](https://github.com/Cap-go/capacitor-health/commit/a7cbce3d1fca64ce6ad4f6ae1a8e010e4d97ab7a))
+
 ## [7.2.2](https://github.com/Cap-go/capacitor-health/compare/7.2.1...7.2.2) (2025-10-26)
 
 

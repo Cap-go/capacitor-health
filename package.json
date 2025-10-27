@@ -1,6 +1,6 @@
 {
   "name": "@capgo/capacitor-health",
-  "version": "7.2.2",
+  "version": "7.2.3",
   "description": "Capacitor plugin to interact with data from Apple HealthKit and Health Connect",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
