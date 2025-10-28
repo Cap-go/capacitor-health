@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [7.2.4](https://github.com/Cap-go/capacitor-health/compare/7.2.3...7.2.4) (2025-10-28)
+
+
+### Bug Fixes
+
+* CI/CD config ([63be247](https://github.com/Cap-go/capacitor-health/commit/63be2475647ceab2a9d5ac2f019b9aa74b001bbd))
+* remove unused Health class ([0ed52ef](https://github.com/Cap-go/capacitor-health/commit/0ed52ef0496417a684e7609f729d2a561a62d707))
+* update github action ([1400cfb](https://github.com/Cap-go/capacitor-health/commit/1400cfb1f37507e80a9a6064cf43143c68680fa0))
+
 ## [7.2.3](https://github.com/Cap-go/capacitor-health/compare/7.2.2...7.2.3) (2025-10-27)
 
 
