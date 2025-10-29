@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [7.2.5](https://github.com/Cap-go/capacitor-health/compare/7.2.4...7.2.5) (2025-10-29)
+
+
+### Bug Fixes
+
+* update AI model in build workflow ([2ec66f6](https://github.com/Cap-go/capacitor-health/commit/2ec66f64d9f5ed3e239680e44d876957c5b32839))
+
 ## [7.2.4](https://github.com/Cap-go/capacitor-health/compare/7.2.3...7.2.4) (2025-10-28)
 
 
