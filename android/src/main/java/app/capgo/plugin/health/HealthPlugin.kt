@@ -22,7 +22,7 @@ import kotlinx.coroutines.withContext
 
 @CapacitorPlugin(name = "Health")
 class HealthPlugin : Plugin() {
-    private val PLUGIN_VERSION = "7.1.1"
+    private val PLUGIN_VERSION = "7.2.5"
     private val manager = HealthManager()
     private val pluginScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var pendingAuthorization: PendingAuthorization? = null
