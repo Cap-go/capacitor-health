@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [7.2.6](https://github.com/Cap-go/capacitor-health/compare/7.2.5...7.2.6) (2025-10-29)
+
+
+### Bug Fixes
+
+* update plugin version to 7.2.5 ([eb18aef](https://github.com/Cap-go/capacitor-health/commit/eb18aef50f5aafe12982f7a24efb3c5e6ac11e31))
+
 ## [7.2.5](https://github.com/Cap-go/capacitor-health/compare/7.2.4...7.2.5) (2025-10-29)
 
 
