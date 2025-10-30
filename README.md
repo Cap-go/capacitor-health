@@ -8,6 +8,20 @@
 
 Capacitor plugin to read and write health metrics via Apple HealthKit (iOS) and Health Connect (Android). The TypeScript API keeps the same data types and units across platforms so you can build once and deploy everywhere.
 
+## Why Capacitor Health?
+
+The only **free**, **unified** health data plugin for Capacitor supporting the latest native APIs:
+
+- **Health Connect (Android)** - Uses Google's newest health platform (replaces deprecated Google Fit)
+- **HealthKit (iOS)** - Full integration with Apple's health framework
+- **Unified API** - Same TypeScript interface across platforms with consistent units
+- **Multiple metrics** - Steps, distance, calories, heart rate, weight
+- **Read & Write** - Query historical data and save new health entries
+- **Modern standards** - Supports Android 8.0+ and iOS 14+
+- **Modern package management** - Supports both Swift Package Manager (SPM) and CocoaPods (SPM-ready for Capacitor 8)
+
+Perfect for fitness apps, health trackers, wellness platforms, and medical applications.
+
 ## Documentation
 
 The most complete doc is available here: https://capgo.app/docs/plugins/health/
