@@ -22,7 +22,7 @@ import kotlinx.coroutines.withContext
 
 @CapacitorPlugin(name = "Health")
 class HealthPlugin : Plugin() {
-    private val PLUGIN_VERSION = "7.2.5"
+    private val pluginVersion = "7.2.5"
     private val manager = HealthManager()
     private val pluginScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var pendingAuthorization: PendingAuthorization? = null
@@ -313,7 +313,7 @@ class HealthPlugin : Plugin() {
     fun getPluginVersion(call: PluginCall) {
         try {
             val ret = JSObject()
-            ret.put("version", PLUGIN_VERSION)
+            ret.put("version", pluginVersion)
             call.resolve(ret)
         } catch (e: Exception) {
             call.reject("Could not get plugin version", e)
