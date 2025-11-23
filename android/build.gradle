@@ -45,7 +45,6 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
-        coreLibraryDesugaringEnabled true
     }
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_21.toString()
@@ -65,7 +64,6 @@ dependencies {
     implementation ("org.jetbrains.kotlin:kotlin-stdlib:" + project.ext.kotlinVersion)
     implementation 'androidx.health.connect:connect-client:1.1.0-alpha10'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
     testImplementation "junit:junit:${junitVersion}"
     androidTestImplementation "androidx.test.ext:junit:${androidxJunitVersion}"
     androidTestImplementation "androidx.test.espresso:espresso-core:${androidxEspressoCoreVersion}"
