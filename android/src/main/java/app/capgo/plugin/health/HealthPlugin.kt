@@ -2,14 +2,16 @@ package app.capgo.plugin.health
 
 import android.app.Activity
 import android.content.Intent
+import androidx.activity.result.ActivityResult
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
+import com.getcapacitor.annotation.ActivityCallback
 import com.getcapacitor.annotation.CapacitorPlugin
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.contracts.HealthPermissionsRequestContract
+import androidx.health.connect.client.PermissionController
 import java.time.Instant
 import java.time.Duration
 import java.time.format.DateTimeParseException
@@ -18,15 +20,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @CapacitorPlugin(name = "Health")
 class HealthPlugin : Plugin() {
-    private val pluginVersion = "7.2.5"
+    private val pluginVersion = "7.2.14"
     private val manager = HealthManager()
     private val pluginScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var pendingAuthorization: PendingAuthorization? = null
-    private val permissionRequestContract = HealthPermissionsRequestContract()
+    private val permissionContract = PermissionController.createRequestPermissionResultContract()
+
+    // Store pending request data for callback
+    private var pendingReadTypes: List<HealthDataType> = emptyList()
+    private var pendingWriteTypes: List<HealthDataType> = emptyList()
 
     override fun handleOnDestroy() {
         super.handleOnDestroy()
@@ -72,32 +76,38 @@ class HealthPlugin : Plugin() {
                 return@launch
             }
 
-            val activity = activity
-            if (activity == null) {
-                call.reject("Unable to request authorization without an active Activity.")
-                return@launch
-            }
+            // Store types for callback
+            pendingReadTypes = readTypes
+            pendingWriteTypes = writeTypes
 
-            if (pendingAuthorization != null) {
-                call.reject("Another authorization request is already running. Try again later.")
-                return@launch
-            }
+            // Create intent using the Health Connect permission contract
+            val intent = permissionContract.createIntent(context, permissions)
 
-            val intent = withContext(Dispatchers.IO) {
-                permissionRequestContract.createIntent(activity, permissions)
+            try {
+                startActivityForResult(call, intent, "handlePermissionResult")
+            } catch (e: Exception) {
+                pendingReadTypes = emptyList()
+                pendingWriteTypes = emptyList()
+                call.reject("Failed to launch Health Connect permission request.", null, e)
             }
-            pendingAuthorization = PendingAuthorization(call, readTypes, writeTypes)
-            call.setKeepAlive(true)
+        }
+    }
 
-            withContext(Dispatchers.Main) {
-                try {
-                    activity.startActivityForResult(intent, REQUEST_AUTHORIZATION)
-                } catch (e: Exception) {
-                    pendingAuthorization = null
-                    call.setKeepAlive(false)
-                    call.reject("Failed to launch Health Connect permission request.", null, e)
-                }
-            }
+    @ActivityCallback
+    private fun handlePermissionResult(call: PluginCall?, result: ActivityResult) {
+        if (call == null) {
+            return
+        }
+
+        val readTypes = pendingReadTypes
+        val writeTypes = pendingWriteTypes
+        pendingReadTypes = emptyList()
+        pendingWriteTypes = emptyList()
+
+        pluginScope.launch {
+            val client = getClientOrReject(call) ?: return@launch
+            val status = manager.authorizationStatus(client, readTypes, writeTypes)
+            call.resolve(status)
         }
     }
 
@@ -242,28 +252,6 @@ class HealthPlugin : Plugin() {
         }
     }
 
-    override fun handleOnActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.handleOnActivityResult(requestCode, resultCode, data)
-        if (requestCode != REQUEST_AUTHORIZATION) {
-            return
-        }
-
-        val pending = pendingAuthorization ?: return
-        pendingAuthorization = null
-        pending.call.setKeepAlive(false)
-
-        pluginScope.launch {
-            val client = getClientOrReject(pending.call) ?: return@launch
-            if (resultCode != Activity.RESULT_OK) {
-                pending.call.reject("Authorization request was cancelled or denied.")
-                return@launch
-            }
-
-            val status = manager.authorizationStatus(client, pending.readTypes, pending.writeTypes)
-            pending.call.resolve(status)
-        }
-    }
-
     private fun parseTypeList(call: PluginCall, key: String): List<HealthDataType> {
         val array = call.getArray(key) ?: JSArray()
         val result = mutableListOf<HealthDataType>()
@@ -303,12 +291,6 @@ class HealthPlugin : Plugin() {
         }
     }
 
-    private data class PendingAuthorization(
-        val call: PluginCall,
-        val readTypes: List<HealthDataType>,
-        val writeTypes: List<HealthDataType>
-    )
-
     @PluginMethod
     fun getPluginVersion(call: PluginCall) {
         try {
@@ -321,7 +303,6 @@ class HealthPlugin : Plugin() {
     }
 
     companion object {
-        private const val REQUEST_AUTHORIZATION = 9501
         private const val DEFAULT_LIMIT = 100
         private val DEFAULT_PAST_DURATION: Duration = Duration.ofDays(1)
     }
