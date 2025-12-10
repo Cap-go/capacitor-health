@@ -14,7 +14,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.7.2'
+        classpath 'com.android.tools.build:gradle:8.13.0'
         classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24'
     }
 }
@@ -23,8 +23,8 @@ apply plugin: 'com.android.library'
 apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
-    namespace "app.capgo.plugin.health"
-    compileSdk 35
+    namespace = "app.capgo.plugin.health"
+    compileSdk = 35
 
     defaultConfig {
         minSdk 26
@@ -40,7 +40,7 @@ android {
         }
     }
     lint {
-        abortOnError false
+        abortOnError = false
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
