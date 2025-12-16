@@ -12,7 +12,9 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "checkAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readSamples", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "saveSample", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "getPluginVersion", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "getPluginVersion", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openHealthConnectSettings", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "showPrivacyPolicy", returnType: CAPPluginReturnPromise)
     ]
 
     private let implementation = Health()
@@ -132,6 +134,16 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func getPluginVersion(_ call: CAPPluginCall) {
         call.resolve(["version": self.pluginVersion])
+    }
+
+    @objc func openHealthConnectSettings(_ call: CAPPluginCall) {
+        // No-op on iOS - Health Connect is Android only
+        call.resolve()
+    }
+
+    @objc func showPrivacyPolicy(_ call: CAPPluginCall) {
+        // No-op on iOS - Health Connect privacy policy is Android only
+        call.resolve()
     }
 
 }

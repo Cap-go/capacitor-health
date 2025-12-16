@@ -49,12 +49,63 @@ npx cap sync
 
 This plugin now uses [Health Connect](https://developer.android.com/health-and-fitness/guides/health-connect) instead of Google Fit. Make sure your app meets the requirements below:
 
-1. **Min SDK 26+.** Health Connect is only available on Android 8.0 (API 26) and above. The plugin’s Gradle setup already targets this level.
+1. **Min SDK 26+.** Health Connect is only available on Android 8.0 (API 26) and above. The plugin's Gradle setup already targets this level.
 2. **Declare Health permissions.** The plugin manifest ships with the required `<uses-permission>` declarations (`READ_/WRITE_STEPS`, `READ_/WRITE_DISTANCE`, `READ_/WRITE_ACTIVE_CALORIES_BURNED`, `READ_/WRITE_HEART_RATE`, `READ_/WRITE_WEIGHT`). Your app does not need to duplicate them, but you must surface a user-facing rationale because the permissions are considered health sensitive.
 3. **Ensure Health Connect is installed.** Devices on Android 14+ include it by default. For earlier versions the user must install *Health Connect by Android* from the Play Store. The `Health.isAvailable()` helper exposes the current status so you can prompt accordingly.
 4. **Request runtime access.** The plugin opens the Health Connect permission UI when you call `requestAuthorization`. You should still handle denial flows (e.g., show a message if `checkAuthorization` reports missing scopes).
+5. **Provide a Privacy Policy.** Health Connect requires apps to display a privacy policy explaining how health data is used. See the [Privacy Policy Setup](#privacy-policy-setup) section below.
 
 If you already used Google Fit in your project you can remove the associated dependencies (`play-services-fitness`, `play-services-auth`, OAuth configuration, etc.).
+
+### Privacy Policy Setup
+
+Health Connect requires your app to provide a privacy policy that explains how you handle health data. When users tap "Privacy policy" in the Health Connect permissions dialog, your app must display this information.
+
+**Option 1: HTML file in assets (recommended for simple cases)**
+
+Place an HTML file at `android/app/src/main/assets/public/privacypolicy.html`:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Privacy Policy</title>
+</head>
+<body>
+    <h1>Privacy Policy</h1>
+    <p>Your privacy policy content here...</p>
+    <h2>Health Data</h2>
+    <p>Explain how you collect, use, and protect health data...</p>
+</body>
+</html>
+```
+
+**Option 2: Custom URL (recommended for hosted privacy policies)**
+
+Add a string resource to your app's `android/app/src/main/res/values/strings.xml`:
+
+```xml
+<resources>
+    <!-- Your other strings... -->
+    <string name="health_connect_privacy_policy_url">https://yourapp.com/privacy-policy</string>
+</resources>
+```
+
+This URL will be loaded in a WebView when the user requests to see your privacy policy.
+
+**Programmatic access:**
+
+You can also show the privacy policy or open Health Connect settings from your app:
+
+```ts
+// Show the privacy policy screen
+await Health.showPrivacyPolicy();
+
+// Open Health Connect settings (useful for managing permissions)
+await Health.openHealthConnectSettings();
+```
 
 ## Usage
 
@@ -110,6 +161,8 @@ All write operations expect the default unit shown above. On Android the `metada
 * [`readSamples(...)`](#readsamples)
 * [`saveSample(...)`](#savesample)
 * [`getPluginVersion()`](#getpluginversion)
+* [`openHealthConnectSettings()`](#openhealthconnectsettings)
+* [`showPrivacyPolicy()`](#showprivacypolicy)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
@@ -206,6 +259,40 @@ getPluginVersion() => Promise<{ version: string; }>
 Get the native Capacitor plugin version
 
 **Returns:** <code>Promise&lt;{ version: string; }&gt;</code>
+
+--------------------
+
+
+### openHealthConnectSettings()
+
+```typescript
+openHealthConnectSettings() => Promise<void>
+```
+
+Opens the Health Connect settings screen (Android only).
+On iOS, this method does nothing.
+
+Use this to direct users to manage their Health Connect permissions
+or to install Health Connect if not available.
+
+--------------------
+
+
+### showPrivacyPolicy()
+
+```typescript
+showPrivacyPolicy() => Promise<void>
+```
+
+Shows the app's privacy policy for Health Connect (Android only).
+On iOS, this method does nothing.
+
+This displays the same privacy policy screen that Health Connect shows
+when the user taps "Privacy policy" in the permissions dialog.
+
+The privacy policy URL can be configured by adding a string resource
+named "health_connect_privacy_policy_url" in your app's strings.xml,
+or by placing an HTML file at www/privacypolicy.html in your assets.
 
 --------------------
 

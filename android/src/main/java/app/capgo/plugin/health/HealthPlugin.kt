@@ -2,6 +2,7 @@ package app.capgo.plugin.health
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.result.ActivityResult
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
@@ -302,8 +303,33 @@ class HealthPlugin : Plugin() {
         }
     }
 
+    @PluginMethod
+    fun openHealthConnectSettings(call: PluginCall) {
+        try {
+            val intent = Intent(HEALTH_CONNECT_SETTINGS_ACTION)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            context.startActivity(intent)
+            call.resolve()
+        } catch (e: Exception) {
+            call.reject("Failed to open Health Connect settings", null, e)
+        }
+    }
+
+    @PluginMethod
+    fun showPrivacyPolicy(call: PluginCall) {
+        try {
+            val intent = Intent(context, PermissionsRationaleActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            context.startActivity(intent)
+            call.resolve()
+        } catch (e: Exception) {
+            call.reject("Failed to show privacy policy", null, e)
+        }
+    }
+
     companion object {
         private const val DEFAULT_LIMIT = 100
         private val DEFAULT_PAST_DURATION: Duration = Duration.ofDays(1)
+        private const val HEALTH_CONNECT_SETTINGS_ACTION = "androidx.health.ACTION_HEALTH_CONNECT_SETTINGS"
     }
 }

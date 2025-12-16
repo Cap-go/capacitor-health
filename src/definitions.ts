@@ -81,8 +81,34 @@ export interface HealthPlugin {
   /**
    * Get the native Capacitor plugin version
    *
-   * @returns {Promise<{ id: string }>} an Promise with version for this device
-   * @throws An error if the something went wrong
+   * @returns {Promise<{ version: string }>} a Promise with version for this device
+   * @throws An error if something went wrong
    */
   getPluginVersion(): Promise<{ version: string }>;
+
+  /**
+   * Opens the Health Connect settings screen (Android only).
+   * On iOS, this method does nothing.
+   *
+   * Use this to direct users to manage their Health Connect permissions
+   * or to install Health Connect if not available.
+   *
+   * @throws An error if Health Connect settings cannot be opened
+   */
+  openHealthConnectSettings(): Promise<void>;
+
+  /**
+   * Shows the app's privacy policy for Health Connect (Android only).
+   * On iOS, this method does nothing.
+   *
+   * This displays the same privacy policy screen that Health Connect shows
+   * when the user taps "Privacy policy" in the permissions dialog.
+   *
+   * The privacy policy URL can be configured by adding a string resource
+   * named "health_connect_privacy_policy_url" in your app's strings.xml,
+   * or by placing an HTML file at www/privacypolicy.html in your assets.
+   *
+   * @throws An error if the privacy policy cannot be displayed
+   */
+  showPrivacyPolicy(): Promise<void>;
 }

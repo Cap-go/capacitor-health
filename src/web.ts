@@ -38,4 +38,12 @@ export class HealthWeb extends WebPlugin implements HealthPlugin {
   async getPluginVersion(): Promise<{ version: string }> {
     return { version: 'web' };
   }
+
+  async openHealthConnectSettings(): Promise<void> {
+    // No-op on web - Health Connect is Android only
+  }
+
+  async showPrivacyPolicy(): Promise<void> {
+    // No-op on web - Health Connect privacy policy is Android only
+  }
 }
