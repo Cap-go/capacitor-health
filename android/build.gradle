@@ -3,7 +3,7 @@ project.ext.kotlinVersion = kotlinVersion
 
 ext {
     junitVersion = '4.13.2'
-    androidxAppCompatVersion = '1.7.0'
+    androidxAppCompatVersion = '1.7.1'
     androidxJunitVersion = '1.2.1'
     androidxEspressoCoreVersion = '3.6.1'
 }
