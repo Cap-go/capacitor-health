@@ -319,44 +319,40 @@ final class Health {
             return
         }
 
-        if #available(iOS 12.0, *) {
-            let group = DispatchGroup()
-            let lock = NSLock()
-            var authorized: [HealthDataType] = []
-            var denied: [HealthDataType] = []
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var authorized: [HealthDataType] = []
+        var denied: [HealthDataType] = []
 
-            for type in types {
-                guard let objectType = try? type.sampleType() else {
-                    denied.append(type)
-                    continue
-                }
-
-                group.enter()
-                let readSet = Set<HKObjectType>([objectType])
-                healthStore.getRequestStatusForAuthorization(toShare: Set<HKSampleType>(), read: readSet) { status, error in
-                    defer { group.leave() }
-
-                    if error != nil {
-                        lock.lock(); denied.append(type); lock.unlock()
-                        return
-                    }
-
-                    switch status {
-                    case .unnecessary:
-                        lock.lock(); authorized.append(type); lock.unlock()
-                    case .shouldRequest, .unknown:
-                        lock.lock(); denied.append(type); lock.unlock()
-                    @unknown default:
-                        lock.lock(); denied.append(type); lock.unlock()
-                    }
-                }
+        for type in types {
+            guard let objectType = try? type.sampleType() else {
+                denied.append(type)
+                continue
             }
 
-            group.notify(queue: .main) {
-                completion(authorized, denied)
+            group.enter()
+            let readSet = Set<HKObjectType>([objectType])
+            healthStore.getRequestStatusForAuthorization(toShare: Set<HKSampleType>(), read: readSet) { status, error in
+                defer { group.leave() }
+
+                if error != nil {
+                    lock.lock(); denied.append(type); lock.unlock()
+                    return
+                }
+
+                switch status {
+                case .unnecessary:
+                    lock.lock(); authorized.append(type); lock.unlock()
+                case .shouldRequest, .unknown:
+                    lock.lock(); denied.append(type); lock.unlock()
+                @unknown default:
+                    lock.lock(); denied.append(type); lock.unlock()
+                }
             }
-        } else {
-            completion(types, [])
+        }
+
+        group.notify(queue: .main) {
+            completion(authorized, denied)
         }
     }
 
