@@ -176,7 +176,7 @@ export interface HealthPlugin {
 
   /**
    * Queries workout sessions from the native health store.
-   * Currently supported on iOS only.
+   * Supported on iOS (HealthKit) and Android (Health Connect).
    *
    * @param options Query options including optional workout type filter, date range, limit, and sort order
    * @returns A promise that resolves with the workout sessions

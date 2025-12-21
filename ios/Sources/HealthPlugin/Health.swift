@@ -113,7 +113,8 @@ enum WorkoutType: String, CaseIterable {
         case .yoga:
             return .yoga
         case .traditionalStrengthTraining:
-            return .traditionalStrengthTraining
+            // Map back to strengthTraining for consistency (both map to the same HK type)
+            return .strengthTraining
         case .hiking:
             return .hiking
         case .tennis:

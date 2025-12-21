@@ -305,7 +305,7 @@ queryWorkouts(options: QueryWorkoutsOptions) => Promise<QueryWorkoutsResult>
 ```
 
 Queries workout sessions from the native health store.
-Currently supported on iOS only.
+Supported on iOS (HealthKit) and Android (Health Connect).
 
 | Param         | Type                                                                  | Description                                                                             |
 | ------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |

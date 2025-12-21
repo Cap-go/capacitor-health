@@ -362,6 +362,7 @@ class HealthManager {
             val result = client.aggregate(aggregateRequest)
             result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
         } catch (e: Exception) {
+            android.util.Log.d("HealthManager", "Distance aggregation failed for workout: ${e.message}", e)
             null // Permission might not be granted or no data available
         }
         
