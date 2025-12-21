@@ -32,6 +32,7 @@ class HealthPlugin : Plugin() {
     // Store pending request data for callback
     private var pendingReadTypes: List<HealthDataType> = emptyList()
     private var pendingWriteTypes: List<HealthDataType> = emptyList()
+    private var pendingIncludeWorkouts: Boolean = false
 
     override fun handleOnDestroy() {
         super.handleOnDestroy()
@@ -46,8 +47,8 @@ class HealthPlugin : Plugin() {
 
     @PluginMethod
     fun requestAuthorization(call: PluginCall) {
-        val readTypes = try {
-            parseTypeList(call, "read")
+        val (readTypes, includeWorkouts) = try {
+            parseTypeListWithWorkouts(call, "read")
         } catch (e: IllegalArgumentException) {
             call.reject(e.message, null, e)
             return
@@ -62,17 +63,17 @@ class HealthPlugin : Plugin() {
 
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
-            val permissions = manager.permissionsFor(readTypes, writeTypes)
+            val permissions = manager.permissionsFor(readTypes, writeTypes, includeWorkouts)
 
             if (permissions.isEmpty()) {
-                val status = manager.authorizationStatus(client, readTypes, writeTypes)
+                val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts)
                 call.resolve(status)
                 return@launch
             }
 
             val granted = client.permissionController.getGrantedPermissions()
             if (granted.containsAll(permissions)) {
-                val status = manager.authorizationStatus(client, readTypes, writeTypes)
+                val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts)
                 call.resolve(status)
                 return@launch
             }
@@ -80,6 +81,7 @@ class HealthPlugin : Plugin() {
             // Store types for callback
             pendingReadTypes = readTypes
             pendingWriteTypes = writeTypes
+            pendingIncludeWorkouts = includeWorkouts
 
             // Create intent using the Health Connect permission contract
             val intent = permissionContract.createIntent(context, permissions)
@@ -102,20 +104,22 @@ class HealthPlugin : Plugin() {
 
         val readTypes = pendingReadTypes
         val writeTypes = pendingWriteTypes
+        val includeWorkouts = pendingIncludeWorkouts
         pendingReadTypes = emptyList()
         pendingWriteTypes = emptyList()
+        pendingIncludeWorkouts = false
 
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
-            val status = manager.authorizationStatus(client, readTypes, writeTypes)
+            val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts)
             call.resolve(status)
         }
     }
 
     @PluginMethod
     fun checkAuthorization(call: PluginCall) {
-        val readTypes = try {
-            parseTypeList(call, "read")
+        val (readTypes, includeWorkouts) = try {
+            parseTypeListWithWorkouts(call, "read")
         } catch (e: IllegalArgumentException) {
             call.reject(e.message, null, e)
             return
@@ -130,7 +134,7 @@ class HealthPlugin : Plugin() {
 
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
-            val status = manager.authorizationStatus(client, readTypes, writeTypes)
+            val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts)
             call.resolve(status)
         }
     }
@@ -265,6 +269,23 @@ class HealthPlugin : Plugin() {
         return result
     }
 
+    private fun parseTypeListWithWorkouts(call: PluginCall, key: String): Pair<List<HealthDataType>, Boolean> {
+        val array = call.getArray(key) ?: JSArray()
+        val result = mutableListOf<HealthDataType>()
+        var includeWorkouts = false
+        for (i in 0 until array.length()) {
+            val identifier = array.optString(i, null) ?: continue
+            if (identifier == "workouts") {
+                includeWorkouts = true
+            } else {
+                val dataType = HealthDataType.from(identifier)
+                    ?: throw IllegalArgumentException("Unsupported data type: $identifier")
+                result.add(dataType)
+            }
+        }
+        return Pair(result, includeWorkouts)
+    }
+
     private fun getClientOrReject(call: PluginCall): HealthConnectClient? {
         val status = HealthConnectClient.getSdkStatus(context)
         if (status != HealthConnectClient.SDK_AVAILABLE) {
@@ -324,6 +345,43 @@ class HealthPlugin : Plugin() {
             call.resolve()
         } catch (e: Exception) {
             call.reject("Failed to show privacy policy", null, e)
+        }
+    }
+
+    @PluginMethod
+    fun queryWorkouts(call: PluginCall) {
+        val workoutType = call.getString("workoutType")
+        val limit = (call.getInt("limit") ?: DEFAULT_LIMIT).coerceAtLeast(0)
+        val ascending = call.getBoolean("ascending") ?: false
+
+        val startInstant = try {
+            manager.parseInstant(call.getString("startDate"), Instant.now().minus(DEFAULT_PAST_DURATION))
+        } catch (e: DateTimeParseException) {
+            call.reject(e.message, null, e)
+            return
+        }
+
+        val endInstant = try {
+            manager.parseInstant(call.getString("endDate"), Instant.now())
+        } catch (e: DateTimeParseException) {
+            call.reject(e.message, null, e)
+            return
+        }
+
+        if (endInstant.isBefore(startInstant)) {
+            call.reject("endDate must be greater than or equal to startDate")
+            return
+        }
+
+        pluginScope.launch {
+            val client = getClientOrReject(call) ?: return@launch
+            try {
+                val workouts = manager.queryWorkouts(client, workoutType, startInstant, endInstant, limit, ascending)
+                val result = JSObject().apply { put("workouts", workouts) }
+                call.resolve(result)
+            } catch (e: Exception) {
+                call.reject(e.message ?: "Failed to query workouts.", null, e)
+            }
         }
     }
 
