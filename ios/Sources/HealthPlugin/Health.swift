@@ -27,6 +27,128 @@ enum HealthManagerError: LocalizedError {
     }
 }
 
+enum WorkoutType: String, CaseIterable {
+    case running
+    case cycling
+    case walking
+    case swimming
+    case yoga
+    case strengthTraining
+    case hiking
+    case tennis
+    case basketball
+    case soccer
+    case americanFootball
+    case baseball
+    case crossTraining
+    case elliptical
+    case rowing
+    case stairClimbing
+    case traditionalStrengthTraining
+    case waterFitness
+    case waterPolo
+    case waterSports
+    case wrestling
+    case other
+
+    func hkWorkoutActivityType() -> HKWorkoutActivityType {
+        switch self {
+        case .running:
+            return .running
+        case .cycling:
+            return .cycling
+        case .walking:
+            return .walking
+        case .swimming:
+            return .swimming
+        case .yoga:
+            return .yoga
+        case .strengthTraining:
+            return .traditionalStrengthTraining
+        case .hiking:
+            return .hiking
+        case .tennis:
+            return .tennis
+        case .basketball:
+            return .basketball
+        case .soccer:
+            return .soccer
+        case .americanFootball:
+            return .americanFootball
+        case .baseball:
+            return .baseball
+        case .crossTraining:
+            return .crossTraining
+        case .elliptical:
+            return .elliptical
+        case .rowing:
+            return .rowing
+        case .stairClimbing:
+            return .stairClimbing
+        case .traditionalStrengthTraining:
+            return .traditionalStrengthTraining
+        case .waterFitness:
+            return .waterFitness
+        case .waterPolo:
+            return .waterPolo
+        case .waterSports:
+            return .waterSports
+        case .wrestling:
+            return .wrestling
+        case .other:
+            return .other
+        }
+    }
+
+    static func fromHKWorkoutActivityType(_ hkType: HKWorkoutActivityType) -> WorkoutType {
+        switch hkType {
+        case .running:
+            return .running
+        case .cycling:
+            return .cycling
+        case .walking:
+            return .walking
+        case .swimming:
+            return .swimming
+        case .yoga:
+            return .yoga
+        case .traditionalStrengthTraining:
+            // Map back to strengthTraining for consistency (both map to the same HK type)
+            return .strengthTraining
+        case .hiking:
+            return .hiking
+        case .tennis:
+            return .tennis
+        case .basketball:
+            return .basketball
+        case .soccer:
+            return .soccer
+        case .americanFootball:
+            return .americanFootball
+        case .baseball:
+            return .baseball
+        case .crossTraining:
+            return .crossTraining
+        case .elliptical:
+            return .elliptical
+        case .rowing:
+            return .rowing
+        case .stairClimbing:
+            return .stairClimbing
+        case .waterFitness:
+            return .waterFitness
+        case .waterPolo:
+            return .waterPolo
+        case .waterSports:
+            return .waterSports
+        case .wrestling:
+            return .wrestling
+        default:
+            return .other
+        }
+    }
+}
+
 enum HealthDataType: String, CaseIterable {
     case steps
     case distance
@@ -402,6 +524,8 @@ final class Health {
             let type = try dataType.sampleType()
             set.insert(type)
         }
+        // Always include workout type for read access to enable workout queries
+        set.insert(HKObjectType.workoutType())
         return set
     }
 
@@ -412,5 +536,93 @@ final class Health {
             set.insert(type)
         }
         return set
+    }
+
+    func queryWorkouts(workoutTypeString: String?, startDateString: String?, endDateString: String?, limit: Int?, ascending: Bool, completion: @escaping (Result<[[String: Any]], Error>) -> Void) {
+        let startDate = (try? parseDate(startDateString, defaultValue: Date().addingTimeInterval(-86400))) ?? Date().addingTimeInterval(-86400)
+        let endDate = (try? parseDate(endDateString, defaultValue: Date())) ?? Date()
+
+        guard endDate >= startDate else {
+            completion(.failure(HealthManagerError.invalidDateRange))
+            return
+        }
+
+        var predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
+
+        // Filter by workout type if specified
+        if let workoutTypeString = workoutTypeString, let workoutType = WorkoutType(rawValue: workoutTypeString) {
+            let hkWorkoutType = workoutType.hkWorkoutActivityType()
+            let typePredicate = HKQuery.predicateForWorkouts(with: hkWorkoutType)
+            predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [predicate, typePredicate])
+        }
+
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: ascending)
+        let queryLimit = limit ?? 100
+
+        guard let workoutSampleType = HKObjectType.workoutType() as? HKSampleType else {
+            completion(.failure(HealthManagerError.operationFailed("Workout type is not available.")))
+            return
+        }
+
+        let query = HKSampleQuery(sampleType: workoutSampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
+            guard let self = self else { return }
+
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            guard let workouts = samples as? [HKWorkout] else {
+                completion(.success([]))
+                return
+            }
+
+            let results = workouts.map { workout -> [String: Any] in
+                var payload: [String: Any] = [
+                    "workoutType": WorkoutType.fromHKWorkoutActivityType(workout.workoutActivityType).rawValue,
+                    "duration": Int(workout.duration),
+                    "startDate": self.isoFormatter.string(from: workout.startDate),
+                    "endDate": self.isoFormatter.string(from: workout.endDate)
+                ]
+
+                // Add total energy burned if available
+                if let totalEnergyBurned = workout.totalEnergyBurned {
+                    let energyInKilocalories = totalEnergyBurned.doubleValue(for: HKUnit.kilocalorie())
+                    payload["totalEnergyBurned"] = energyInKilocalories
+                }
+
+                // Add total distance if available
+                if let totalDistance = workout.totalDistance {
+                    let distanceInMeters = totalDistance.doubleValue(for: HKUnit.meter())
+                    payload["totalDistance"] = distanceInMeters
+                }
+
+                // Add source information
+                let source = workout.sourceRevision.source
+                payload["sourceName"] = source.name
+                payload["sourceId"] = source.bundleIdentifier
+
+                // Add metadata if available
+                if let metadata = workout.metadata, !metadata.isEmpty {
+                    var metadataDict: [String: String] = [:]
+                    for (key, value) in metadata {
+                        if let stringValue = value as? String {
+                            metadataDict[key] = stringValue
+                        } else if let numberValue = value as? NSNumber {
+                            metadataDict[key] = numberValue.stringValue
+                        }
+                    }
+                    if !metadataDict.isEmpty {
+                        payload["metadata"] = metadataDict
+                    }
+                }
+
+                return payload
+            }
+
+            completion(.success(results))
+        }
+
+        healthStore.execute(query)
     }
 }

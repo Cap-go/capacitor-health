@@ -1,8 +1,11 @@
 package app.capgo.plugin.health
 
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.StepsRecord
@@ -13,6 +16,7 @@ import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Length
 import androidx.health.connect.client.units.Mass
 import androidx.health.connect.client.records.metadata.Metadata
+import java.time.Duration
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import java.time.Instant
@@ -26,15 +30,20 @@ class HealthManager {
 
     private val formatter: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT
 
-    fun permissionsFor(readTypes: Collection<HealthDataType>, writeTypes: Collection<HealthDataType>): Set<String> = buildSet {
+    fun permissionsFor(readTypes: Collection<HealthDataType>, writeTypes: Collection<HealthDataType>, includeWorkouts: Boolean = false): Set<String> = buildSet {
         readTypes.forEach { add(it.readPermission) }
         writeTypes.forEach { add(it.writePermission) }
+        // Include workout read permission if explicitly requested
+        if (includeWorkouts) {
+            add(HealthPermission.getReadPermission(ExerciseSessionRecord::class))
+        }
     }
 
     suspend fun authorizationStatus(
         client: HealthConnectClient,
         readTypes: Collection<HealthDataType>,
-        writeTypes: Collection<HealthDataType>
+        writeTypes: Collection<HealthDataType>,
+        includeWorkouts: Boolean = false
     ): JSObject {
         val granted = client.permissionController.getGrantedPermissions()
 
@@ -45,6 +54,16 @@ class HealthManager {
                 readAuthorized.put(type.identifier)
             } else {
                 readDenied.put(type.identifier)
+            }
+        }
+
+        // Check workout permission if requested
+        if (includeWorkouts) {
+            val workoutPermission = HealthPermission.getReadPermission(ExerciseSessionRecord::class)
+            if (granted.contains(workoutPermission)) {
+                readAuthorized.put("workouts")
+            } else {
+                readDenied.put("workouts")
             }
         }
 
@@ -271,6 +290,127 @@ class HealthManager {
 
     private fun Double.toBpmLong(): Long {
         return java.lang.Math.round(this.coerceAtLeast(0.0))
+    }
+
+    suspend fun queryWorkouts(
+        client: HealthConnectClient,
+        workoutType: String?,
+        startTime: Instant,
+        endTime: Instant,
+        limit: Int,
+        ascending: Boolean
+    ): JSArray {
+        val workouts = mutableListOf<Pair<Instant, JSObject>>()
+        
+        var pageToken: String? = null
+        val pageSize = if (limit > 0) min(limit, MAX_PAGE_SIZE) else DEFAULT_PAGE_SIZE
+        var fetched = 0
+        
+        val exerciseTypeFilter = WorkoutType.fromString(workoutType)
+        
+        do {
+            val request = ReadRecordsRequest(
+                recordType = ExerciseSessionRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
+                pageSize = pageSize,
+                pageToken = pageToken
+            )
+            val response = client.readRecords(request)
+            
+            response.records.forEach { record ->
+                val session = record as ExerciseSessionRecord
+                
+                // Filter by exercise type if specified
+                if (exerciseTypeFilter != null && session.exerciseType != exerciseTypeFilter) {
+                    return@forEach
+                }
+                
+                // Aggregate calories and distance for this workout session
+                val aggregatedData = aggregateWorkoutData(client, session)
+                val payload = createWorkoutPayload(session, aggregatedData)
+                workouts.add(session.startTime to payload)
+            }
+            
+            fetched += response.records.size
+            pageToken = response.pageToken
+        } while (pageToken != null && (limit <= 0 || fetched < limit))
+        
+        val sorted = workouts.sortedBy { it.first }
+        val ordered = if (ascending) sorted else sorted.asReversed()
+        val limited = if (limit > 0) ordered.take(limit) else ordered
+        
+        val array = JSArray()
+        limited.forEach { array.put(it.second) }
+        return array
+    }
+    
+    private suspend fun aggregateWorkoutData(
+        client: HealthConnectClient,
+        session: ExerciseSessionRecord
+    ): WorkoutAggregatedData {
+        val timeRange = TimeRangeFilter.between(session.startTime, session.endTime)
+        // Don't filter by dataOrigin - distance might come from different sources
+        // than the workout session itself (e.g., fitness tracker vs workout app)
+        
+        // Aggregate distance
+        val distanceAggregate = try {
+            val aggregateRequest = AggregateRequest(
+                metrics = setOf(DistanceRecord.DISTANCE_TOTAL),
+                timeRangeFilter = timeRange
+                // Removed dataOriginFilter to get distance from all sources during workout time
+            )
+            val result = client.aggregate(aggregateRequest)
+            result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
+        } catch (e: Exception) {
+            android.util.Log.d("HealthManager", "Distance aggregation failed for workout: ${e.message}", e)
+            null // Permission might not be granted or no data available
+        }
+        
+        return WorkoutAggregatedData(
+            totalDistance = distanceAggregate
+        )
+    }
+    
+    private data class WorkoutAggregatedData(
+        val totalDistance: Double?
+    )
+    
+    private fun createWorkoutPayload(session: ExerciseSessionRecord, aggregatedData: WorkoutAggregatedData): JSObject {
+        val payload = JSObject()
+        
+        // Workout type
+        payload.put("workoutType", WorkoutType.toWorkoutTypeString(session.exerciseType))
+        
+        // Duration in seconds
+        val durationSeconds = Duration.between(session.startTime, session.endTime).seconds.toInt()
+        payload.put("duration", durationSeconds)
+        
+        // Start and end dates
+        payload.put("startDate", formatter.format(session.startTime))
+        payload.put("endDate", formatter.format(session.endTime))
+        
+        // Total distance (aggregated from DistanceRecord)
+        aggregatedData.totalDistance?.let { distance ->
+            payload.put("totalDistance", distance)
+        }
+        
+        // Source information
+        val dataOrigin = session.metadata.dataOrigin
+        payload.put("sourceId", dataOrigin.packageName)
+        payload.put("sourceName", dataOrigin.packageName)
+        session.metadata.device?.let { device ->
+            val manufacturer = device.manufacturer?.takeIf { it.isNotBlank() }
+            val model = device.model?.takeIf { it.isNotBlank() }
+            val label = listOfNotNull(manufacturer, model).joinToString(" ").trim()
+            if (label.isNotEmpty()) {
+                payload.put("sourceName", label)
+            }
+        }
+        
+        // Note: customMetadata is not available on Metadata in Health Connect
+        // Metadata only contains dataOrigin, device, and lastModifiedTime
+        
+        return payload
     }
 
     companion object {
