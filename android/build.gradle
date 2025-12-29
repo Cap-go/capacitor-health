@@ -1,4 +1,4 @@
-def kotlinVersion = '1.9.24'
+def kotlinVersion = '1.9.25'
 project.ext.kotlinVersion = kotlinVersion
 
 ext {
@@ -15,7 +15,7 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.0'
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25'
     }
 }
 
