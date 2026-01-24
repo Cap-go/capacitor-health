@@ -266,10 +266,15 @@ final class Health {
         }
 
         do {
-            let readTypes = try HealthDataType.parseMany(readIdentifiers)
+            // Separate "workouts" from regular health data types
+            let (readTypes, includeWorkouts) = try parseTypesWithWorkouts(readIdentifiers)
             let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
 
-            let readObjectTypes = try objectTypes(for: readTypes)
+            var readObjectTypes = try objectTypes(for: readTypes)
+            // Include workout type if explicitly requested
+            if includeWorkouts {
+                readObjectTypes.insert(HKObjectType.workoutType())
+            }
             let writeSampleTypes = try sampleTypes(for: writeTypes)
 
             healthStore.requestAuthorization(toShare: writeSampleTypes, read: readObjectTypes) { [weak self] success, error in
@@ -295,7 +300,7 @@ final class Health {
 
     func checkAuthorization(readIdentifiers: [String], writeIdentifiers: [String], completion: @escaping (Result<AuthorizationStatusPayload, Error>) -> Void) {
         do {
-            let readTypes = try HealthDataType.parseMany(readIdentifiers)
+            let (readTypes, _) = try parseTypesWithWorkouts(readIdentifiers)
             let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
 
             evaluateAuthorizationStatus(readTypes: readTypes, writeTypes: writeTypes) { payload in
@@ -485,6 +490,24 @@ final class Health {
         return type
     }
 
+    private func parseTypesWithWorkouts(_ identifiers: [String]) throws -> ([HealthDataType], Bool) {
+        var types: [HealthDataType] = []
+        var includeWorkouts = false
+        
+        for identifier in identifiers {
+            if identifier == "workouts" {
+                includeWorkouts = true
+            } else {
+                guard let type = HealthDataType(rawValue: identifier) else {
+                    throw HealthManagerError.invalidDataType(identifier)
+                }
+                types.append(type)
+            }
+        }
+        
+        return (types, includeWorkouts)
+    }
+
     private func parseDate(_ string: String?, defaultValue: Date) throws -> Date {
         guard let value = string else {
             return defaultValue
@@ -524,8 +547,6 @@ final class Health {
             let type = try dataType.sampleType()
             set.insert(type)
         }
-        // Always include workout type for read access to enable workout queries
-        set.insert(HKObjectType.workoutType())
         return set
     }
 
