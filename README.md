@@ -148,8 +148,16 @@ await Health.saveSample({
 | `calories` | `kilocalorie` | Active energy burned |
 | `heartRate`| `bpm`         | Beats per minute |
 | `weight`   | `kilogram`    | Body mass |
+| `workouts` | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
 
 All write operations expect the default unit shown above. On Android the `metadata` option is currently ignored by Health Connect.
+
+**Note about workouts:** To query workout data using `queryWorkouts()`, you need to explicitly request `workouts` permission:
+```ts
+await Health.requestAuthorization({
+  read: ['steps', 'workouts'],  // Include 'workouts' to access workout sessions
+});
+```
 
 ## API
 
