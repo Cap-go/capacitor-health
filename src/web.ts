@@ -5,6 +5,8 @@ import type {
   AuthorizationStatus,
   AvailabilityResult,
   HealthPlugin,
+  QueryAggregatedOptions,
+  QueryAggregatedResult,
   QueryOptions,
   QueryWorkoutsOptions,
   QueryWorkoutsResult,
@@ -51,5 +53,9 @@ export class HealthWeb extends WebPlugin implements HealthPlugin {
 
   async queryWorkouts(_options: QueryWorkoutsOptions): Promise<QueryWorkoutsResult> {
     throw this.unimplemented('Querying workouts is only available on native platforms.');
+  }
+
+  async queryAggregated(_options: QueryAggregatedOptions): Promise<QueryAggregatedResult> {
+    throw this.unimplemented('Querying aggregated health data is only available on native platforms.');
   }
 }
