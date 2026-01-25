@@ -696,9 +696,15 @@ class HealthManager {
                     point.put("unit", dataType.unit)
                     dataPoints.put(point)
                 }
+            } catch (e: SecurityException) {
+                // Permission denied for this bucket - skip it
+                android.util.Log.d("HealthManager", "Permission denied for aggregation bucket: ${e.message}")
+            } catch (e: IllegalArgumentException) {
+                // Invalid data or arguments for this bucket - skip it
+                android.util.Log.d("HealthManager", "Invalid data for aggregation bucket: ${e.message}")
             } catch (e: Exception) {
-                // Skip this bucket if aggregation fails (e.g., no data or permission denied)
-                android.util.Log.d("HealthManager", "Aggregation failed for bucket: ${e.message}")
+                // Other unexpected errors - skip this bucket and log for debugging
+                android.util.Log.w("HealthManager", "Aggregation failed for bucket: ${e.message}", e)
             }
 
             currentStart = bucketEnd

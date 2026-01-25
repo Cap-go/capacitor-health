@@ -222,7 +222,7 @@ enum HealthDataType: String, CaseIterable {
         case .heartRateVariability:
             return HKUnit.secondUnit(with: .milli)
         case .sleepAnalysis:
-            return HKUnit.minute() // Duration of sleep
+            return HKUnit.minute() // Used for calculating sleep stage duration
         }
     }
 
@@ -762,7 +762,7 @@ final class Health {
             
             // Sleep analysis doesn't support aggregation via statistics
             if dataType == .sleepAnalysis {
-                completion(.failure(HealthManagerError.operationFailed("Aggregated queries for sleep analysis are not supported. Use readSamples instead.")))
+                completion(.failure(HealthManagerError.operationFailed("Aggregated queries for sleep analysis are not supported. Use the readSamples() method to fetch individual sleep sessions.")))
                 return
             }
             
