@@ -291,6 +291,7 @@ enum WorkoutType: String, CaseIterable {
         case .swimming:
             return .swimming
         case .swimmingPool:
+            // Both swimming and swimmingPool map to iOS .swimming (pool swimming)
             return .swimming
         case .swimmingOpenWater:
             return .swimmingOpenWater
