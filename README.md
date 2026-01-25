@@ -178,6 +178,8 @@ await Health.requestAuthorization({
 });
 ```
 
+**Note about aggregated queries:** The `queryAggregated()` method supports different aggregation types (`sum`, `avg`, `min`, `max`) and bucket sizes (`hour`, `day`, `week`, `month`). However, on Android, `distance` and `calories` data types only support `sum` aggregation due to Health Connect API limitations - other aggregation types will return the total sum. iOS (HealthKit) supports all aggregation types for all quantity data types.
+
 ## API
 
 <docgen-index>
@@ -511,7 +513,7 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### HealthUnit
 
-<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'breathsPerMinute' | 'percent' | 'millisecond'</code>
+<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'breathsPerMinute' | 'percent' | 'millisecond' | 'minute'</code>
 
 
 #### Record

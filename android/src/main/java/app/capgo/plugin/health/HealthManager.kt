@@ -563,6 +563,8 @@ class HealthManager {
                         }
                     }
                     HealthDataType.DISTANCE -> {
+                        // Note: Health Connect only provides DISTANCE_TOTAL
+                        // Only 'sum' aggregation is supported; other modes will return the total
                         val result = client.aggregate(AggregateRequest(
                             metrics = setOf(DistanceRecord.DISTANCE_TOTAL),
                             timeRangeFilter = timeRange
@@ -570,6 +572,8 @@ class HealthManager {
                         result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
                     }
                     HealthDataType.CALORIES -> {
+                        // Note: Health Connect only provides ACTIVE_CALORIES_TOTAL
+                        // Only 'sum' aggregation is supported; other modes will return the total
                         val result = client.aggregate(AggregateRequest(
                             metrics = setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),
                             timeRangeFilter = timeRange

@@ -18,7 +18,8 @@ export type HealthUnit =
   | 'kilogram'
   | 'breathsPerMinute'
   | 'percent'
-  | 'millisecond';
+  | 'millisecond'
+  | 'minute';
 
 export interface AuthorizationOptions {
   /** Data types that should be readable after authorization. */
