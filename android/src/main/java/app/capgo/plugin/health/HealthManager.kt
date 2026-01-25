@@ -25,6 +25,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlin.math.min
 import kotlin.collections.buildSet
+import kotlinx.coroutines.CancellationException
 
 class HealthManager {
 
@@ -368,7 +369,7 @@ class HealthManager {
             val result = client.aggregate(aggregateRequest)
             distanceAggregate = result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
             caloriesAggregate = result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
-        } catch (e: kotlinx.coroutines.CancellationException) {
+        } catch (e: CancellationException) {
             // Rethrow cancellation to allow coroutine cancellation to propagate
             throw e
         } catch (e: SecurityException) {
