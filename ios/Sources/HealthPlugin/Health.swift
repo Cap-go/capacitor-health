@@ -264,7 +264,8 @@ enum WorkoutType: String, CaseIterable {
         case .skatingSports:
             return .skatingSports
         case .skiing:
-            return .downhillSkiing  // Map to closest iOS type
+            // iOS doesn't have a generic 'skiing' type, map to downhillSkiing as most common
+            return .downhillSkiing
         case .snowboarding:
             return .snowboarding
         case .snowSports:
@@ -282,8 +283,10 @@ enum WorkoutType: String, CaseIterable {
         case .strengthTraining:
             return .traditionalStrengthTraining
         case .surfing:
-            return .surfingSports  // Map to closest iOS type
+            // Generic 'surfing' type for cross-platform compatibility
+            return .surfingSports
         case .surfingSports:
+            // iOS-specific surfing type
             return .surfingSports
         case .swimming:
             return .swimming
@@ -314,7 +317,8 @@ enum WorkoutType: String, CaseIterable {
         case .waterSports:
             return .waterSports
         case .weightlifting:
-            return .functionalStrengthTraining  // Map to closest iOS type
+            // iOS doesn't have a specific weightlifting type, map to functionalStrengthTraining
+            return .functionalStrengthTraining
         case .wheelchair:
             return .wheelchair
         case .wheelchairRunPace:
@@ -476,8 +480,9 @@ enum WorkoutType: String, CaseIterable {
         case .trackAndField:
             return .trackAndField
         case .traditionalStrengthTraining:
-            // Map to strengthTraining for consistency
-            return .strengthTraining
+            // Both strengthTraining and traditionalStrengthTraining map to the same HK type,
+            // but we prefer the more explicit 'traditionalStrengthTraining' when reading from iOS
+            return .traditionalStrengthTraining
         case .transition:
             return .transition
         case .volleyball:
@@ -946,7 +951,8 @@ final class Health {
         }
         
         // Use HKAnchoredObjectQuery for efficient pagination
-        let queryLimit = limit ?? HKObjectQueryNoLimit
+        // Default to 1000 workouts if no limit specified to avoid very large datasets
+        let queryLimit = limit ?? 1000
         
         let anchoredQuery = HKAnchoredObjectQuery(
             type: workoutSampleType,
