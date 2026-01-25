@@ -51,27 +51,133 @@ export interface ReadSamplesResult {
 }
 
 export type WorkoutType =
-  | 'running'
-  | 'cycling'
-  | 'walking'
-  | 'swimming'
-  | 'yoga'
-  | 'strengthTraining'
-  | 'hiking'
-  | 'tennis'
-  | 'basketball'
-  | 'soccer'
+  // Common types (supported on both platforms)
   | 'americanFootball'
+  | 'australianFootball'
+  | 'badminton'
   | 'baseball'
+  | 'basketball'
+  | 'bowling'
+  | 'boxing'
+  | 'climbing'
+  | 'cricket'
   | 'crossTraining'
+  | 'curling'
+  | 'cycling'
+  | 'dance'
   | 'elliptical'
+  | 'fencing'
+  | 'functionalStrengthTraining'
+  | 'golf'
+  | 'gymnastics'
+  | 'handball'
+  | 'hiking'
+  | 'hockey'
+  | 'jumpRope'
+  | 'kickboxing'
+  | 'lacrosse'
+  | 'martialArts'
+  | 'pilates'
+  | 'racquetball'
   | 'rowing'
+  | 'rugby'
+  | 'running'
+  | 'sailing'
+  | 'skatingSports'
+  | 'skiing'
+  | 'snowboarding'
+  | 'soccer'
+  | 'softball'
+  | 'squash'
   | 'stairClimbing'
+  | 'strengthTraining'
+  | 'surfing'
+  | 'swimming'
+  | 'swimmingPool'
+  | 'swimmingOpenWater'
+  | 'tableTennis'
+  | 'tennis'
+  | 'trackAndField'
   | 'traditionalStrengthTraining'
+  | 'volleyball'
+  | 'walking'
   | 'waterFitness'
   | 'waterPolo'
   | 'waterSports'
+  | 'weightlifting'
+  | 'wheelchair'
+  | 'yoga'
+  // iOS specific types
+  | 'archery'
+  | 'barre'
+  | 'cooldown'
+  | 'coreTraining'
+  | 'crossCountrySkiing'
+  | 'discSports'
+  | 'downhillSkiing'
+  | 'equestrianSports'
+  | 'fishing'
+  | 'fitnessGaming'
+  | 'flexibility'
+  | 'handCycling'
+  | 'highIntensityIntervalTraining'
+  | 'hunting'
+  | 'mindAndBody'
+  | 'mixedCardio'
+  | 'paddleSports'
+  | 'pickleball'
+  | 'play'
+  | 'preparationAndRecovery'
+  | 'snowSports'
+  | 'stepTraining'
+  | 'surfingSports'
+  | 'taiChi'
+  | 'transition'
+  | 'wheelchairRunPace'
+  | 'wheelchairWalkPace'
   | 'wrestling'
+  // Android specific types
+  | 'backExtension'
+  | 'barbellShoulderPress'
+  | 'benchPress'
+  | 'benchSitUp'
+  | 'bikingStationary'
+  | 'bootCamp'
+  | 'burpee'
+  | 'calisthenics'
+  | 'crunch'
+  | 'dancing'
+  | 'deadlift'
+  | 'dumbbellCurlLeftArm'
+  | 'dumbbellCurlRightArm'
+  | 'dumbbellFrontRaise'
+  | 'dumbbellLateralRaise'
+  | 'dumbbellTricepsExtensionLeftArm'
+  | 'dumbbellTricepsExtensionRightArm'
+  | 'dumbbellTricepsExtensionTwoArm'
+  | 'exerciseClass'
+  | 'forwardTwist'
+  | 'frisbeedisc'
+  | 'guidedBreathing'
+  | 'iceHockey'
+  | 'iceSkating'
+  | 'jumpingJack'
+  | 'latPullDown'
+  | 'lunge'
+  | 'meditation'
+  | 'paddling'
+  | 'paraGliding'
+  | 'plank'
+  | 'rockClimbing'
+  | 'rollerHockey'
+  | 'rowingMachine'
+  | 'runningTreadmill'
+  | 'scubaDiving'
+  | 'skating'
+  | 'snowshoeing'
+  | 'stairClimbingMachine'
+  | 'stretching'
+  | 'upperTwist'
   | 'other';
 
 export interface QueryWorkoutsOptions {
@@ -85,6 +191,13 @@ export interface QueryWorkoutsOptions {
   limit?: number;
   /** Return results sorted ascending by start date (defaults to false). */
   ascending?: boolean;
+  /**
+   * Anchor for pagination. Use the anchor returned in QueryWorkoutsResult to fetch the next page of results.
+   * On iOS, this uses HKAnchoredObjectQuery for efficient incremental queries.
+   * On Android, this is used as a pagination token.
+   * When provided, only workouts added or modified after the anchor are returned.
+   */
+  anchor?: string;
 }
 
 export interface Workout {
@@ -110,6 +223,13 @@ export interface Workout {
 
 export interface QueryWorkoutsResult {
   workouts: Workout[];
+  /**
+   * Anchor for pagination. Save this value and pass it to the next queryWorkouts call
+   * to retrieve only new or updated workouts. This enables efficient incremental queries.
+   * On iOS, this is the HKQueryAnchor persisted as a string.
+   * On Android, this is a pagination token.
+   */
+  anchor?: string;
 }
 
 export interface WriteSampleOptions {

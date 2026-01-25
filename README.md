@@ -399,9 +399,10 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### QueryWorkoutsResult
 
-| Prop           | Type                   |
-| -------------- | ---------------------- |
-| **`workouts`** | <code>Workout[]</code> |
+| Prop           | Type                   | Description                                                                                                                                                                                                                                                              |
+| -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`workouts`** | <code>Workout[]</code> |                                                                                                                                                                                                                                                                          |
+| **`anchor`**   | <code>string</code>    | Anchor for pagination. Save this value and pass it to the next queryWorkouts call to retrieve only new or updated workouts. This enables efficient incremental queries. On iOS, this is the HKQueryAnchor persisted as a string. On Android, this is a pagination token. |
 
 
 #### Workout
@@ -421,13 +422,14 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### QueryWorkoutsOptions
 
-| Prop              | Type                                                | Description                                                               |
-| ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
-| **`workoutType`** | <code><a href="#workouttype">WorkoutType</a></code> | Optional workout type filter. If omitted, all workout types are returned. |
-| **`startDate`**   | <code>string</code>                                 | Inclusive ISO 8601 start date (defaults to now - 1 day).                  |
-| **`endDate`**     | <code>string</code>                                 | Exclusive ISO 8601 end date (defaults to now).                            |
-| **`limit`**       | <code>number</code>                                 | Maximum number of workouts to return (defaults to 100).                   |
-| **`ascending`**   | <code>boolean</code>                                | Return results sorted ascending by start date (defaults to false).        |
+| Prop              | Type                                                | Description                                                                                                                                                                                                                                                                                                                                          |
+| ----------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`workoutType`** | <code><a href="#workouttype">WorkoutType</a></code> | Optional workout type filter. If omitted, all workout types are returned.                                                                                                                                                                                                                                                                            |
+| **`startDate`**   | <code>string</code>                                 | Inclusive ISO 8601 start date (defaults to now - 1 day).                                                                                                                                                                                                                                                                                             |
+| **`endDate`**     | <code>string</code>                                 | Exclusive ISO 8601 end date (defaults to now).                                                                                                                                                                                                                                                                                                       |
+| **`limit`**       | <code>number</code>                                 | Maximum number of workouts to return (defaults to 100).                                                                                                                                                                                                                                                                                              |
+| **`ascending`**   | <code>boolean</code>                                | Return results sorted ascending by start date (defaults to false).                                                                                                                                                                                                                                                                                   |
+| **`anchor`**      | <code>string</code>                                 | Anchor for pagination. Use the anchor returned in <a href="#queryworkoutsresult">QueryWorkoutsResult</a> to fetch the next page of results. On iOS, this uses HKAnchoredObjectQuery for efficient incremental queries. On Android, this is used as a pagination token. When provided, only workouts added or modified after the anchor are returned. |
 
 
 ### Type Aliases
@@ -452,7 +454,7 @@ Construct a type with a set of properties K of type T
 
 #### WorkoutType
 
-<code>'running' | 'cycling' | 'walking' | 'swimming' | 'yoga' | 'strengthTraining' | 'hiking' | 'tennis' | 'basketball' | 'soccer' | 'americanFootball' | 'baseball' | 'crossTraining' | 'elliptical' | 'rowing' | 'stairClimbing' | 'traditionalStrengthTraining' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'wrestling' | 'other'</code>
+<code>'americanFootball' | 'australianFootball' | 'badminton' | 'baseball' | 'basketball' | 'bowling' | 'boxing' | 'climbing' | 'cricket' | 'crossTraining' | 'curling' | 'cycling' | 'dance' | 'elliptical' | 'fencing' | 'functionalStrengthTraining' | 'golf' | 'gymnastics' | 'handball' | 'hiking' | 'hockey' | 'jumpRope' | 'kickboxing' | 'lacrosse' | 'martialArts' | 'pilates' | 'racquetball' | 'rowing' | 'rugby' | 'running' | 'sailing' | 'skatingSports' | 'skiing' | 'snowboarding' | 'soccer' | 'softball' | 'squash' | 'stairClimbing' | 'strengthTraining' | 'surfing' | 'swimming' | 'swimmingPool' | 'swimmingOpenWater' | 'tableTennis' | 'tennis' | 'trackAndField' | 'traditionalStrengthTraining' | 'volleyball' | 'walking' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'weightlifting' | 'wheelchair' | 'yoga' | 'archery' | 'barre' | 'cooldown' | 'coreTraining' | 'crossCountrySkiing' | 'discSports' | 'downhillSkiing' | 'equestrianSports' | 'fishing' | 'fitnessGaming' | 'flexibility' | 'handCycling' | 'highIntensityIntervalTraining' | 'hunting' | 'mindAndBody' | 'mixedCardio' | 'paddleSports' | 'pickleball' | 'play' | 'preparationAndRecovery' | 'snowSports' | 'stepTraining' | 'surfingSports' | 'taiChi' | 'transition' | 'wheelchairRunPace' | 'wheelchairWalkPace' | 'wrestling' | 'backExtension' | 'barbellShoulderPress' | 'benchPress' | 'benchSitUp' | 'bikingStationary' | 'bootCamp' | 'burpee' | 'calisthenics' | 'crunch' | 'dancing' | 'deadlift' | 'dumbbellCurlLeftArm' | 'dumbbellCurlRightArm' | 'dumbbellFrontRaise' | 'dumbbellLateralRaise' | 'dumbbellTricepsExtensionLeftArm' | 'dumbbellTricepsExtensionRightArm' | 'dumbbellTricepsExtensionTwoArm' | 'exerciseClass' | 'forwardTwist' | 'frisbeedisc' | 'guidedBreathing' | 'iceHockey' | 'iceSkating' | 'jumpingJack' | 'latPullDown' | 'lunge' | 'meditation' | 'paddling' | 'paraGliding' | 'plank' | 'rockClimbing' | 'rollerHockey' | 'rowingMachine' | 'runningTreadmill' | 'scubaDiving' | 'skating' | 'snowshoeing' | 'stairClimbingMachine' | 'stretching' | 'upperTwist' | 'other'</code>
 
 </docgen-api>
 
