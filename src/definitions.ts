@@ -192,10 +192,18 @@ export interface QueryWorkoutsOptions {
   /** Return results sorted ascending by start date (defaults to false). */
   ascending?: boolean;
   /**
-   * Anchor for pagination. Use the anchor returned in QueryWorkoutsResult to fetch the next page of results.
-   * On iOS, this uses HKAnchoredObjectQuery for efficient incremental queries.
-   * On Android, this is used as a pagination token.
-   * When provided, only workouts added or modified after the anchor are returned.
+   * Anchor for pagination or incremental queries.
+   * Use the anchor returned in QueryWorkoutsResult to fetch the next page or incremental set of results.
+   *
+   * **iOS behavior**: Uses HKAnchoredObjectQuery. When an anchor is provided with a date range,
+   * HealthKit returns workouts that match the predicate and haven't been delivered since the anchor was created.
+   * This enables efficient incremental queries for NEW workouts, but does NOT track modifications to existing workouts.
+   *
+   * **Android behavior**: Uses Health Connect's pagination tokens for simple pagination through a result set.
+   * This does NOT track changes - it simply continues reading through results matching the query.
+   * To detect truly new/modified workouts on Android, you would need Health Connect's change tracking API.
+   *
+   * **Important**: The `ascending` parameter is ignored when using anchored queries to maintain consistency.
    */
   anchor?: string;
 }
@@ -224,15 +232,22 @@ export interface Workout {
 export interface QueryWorkoutsResult {
   workouts: Workout[];
   /**
-   * Anchor for pagination. Save this value and pass it to the next queryWorkouts call
-   * to retrieve only new or updated workouts. This enables efficient incremental queries.
-   * On iOS, this is the HKQueryAnchor persisted as a string.
-   * On Android, this is a pagination token.
-   * 
-   * The anchor will be present in the response unless:
-   * - No workouts were found (empty result set)
+   * Anchor for pagination or incremental queries. Save this value and pass it to the next queryWorkouts call.
+   *
+   * **iOS**: Returns an HKQueryAnchor (as base64 string) that can be used for incremental queries.
+   * The anchor is returned even when the workouts array is empty, allowing subsequent queries to detect new data.
+   *
+   * **Android**: Returns a pagination token to continue reading through the result set.
+   * The token may be absent when there are no more results to fetch.
+   *
+   * **Platform differences**:
+   * - iOS: Enables incremental queries - returns NEW workouts since the anchor was created
+   * - Android: Simple pagination - continues through the same result set
+   *
+   * The anchor may be omitted when:
    * - The platform doesn't support anchors (web implementation)
-   * 
+   * - There are no more results (Android pagination exhausted)
+   *
    * Always check for the presence of anchor before using it for pagination.
    */
   anchor?: string;

@@ -293,7 +293,7 @@ enum WorkoutType: String, CaseIterable {
         case .swimmingPool:
             return .swimming
         case .swimmingOpenWater:
-            return .swimming
+            return .swimmingOpenWater
         case .tableTennis:
             return .tableTennis
         case .taiChi:
@@ -471,6 +471,8 @@ enum WorkoutType: String, CaseIterable {
             return .surfingSports
         case .swimming:
             return .swimming
+        case .swimmingOpenWater:
+            return .swimmingOpenWater
         case .tableTennis:
             return .tableTennis
         case .taiChi:
@@ -951,8 +953,8 @@ final class Health {
         }
         
         // Use HKAnchoredObjectQuery for efficient pagination
-        // Default to 1000 workouts if no limit specified to avoid very large datasets
-        let queryLimit = limit ?? 1000
+        // Default to 100 workouts if no limit specified (matches Android and documentation)
+        let queryLimit = limit ?? 100
         
         let anchoredQuery = HKAnchoredObjectQuery(
             type: workoutSampleType,
@@ -978,15 +980,10 @@ final class Health {
                 return
             }
 
-            // Sort workouts if needed
-            var sortedWorkouts = samples
-            if ascending {
-                sortedWorkouts = samples.sorted { $0.startDate < $1.startDate }
-            } else {
-                sortedWorkouts = samples.sorted { $0.startDate > $1.startDate }
-            }
-
-            let workoutPayloads = sortedWorkouts.map { workout -> [String: Any] in
+            // Note: We don't sort results from HKAnchoredObjectQuery to preserve anchor-based
+            // pagination consistency. Sorting could cause the same workout to appear in multiple
+            // result sets across paginated queries.
+            let workoutPayloads = samples.map { workout -> [String: Any] in
                 self.workoutToPayload(workout)
             }
 
