@@ -228,6 +228,12 @@ export interface QueryWorkoutsResult {
    * to retrieve only new or updated workouts. This enables efficient incremental queries.
    * On iOS, this is the HKQueryAnchor persisted as a string.
    * On Android, this is a pagination token.
+   * 
+   * The anchor will be present in the response unless:
+   * - No workouts were found (empty result set)
+   * - The platform doesn't support anchors (web implementation)
+   * 
+   * Always check for the presence of anchor before using it for pagination.
    */
   anchor?: string;
 }

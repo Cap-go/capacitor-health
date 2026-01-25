@@ -161,7 +161,9 @@ await Health.requestAuthorization({
 
 ### Querying Workouts
 
-The plugin supports querying workout sessions from both iOS HealthKit and Android Health Connect:
+The plugin supports querying workout sessions from both iOS HealthKit and Android Health Connect.
+
+**Note:** The `queryWorkouts` method now returns an object with `workouts` and optional `anchor` fields (instead of just an array). The TypeScript interface handles this automatically, but if you're using the native APIs directly, be aware of this change.
 
 ```ts
 // Query all workouts from the last 7 days
@@ -461,10 +463,10 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### QueryWorkoutsResult
 
-| Prop           | Type                   | Description                                                                                                                                                                                                                                                              |
-| -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **`workouts`** | <code>Workout[]</code> |                                                                                                                                                                                                                                                                          |
-| **`anchor`**   | <code>string</code>    | Anchor for pagination. Save this value and pass it to the next queryWorkouts call to retrieve only new or updated workouts. This enables efficient incremental queries. On iOS, this is the HKQueryAnchor persisted as a string. On Android, this is a pagination token. |
+| Prop           | Type                   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`workouts`** | <code>Workout[]</code> |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **`anchor`**   | <code>string</code>    | Anchor for pagination. Save this value and pass it to the next queryWorkouts call to retrieve only new or updated workouts. This enables efficient incremental queries. On iOS, this is the HKQueryAnchor persisted as a string. On Android, this is a pagination token. The anchor will be present in the response unless: - No workouts were found (empty result set) - The platform doesn't support anchors (web implementation) Always check for the presence of anchor before using it for pagination. |
 
 
 #### Workout

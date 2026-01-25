@@ -263,6 +263,8 @@ enum WorkoutType: String, CaseIterable {
             return .sailing
         case .skatingSports:
             return .skatingSports
+        case .skiing:
+            return .downhillSkiing  // Map to closest iOS type
         case .snowboarding:
             return .snowboarding
         case .snowSports:
@@ -279,6 +281,8 @@ enum WorkoutType: String, CaseIterable {
             return .stepTraining
         case .strengthTraining:
             return .traditionalStrengthTraining
+        case .surfing:
+            return .surfingSports  // Map to closest iOS type
         case .surfingSports:
             return .surfingSports
         case .swimming:
@@ -309,6 +313,8 @@ enum WorkoutType: String, CaseIterable {
             return .waterPolo
         case .waterSports:
             return .waterSports
+        case .weightlifting:
+            return .functionalStrengthTraining  // Map to closest iOS type
         case .wheelchair:
             return .wheelchair
         case .wheelchairRunPace:
@@ -320,9 +326,7 @@ enum WorkoutType: String, CaseIterable {
         case .yoga:
             return .yoga
         // Android-specific types that don't have direct iOS equivalents
-        case .surfing, .skiing, .weightlifting:
-            return .other
-        // Exercise-specific types
+        // Map to .other since iOS doesn't support these granular exercise types
         case .backExtension, .barbellShoulderPress, .benchPress, .benchSitUp,
              .bikingStationary, .bootCamp, .burpee, .calisthenics, .crunch,
              .dancing, .deadlift, .dumbbellCurlLeftArm, .dumbbellCurlRightArm,
@@ -935,94 +939,63 @@ final class Health {
             return
         }
 
-        // If anchor is provided, use HKAnchoredObjectQuery for incremental queries
+        // Decode anchor if provided
+        var anchor: HKQueryAnchor? = nil
         if let anchorString = anchorString, let anchorData = Data(base64Encoded: anchorString) {
-            let anchor = try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: anchorData)
-            
-            let anchoredQuery = HKAnchoredObjectQuery(
-                type: workoutSampleType,
-                predicate: predicate,
-                anchor: anchor,
-                limit: limit ?? HKObjectQueryNoLimit
-            ) { [weak self] _, samplesOrNil, deletedObjectsOrNil, newAnchor, error in
-                guard let self = self else { return }
+            anchor = try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: anchorData)
+        }
+        
+        // Use HKAnchoredObjectQuery for efficient pagination
+        let queryLimit = limit ?? HKObjectQueryNoLimit
+        
+        let anchoredQuery = HKAnchoredObjectQuery(
+            type: workoutSampleType,
+            predicate: predicate,
+            anchor: anchor,
+            limit: queryLimit
+        ) { [weak self] _, samplesOrNil, deletedObjectsOrNil, newAnchor, error in
+            guard let self = self else { return }
 
-                if let error = error {
-                    completion(.failure(error))
-                    return
-                }
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
 
-                guard let samples = samplesOrNil as? [HKWorkout] else {
-                    // Return empty results with new anchor
-                    var result: [String: Any] = ["workouts": []]
-                    if let newAnchor = newAnchor,
-                       let anchorData = try? NSKeyedArchiver.archivedData(withRootObject: newAnchor, requiringSecureCoding: true) {
-                        result["anchor"] = anchorData.base64EncodedString()
-                    }
-                    completion(.success(result))
-                    return
-                }
-
-                let workouts = samples.map { workout -> [String: Any] in
-                    self.workoutToPayload(workout)
-                }
-
-                var result: [String: Any] = ["workouts": workouts]
-                
-                // Encode and return the new anchor for pagination
+            guard let samples = samplesOrNil as? [HKWorkout] else {
+                // Return empty results with new anchor
+                var result: [String: Any] = ["workouts": []]
                 if let newAnchor = newAnchor,
                    let anchorData = try? NSKeyedArchiver.archivedData(withRootObject: newAnchor, requiringSecureCoding: true) {
                     result["anchor"] = anchorData.base64EncodedString()
                 }
-
                 completion(.success(result))
+                return
             }
 
-            healthStore.execute(anchoredQuery)
-        } else {
-            // Use regular sample query when no anchor is provided
-            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: ascending)
-            let queryLimit = limit ?? 100
-
-            let query = HKSampleQuery(sampleType: workoutSampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
-                guard let self = self else { return }
-
-                if let error = error {
-                    completion(.failure(error))
-                    return
-                }
-
-                guard let workouts = samples as? [HKWorkout] else {
-                    completion(.success(["workouts": []]))
-                    return
-                }
-
-                let workoutPayloads = workouts.map { workout -> [String: Any] in
-                    self.workoutToPayload(workout)
-                }
-
-                // Create an anchor for future queries
-                let anchoredQuery = HKAnchoredObjectQuery(
-                    type: workoutSampleType,
-                    predicate: predicate,
-                    anchor: nil,
-                    limit: 0
-                ) { _, _, _, newAnchor, _ in
-                    var result: [String: Any] = ["workouts": workoutPayloads]
-                    
-                    if let newAnchor = newAnchor,
-                       let anchorData = try? NSKeyedArchiver.archivedData(withRootObject: newAnchor, requiringSecureCoding: true) {
-                        result["anchor"] = anchorData.base64EncodedString()
-                    }
-                    
-                    completion(.success(result))
-                }
-                
-                self.healthStore.execute(anchoredQuery)
+            // Sort workouts if needed
+            var sortedWorkouts = samples
+            if ascending {
+                sortedWorkouts = samples.sorted { $0.startDate < $1.startDate }
+            } else {
+                sortedWorkouts = samples.sorted { $0.startDate > $1.startDate }
             }
 
-            healthStore.execute(query)
+            let workoutPayloads = sortedWorkouts.map { workout -> [String: Any] in
+                self.workoutToPayload(workout)
+            }
+
+            var result: [String: Any] = ["workouts": workoutPayloads]
+            
+            // Encode and return the new anchor for pagination
+            if let newAnchor = newAnchor,
+               let anchorData = try? NSKeyedArchiver.archivedData(withRootObject: newAnchor, requiringSecureCoding: true) {
+                result["anchor"] = anchorData.base64EncodedString()
+            }
+
+            completion(.success(result))
         }
+
+        healthStore.execute(anchoredQuery)
     }
     
     private func workoutToPayload(_ workout: HKWorkout) -> [String: Any] {
