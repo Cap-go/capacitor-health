@@ -51,27 +51,133 @@ export interface ReadSamplesResult {
 }
 
 export type WorkoutType =
-  | 'running'
-  | 'cycling'
-  | 'walking'
-  | 'swimming'
-  | 'yoga'
-  | 'strengthTraining'
-  | 'hiking'
-  | 'tennis'
-  | 'basketball'
-  | 'soccer'
+  // Common types (supported on both platforms)
   | 'americanFootball'
+  | 'australianFootball'
+  | 'badminton'
   | 'baseball'
+  | 'basketball'
+  | 'bowling'
+  | 'boxing'
+  | 'climbing'
+  | 'cricket'
   | 'crossTraining'
+  | 'curling'
+  | 'cycling'
+  | 'dance'
   | 'elliptical'
+  | 'fencing'
+  | 'functionalStrengthTraining'
+  | 'golf'
+  | 'gymnastics'
+  | 'handball'
+  | 'hiking'
+  | 'hockey'
+  | 'jumpRope'
+  | 'kickboxing'
+  | 'lacrosse'
+  | 'martialArts'
+  | 'pilates'
+  | 'racquetball'
   | 'rowing'
+  | 'rugby'
+  | 'running'
+  | 'sailing'
+  | 'skatingSports'
+  | 'skiing'
+  | 'snowboarding'
+  | 'soccer'
+  | 'softball'
+  | 'squash'
   | 'stairClimbing'
+  | 'strengthTraining'
+  | 'surfing'
+  | 'swimming'
+  | 'swimmingPool'
+  | 'swimmingOpenWater'
+  | 'tableTennis'
+  | 'tennis'
+  | 'trackAndField'
   | 'traditionalStrengthTraining'
+  | 'volleyball'
+  | 'walking'
   | 'waterFitness'
   | 'waterPolo'
   | 'waterSports'
+  | 'weightlifting'
+  | 'wheelchair'
+  | 'yoga'
+  // iOS specific types
+  | 'archery'
+  | 'barre'
+  | 'cooldown'
+  | 'coreTraining'
+  | 'crossCountrySkiing'
+  | 'discSports'
+  | 'downhillSkiing'
+  | 'equestrianSports'
+  | 'fishing'
+  | 'fitnessGaming'
+  | 'flexibility'
+  | 'handCycling'
+  | 'highIntensityIntervalTraining'
+  | 'hunting'
+  | 'mindAndBody'
+  | 'mixedCardio'
+  | 'paddleSports'
+  | 'pickleball'
+  | 'play'
+  | 'preparationAndRecovery'
+  | 'snowSports'
+  | 'stepTraining'
+  | 'surfingSports'
+  | 'taiChi'
+  | 'transition'
+  | 'wheelchairRunPace'
+  | 'wheelchairWalkPace'
   | 'wrestling'
+  // Android specific types
+  | 'backExtension'
+  | 'barbellShoulderPress'
+  | 'benchPress'
+  | 'benchSitUp'
+  | 'bikingStationary'
+  | 'bootCamp'
+  | 'burpee'
+  | 'calisthenics'
+  | 'crunch'
+  | 'dancing'
+  | 'deadlift'
+  | 'dumbbellCurlLeftArm'
+  | 'dumbbellCurlRightArm'
+  | 'dumbbellFrontRaise'
+  | 'dumbbellLateralRaise'
+  | 'dumbbellTricepsExtensionLeftArm'
+  | 'dumbbellTricepsExtensionRightArm'
+  | 'dumbbellTricepsExtensionTwoArm'
+  | 'exerciseClass'
+  | 'forwardTwist'
+  | 'frisbeedisc'
+  | 'guidedBreathing'
+  | 'iceHockey'
+  | 'iceSkating'
+  | 'jumpingJack'
+  | 'latPullDown'
+  | 'lunge'
+  | 'meditation'
+  | 'paddling'
+  | 'paraGliding'
+  | 'plank'
+  | 'rockClimbing'
+  | 'rollerHockey'
+  | 'rowingMachine'
+  | 'runningTreadmill'
+  | 'scubaDiving'
+  | 'skating'
+  | 'snowshoeing'
+  | 'stairClimbingMachine'
+  | 'stretching'
+  | 'upperTwist'
   | 'other';
 
 export interface QueryWorkoutsOptions {
@@ -85,6 +191,21 @@ export interface QueryWorkoutsOptions {
   limit?: number;
   /** Return results sorted ascending by start date (defaults to false). */
   ascending?: boolean;
+  /**
+   * Anchor for pagination or incremental queries.
+   * Use the anchor returned in QueryWorkoutsResult to fetch the next page or incremental set of results.
+   *
+   * **iOS behavior**: Uses HKAnchoredObjectQuery. When an anchor is provided with a date range,
+   * HealthKit returns workouts that match the predicate and haven't been delivered since the anchor was created.
+   * This enables efficient incremental queries for NEW workouts, but does NOT track modifications to existing workouts.
+   *
+   * **Android behavior**: Uses Health Connect's pagination tokens for simple pagination through a result set.
+   * This does NOT track changes - it simply continues reading through results matching the query.
+   * To detect truly new/modified workouts on Android, you would need Health Connect's change tracking API.
+   *
+   * **Important**: The `ascending` parameter is ignored when using anchored queries to maintain consistency.
+   */
+  anchor?: string;
 }
 
 export interface Workout {
@@ -110,6 +231,26 @@ export interface Workout {
 
 export interface QueryWorkoutsResult {
   workouts: Workout[];
+  /**
+   * Anchor for pagination or incremental queries. Save this value and pass it to the next queryWorkouts call.
+   *
+   * **iOS**: Returns an HKQueryAnchor (as base64 string) that can be used for incremental queries.
+   * The anchor is returned even when the workouts array is empty, allowing subsequent queries to detect new data.
+   *
+   * **Android**: Returns a pagination token to continue reading through the result set.
+   * The token may be absent when there are no more results to fetch.
+   *
+   * **Platform differences**:
+   * - iOS: Enables incremental queries - returns NEW workouts since the anchor was created
+   * - Android: Simple pagination - continues through the same result set
+   *
+   * The anchor may be omitted when:
+   * - The platform doesn't support anchors (web implementation)
+   * - There are no more results (Android pagination exhausted)
+   *
+   * Always check for the presence of anchor before using it for pagination.
+   */
+  anchor?: string;
 }
 
 export interface WriteSampleOptions {

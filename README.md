@@ -159,6 +159,84 @@ await Health.requestAuthorization({
 });
 ```
 
+### Querying Workouts
+
+The plugin supports querying workout sessions from both iOS HealthKit and Android Health Connect.
+
+**Note:** The `queryWorkouts` method now returns an object with `workouts` and optional `anchor` fields (instead of just an array). The TypeScript interface handles this automatically, but if you're using the native APIs directly, be aware of this change.
+
+```ts
+// Query all workouts from the last 7 days
+const result = await Health.queryWorkouts({
+  startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+  limit: 100,
+});
+
+console.log('Workouts:', result.workouts);
+// Optional: Save the anchor for pagination
+const anchor = result.anchor;
+```
+
+#### Pagination Support
+
+The plugin supports pagination using anchors, but the behavior differs between platforms:
+
+**iOS (Incremental Queries):**
+- Uses `HKAnchoredObjectQuery` to efficiently fetch only NEW workouts since the anchor
+- When you provide an anchor, iOS returns workouts that haven't been delivered since that anchor was created
+- Best for tracking new workout data over time
+- The `ascending` parameter is ignored to maintain pagination consistency
+
+**Android (Simple Pagination):**
+- Uses Health Connect's pagination tokens to continue through a result set
+- Returns the next page of results from the same query
+- Best for loading large result sets in batches
+
+```ts
+// iOS: Get new workouts since last query
+let result = await Health.queryWorkouts({
+  startDate: startDate,
+  endDate: endDate,
+  limit: 50,
+});
+
+console.log('Initial workouts:', result.workouts);
+
+// iOS: Get workouts added AFTER the first query (incremental)
+// Android: Get next 50 workouts from the same query (pagination)
+if (result.anchor) {
+  const nextResult = await Health.queryWorkouts({
+    startDate: startDate,
+    endDate: endDate,
+    limit: 50,
+    anchor: result.anchor,
+  });
+  console.log('Next batch:', nextResult.workouts);
+}
+```
+
+**Note:** Due to these platform differences, anchor-based pagination is **optional** and should be used based on your use case:
+- Use anchors on iOS for efficient incremental updates
+- Use anchors on Android for paginating through large result sets
+- For simple queries with reasonable limits, anchors may not be necessary
+
+#### Supported Workout Types
+
+The plugin supports **130+ workout types** across iOS and Android platforms:
+
+**Common types** (available on both platforms): running, cycling, walking, swimming, yoga, strengthTraining, basketball, soccer, tennis, hiking, and many more.
+
+**iOS-specific types**: archery, barre, cooldown, crossCountrySkiing, equestrianSports, pickleball, taiChi, and more.
+
+**Android-specific types**: backExtension, benchPress, burpee, calisthenics, deadlift, meditation, plank, and more.
+
+See the [WorkoutType documentation](#workouttype) for the complete list.
+
+#### Future: Background Updates
+
+Background observation of workout changes (to get only newly added/updated workouts without re-fetching all data) is planned for a future release. This would use `HKObserverQuery` on iOS and Health Connect change tokens on Android.
+
 ## API
 
 <docgen-index>
@@ -399,9 +477,10 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### QueryWorkoutsResult
 
-| Prop           | Type                   |
-| -------------- | ---------------------- |
-| **`workouts`** | <code>Workout[]</code> |
+| Prop           | Type                   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`workouts`** | <code>Workout[]</code> |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **`anchor`**   | <code>string</code>    | Anchor for pagination or incremental queries. Save this value and pass it to the next queryWorkouts call. **iOS**: Returns an HKQueryAnchor (as base64 string) that can be used for incremental queries. The anchor is returned even when the workouts array is empty, allowing subsequent queries to detect new data. **Android**: Returns a pagination token to continue reading through the result set. The token may be absent when there are no more results to fetch. **Platform differences**: - iOS: Enables incremental queries - returns NEW workouts since the anchor was created - Android: Simple pagination - continues through the same result set The anchor may be omitted when: - The platform doesn't support anchors (web implementation) - There are no more results (Android pagination exhausted) Always check for the presence of anchor before using it for pagination. |
 
 
 #### Workout
@@ -421,13 +500,14 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### QueryWorkoutsOptions
 
-| Prop              | Type                                                | Description                                                               |
-| ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
-| **`workoutType`** | <code><a href="#workouttype">WorkoutType</a></code> | Optional workout type filter. If omitted, all workout types are returned. |
-| **`startDate`**   | <code>string</code>                                 | Inclusive ISO 8601 start date (defaults to now - 1 day).                  |
-| **`endDate`**     | <code>string</code>                                 | Exclusive ISO 8601 end date (defaults to now).                            |
-| **`limit`**       | <code>number</code>                                 | Maximum number of workouts to return (defaults to 100).                   |
-| **`ascending`**   | <code>boolean</code>                                | Return results sorted ascending by start date (defaults to false).        |
+| Prop              | Type                                                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`workoutType`** | <code><a href="#workouttype">WorkoutType</a></code> | Optional workout type filter. If omitted, all workout types are returned.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **`startDate`**   | <code>string</code>                                 | Inclusive ISO 8601 start date (defaults to now - 1 day).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **`endDate`**     | <code>string</code>                                 | Exclusive ISO 8601 end date (defaults to now).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **`limit`**       | <code>number</code>                                 | Maximum number of workouts to return (defaults to 100).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **`ascending`**   | <code>boolean</code>                                | Return results sorted ascending by start date (defaults to false).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **`anchor`**      | <code>string</code>                                 | Anchor for pagination or incremental queries. Use the anchor returned in <a href="#queryworkoutsresult">QueryWorkoutsResult</a> to fetch the next page or incremental set of results. **iOS behavior**: Uses HKAnchoredObjectQuery. When an anchor is provided with a date range, HealthKit returns workouts that match the predicate and haven't been delivered since the anchor was created. This enables efficient incremental queries for NEW workouts, but does NOT track modifications to existing workouts. **Android behavior**: Uses Health Connect's pagination tokens for simple pagination through a result set. This does NOT track changes - it simply continues reading through results matching the query. To detect truly new/modified workouts on Android, you would need Health Connect's change tracking API. **Important**: The `ascending` parameter is ignored when using anchored queries to maintain consistency. |
 
 
 ### Type Aliases
@@ -452,7 +532,7 @@ Construct a type with a set of properties K of type T
 
 #### WorkoutType
 
-<code>'running' | 'cycling' | 'walking' | 'swimming' | 'yoga' | 'strengthTraining' | 'hiking' | 'tennis' | 'basketball' | 'soccer' | 'americanFootball' | 'baseball' | 'crossTraining' | 'elliptical' | 'rowing' | 'stairClimbing' | 'traditionalStrengthTraining' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'wrestling' | 'other'</code>
+<code>'americanFootball' | 'australianFootball' | 'badminton' | 'baseball' | 'basketball' | 'bowling' | 'boxing' | 'climbing' | 'cricket' | 'crossTraining' | 'curling' | 'cycling' | 'dance' | 'elliptical' | 'fencing' | 'functionalStrengthTraining' | 'golf' | 'gymnastics' | 'handball' | 'hiking' | 'hockey' | 'jumpRope' | 'kickboxing' | 'lacrosse' | 'martialArts' | 'pilates' | 'racquetball' | 'rowing' | 'rugby' | 'running' | 'sailing' | 'skatingSports' | 'skiing' | 'snowboarding' | 'soccer' | 'softball' | 'squash' | 'stairClimbing' | 'strengthTraining' | 'surfing' | 'swimming' | 'swimmingPool' | 'swimmingOpenWater' | 'tableTennis' | 'tennis' | 'trackAndField' | 'traditionalStrengthTraining' | 'volleyball' | 'walking' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'weightlifting' | 'wheelchair' | 'yoga' | 'archery' | 'barre' | 'cooldown' | 'coreTraining' | 'crossCountrySkiing' | 'discSports' | 'downhillSkiing' | 'equestrianSports' | 'fishing' | 'fitnessGaming' | 'flexibility' | 'handCycling' | 'highIntensityIntervalTraining' | 'hunting' | 'mindAndBody' | 'mixedCardio' | 'paddleSports' | 'pickleball' | 'play' | 'preparationAndRecovery' | 'snowSports' | 'stepTraining' | 'surfingSports' | 'taiChi' | 'transition' | 'wheelchairRunPace' | 'wheelchairWalkPace' | 'wrestling' | 'backExtension' | 'barbellShoulderPress' | 'benchPress' | 'benchSitUp' | 'bikingStationary' | 'bootCamp' | 'burpee' | 'calisthenics' | 'crunch' | 'dancing' | 'deadlift' | 'dumbbellCurlLeftArm' | 'dumbbellCurlRightArm' | 'dumbbellFrontRaise' | 'dumbbellLateralRaise' | 'dumbbellTricepsExtensionLeftArm' | 'dumbbellTricepsExtensionRightArm' | 'dumbbellTricepsExtensionTwoArm' | 'exerciseClass' | 'forwardTwist' | 'frisbeedisc' | 'guidedBreathing' | 'iceHockey' | 'iceSkating' | 'jumpingJack' | 'latPullDown' | 'lunge' | 'meditation' | 'paddling' | 'paraGliding' | 'plank' | 'rockClimbing' | 'rollerHockey' | 'rowingMachine' | 'runningTreadmill' | 'scubaDiving' | 'skating' | 'snowshoeing' | 'stairClimbingMachine' | 'stretching' | 'upperTwist' | 'other'</code>
 
 </docgen-api>
 

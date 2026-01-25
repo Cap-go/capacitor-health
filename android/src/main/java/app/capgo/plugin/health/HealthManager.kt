@@ -298,11 +298,12 @@ class HealthManager {
         startTime: Instant,
         endTime: Instant,
         limit: Int,
-        ascending: Boolean
-    ): JSArray {
+        ascending: Boolean,
+        anchorToken: String?
+    ): JSObject {
         val workouts = mutableListOf<Pair<Instant, JSObject>>()
         
-        var pageToken: String? = null
+        var pageToken: String? = anchorToken
         val pageSize = if (limit > 0) min(limit, MAX_PAGE_SIZE) else DEFAULT_PAGE_SIZE
         var fetched = 0
         
@@ -341,7 +342,14 @@ class HealthManager {
         
         val array = JSArray()
         limited.forEach { array.put(it.second) }
-        return array
+        
+        val result = JSObject()
+        result.put("workouts", array)
+        
+        // Return the pagination token as anchor for next query
+        pageToken?.let { result.put("anchor", it) }
+        
+        return result
     }
     
     private suspend fun aggregateWorkoutData(

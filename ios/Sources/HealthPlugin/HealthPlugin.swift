@@ -153,18 +153,20 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         let endDate = call.getString("endDate")
         let limit = call.getInt("limit")
         let ascending = call.getBool("ascending") ?? false
+        let anchor = call.getString("anchor")
 
         implementation.queryWorkouts(
             workoutTypeString: workoutType,
             startDateString: startDate,
             endDateString: endDate,
             limit: limit,
-            ascending: ascending
+            ascending: ascending,
+            anchorString: anchor
         ) { result in
             DispatchQueue.main.async {
                 switch result {
-                case let .success(workouts):
-                    call.resolve(["workouts": workouts])
+                case let .success(result):
+                    call.resolve(result)
                 case let .failure(error):
                     call.reject(error.localizedDescription, nil, error)
                 }
