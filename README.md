@@ -159,6 +159,68 @@ await Health.requestAuthorization({
 });
 ```
 
+### Querying Workouts
+
+The plugin supports querying workout sessions from both iOS HealthKit and Android Health Connect:
+
+```ts
+// Query all workouts from the last 7 days
+const result = await Health.queryWorkouts({
+  startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+  limit: 100,
+});
+
+console.log('Workouts:', result.workouts);
+// Optional: Save the anchor for pagination
+const anchor = result.anchor;
+```
+
+#### Pagination Support
+
+The plugin now supports efficient pagination using anchors:
+
+```ts
+// Initial query
+let result = await Health.queryWorkouts({
+  startDate: startDate,
+  endDate: endDate,
+  limit: 50,
+});
+
+// Process first batch
+console.log('First batch:', result.workouts);
+
+// Get next batch using anchor
+if (result.anchor) {
+  const nextResult = await Health.queryWorkouts({
+    startDate: startDate,
+    endDate: endDate,
+    limit: 50,
+    anchor: result.anchor, // Use anchor for pagination
+  });
+  console.log('Next batch:', nextResult.workouts);
+}
+```
+
+On iOS, the anchor uses `HKAnchoredObjectQuery` for efficient incremental queries. On Android, it uses Health Connect's pagination tokens.
+
+#### Supported Workout Types
+
+The plugin supports **130+ workout types** across iOS and Android platforms:
+
+**Common types** (available on both platforms): running, cycling, walking, swimming, yoga, strengthTraining, basketball, soccer, tennis, hiking, and many more.
+
+**iOS-specific types**: archery, barre, cooldown, crossCountrySkiing, equestrianSports, pickleball, taiChi, and more.
+
+**Android-specific types**: backExtension, benchPress, burpee, calisthenics, deadlift, meditation, plank, and more.
+
+See the [WorkoutType documentation](#workouttype) for the complete list.
+
+#### Future: Background Updates
+
+Background observation of workout changes (to get only newly added/updated workouts without re-fetching all data) is planned for a future release. This would use `HKObserverQuery` on iOS and Health Connect change tokens on Android.
+
 ## API
 
 <docgen-index>
