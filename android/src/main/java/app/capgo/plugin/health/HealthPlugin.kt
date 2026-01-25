@@ -353,6 +353,7 @@ class HealthPlugin : Plugin() {
         val workoutType = call.getString("workoutType")
         val limit = (call.getInt("limit") ?: DEFAULT_LIMIT).coerceAtLeast(0)
         val ascending = call.getBoolean("ascending") ?: false
+        val anchor = call.getString("anchor")
 
         val startInstant = try {
             manager.parseInstant(call.getString("startDate"), Instant.now().minus(DEFAULT_PAST_DURATION))
@@ -376,8 +377,7 @@ class HealthPlugin : Plugin() {
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
             try {
-                val workouts = manager.queryWorkouts(client, workoutType, startInstant, endInstant, limit, ascending)
-                val result = JSObject().apply { put("workouts", workouts) }
+                val result = manager.queryWorkouts(client, workoutType, startInstant, endInstant, limit, ascending, anchor)
                 call.resolve(result)
             } catch (e: Exception) {
                 call.reject(e.message ?: "Failed to query workouts.", null, e)

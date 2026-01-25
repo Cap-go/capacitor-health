@@ -399,9 +399,10 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### QueryWorkoutsResult
 
-| Prop           | Type                   |
-| -------------- | ---------------------- |
-| **`workouts`** | <code>Workout[]</code> |
+| Prop           | Type                   | Description                                                                                                                                                             |
+| -------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`workouts`** | <code>Workout[]</code> |                                                                                                                                                                         |
+| **`anchor`**   | <code>string</code>    | Anchor for the next page of results. Pass this value as the anchor parameter in the next query to continue pagination. If undefined or null, there are no more results. |
 
 
 #### Workout
@@ -421,13 +422,14 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### QueryWorkoutsOptions
 
-| Prop              | Type                                                | Description                                                               |
-| ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
-| **`workoutType`** | <code><a href="#workouttype">WorkoutType</a></code> | Optional workout type filter. If omitted, all workout types are returned. |
-| **`startDate`**   | <code>string</code>                                 | Inclusive ISO 8601 start date (defaults to now - 1 day).                  |
-| **`endDate`**     | <code>string</code>                                 | Exclusive ISO 8601 end date (defaults to now).                            |
-| **`limit`**       | <code>number</code>                                 | Maximum number of workouts to return (defaults to 100).                   |
-| **`ascending`**   | <code>boolean</code>                                | Return results sorted ascending by start date (defaults to false).        |
+| Prop              | Type                                                | Description                                                                                                                                                                                                                           |
+| ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`workoutType`** | <code><a href="#workouttype">WorkoutType</a></code> | Optional workout type filter. If omitted, all workout types are returned.                                                                                                                                                             |
+| **`startDate`**   | <code>string</code>                                 | Inclusive ISO 8601 start date (defaults to now - 1 day).                                                                                                                                                                              |
+| **`endDate`**     | <code>string</code>                                 | Exclusive ISO 8601 end date (defaults to now).                                                                                                                                                                                        |
+| **`limit`**       | <code>number</code>                                 | Maximum number of workouts to return (defaults to 100).                                                                                                                                                                               |
+| **`ascending`**   | <code>boolean</code>                                | Return results sorted ascending by start date (defaults to false).                                                                                                                                                                    |
+| **`anchor`**      | <code>string</code>                                 | Anchor for pagination. Use the anchor returned from a previous query to continue from that point. On iOS, this uses HKQueryAnchor. On Android, this uses Health Connect's pageToken. Omit this parameter to start from the beginning. |
 
 
 ### Type Aliases

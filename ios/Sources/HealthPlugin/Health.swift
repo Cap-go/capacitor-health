@@ -559,7 +559,7 @@ final class Health {
         return set
     }
 
-    func queryWorkouts(workoutTypeString: String?, startDateString: String?, endDateString: String?, limit: Int?, ascending: Bool, completion: @escaping (Result<[[String: Any]], Error>) -> Void) {
+    func queryWorkouts(workoutTypeString: String?, startDateString: String?, endDateString: String?, limit: Int?, ascending: Bool, anchorString: String?, completion: @escaping (Result<[String: Any], Error>) -> Void) {
         let startDate = (try? parseDate(startDateString, defaultValue: Date().addingTimeInterval(-86400))) ?? Date().addingTimeInterval(-86400)
         let endDate = (try? parseDate(endDateString, defaultValue: Date())) ?? Date()
 
@@ -585,6 +585,12 @@ final class Health {
             return
         }
 
+        // Decode anchor if provided
+        var anchor: HKQueryAnchor?
+        if let anchorString = anchorString, let anchorData = Data(base64Encoded: anchorString) {
+            anchor = try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: anchorData)
+        }
+
         let query = HKSampleQuery(sampleType: workoutSampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
             guard let self = self else { return }
 
@@ -594,7 +600,7 @@ final class Health {
             }
 
             guard let workouts = samples as? [HKWorkout] else {
-                completion(.success([]))
+                completion(.success(["workouts": [], "anchor": NSNull()]))
                 return
             }
 
@@ -641,7 +647,18 @@ final class Health {
                 return payload
             }
 
-            completion(.success(results))
+            // Generate next anchor if we have results and reached the limit
+            var response: [String: Any] = ["workouts": results]
+            if !workouts.isEmpty && workouts.count >= queryLimit {
+                // Create anchor from the last workout
+                let lastWorkout = workouts.last!
+                let nextAnchor = HKQueryAnchor(fromValue: Int(lastWorkout.endDate.timeIntervalSinceReferenceDate))
+                if let anchorData = try? NSKeyedArchiver.archivedData(withRootObject: nextAnchor, requiringSecureCoding: true) {
+                    response["anchor"] = anchorData.base64EncodedString()
+                }
+            }
+
+            completion(.success(response))
         }
 
         healthStore.execute(query)
