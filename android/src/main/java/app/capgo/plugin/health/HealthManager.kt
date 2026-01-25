@@ -366,13 +366,29 @@ class HealthManager {
             null // Permission might not be granted or no data available
         }
         
+        // Aggregate calories (active energy burned)
+        val caloriesAggregate = try {
+            val aggregateRequest = AggregateRequest(
+                metrics = setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),
+                timeRangeFilter = timeRange
+                // Removed dataOriginFilter to get calories from all sources during workout time
+            )
+            val result = client.aggregate(aggregateRequest)
+            result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+        } catch (e: Exception) {
+            android.util.Log.d("HealthManager", "Calories aggregation failed for workout: ${e.message}", e)
+            null // Permission might not be granted or no data available
+        }
+        
         return WorkoutAggregatedData(
-            totalDistance = distanceAggregate
+            totalDistance = distanceAggregate,
+            totalEnergyBurned = caloriesAggregate
         )
     }
     
     private data class WorkoutAggregatedData(
-        val totalDistance: Double?
+        val totalDistance: Double?,
+        val totalEnergyBurned: Double?
     )
     
     private fun createWorkoutPayload(session: ExerciseSessionRecord, aggregatedData: WorkoutAggregatedData): JSObject {
@@ -392,6 +408,11 @@ class HealthManager {
         // Total distance (aggregated from DistanceRecord)
         aggregatedData.totalDistance?.let { distance ->
             payload.put("totalDistance", distance)
+        }
+        
+        // Total energy burned (aggregated from ActiveCaloriesBurnedRecord)
+        aggregatedData.totalEnergyBurned?.let { energy ->
+            payload.put("totalEnergyBurned", energy)
         }
         
         // Source information
