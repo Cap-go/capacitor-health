@@ -568,7 +568,15 @@ final class Health {
             return
         }
 
-        var predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
+        // If anchor is provided, use it as the new start date for pagination
+        let effectiveStartDate: Date
+        if let anchorString = anchorString, let anchorDate = try? parseDate(anchorString, defaultValue: startDate) {
+            effectiveStartDate = anchorDate
+        } else {
+            effectiveStartDate = startDate
+        }
+
+        var predicate = HKQuery.predicateForSamples(withStart: effectiveStartDate, end: endDate, options: [])
 
         // Filter by workout type if specified
         if let workoutTypeString = workoutTypeString, let workoutType = WorkoutType(rawValue: workoutTypeString) {
@@ -585,12 +593,6 @@ final class Health {
             return
         }
 
-        // Decode anchor if provided
-        var anchor: HKQueryAnchor?
-        if let anchorString = anchorString, let anchorData = Data(base64Encoded: anchorString) {
-            anchor = try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: anchorData)
-        }
-
         let query = HKSampleQuery(sampleType: workoutSampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
             guard let self = self else { return }
 
@@ -600,7 +602,7 @@ final class Health {
             }
 
             guard let workouts = samples as? [HKWorkout] else {
-                completion(.success(["workouts": [], "anchor": NSNull()]))
+                completion(.success(["workouts": []]))
                 return
             }
 
@@ -650,12 +652,11 @@ final class Health {
             // Generate next anchor if we have results and reached the limit
             var response: [String: Any] = ["workouts": results]
             if !workouts.isEmpty && workouts.count >= queryLimit {
-                // Create anchor from the last workout
+                // Use the last workout's end date as the anchor for the next page
                 let lastWorkout = workouts.last!
-                let nextAnchor = HKQueryAnchor(fromValue: Int(lastWorkout.endDate.timeIntervalSinceReferenceDate))
-                if let anchorData = try? NSKeyedArchiver.archivedData(withRootObject: nextAnchor, requiringSecureCoding: true) {
-                    response["anchor"] = anchorData.base64EncodedString()
-                }
+                // Add a small offset to avoid getting the same workout again
+                let nextAnchorDate = lastWorkout.endDate.addingTimeInterval(0.001)
+                response["anchor"] = self.isoFormatter.string(from: nextAnchorDate)
             }
 
             completion(.success(response))
