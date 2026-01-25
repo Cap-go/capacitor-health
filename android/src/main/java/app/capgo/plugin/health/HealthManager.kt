@@ -303,7 +303,7 @@ class HealthManager {
     ): JSObject {
         val workouts = mutableListOf<Pair<Instant, JSObject>>()
         
-        var pageToken: String? = anchor  // Use anchor as initial pageToken
+        var pageToken: String? = anchor  // Use anchor as initial pageToken (leverages Health Connect's native pagination)
         val pageSize = if (limit > 0) min(limit, MAX_PAGE_SIZE) else DEFAULT_PAGE_SIZE
         var fetched = 0
         

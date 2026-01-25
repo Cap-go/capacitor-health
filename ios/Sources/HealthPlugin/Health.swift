@@ -236,6 +236,9 @@ struct AuthorizationStatusPayload {
 final class Health {
     private let healthStore = HKHealthStore()
     private let isoFormatter: ISO8601DateFormatter
+    
+    /// Small time offset (in seconds) added to the last workout's end date to avoid duplicate results in pagination
+    private let paginationOffsetSeconds: TimeInterval = 0.001
 
     init() {
         let formatter = ISO8601DateFormatter()
@@ -568,7 +571,8 @@ final class Health {
             return
         }
 
-        // If anchor is provided, use it as the new start date for pagination
+        // If anchor is provided, use it as the continuation point for pagination.
+        // The anchor is the ISO 8601 date string of the last workout's end date from the previous query.
         let effectiveStartDate: Date
         if let anchorString = anchorString, let anchorDate = try? parseDate(anchorString, defaultValue: startDate) {
             effectiveStartDate = anchorDate
@@ -655,7 +659,7 @@ final class Health {
                 // Use the last workout's end date as the anchor for the next page
                 let lastWorkout = workouts.last!
                 // Add a small offset to avoid getting the same workout again
-                let nextAnchorDate = lastWorkout.endDate.addingTimeInterval(0.001)
+                let nextAnchorDate = lastWorkout.endDate.addingTimeInterval(self.paginationOffsetSeconds)
                 response["anchor"] = self.isoFormatter.string(from: nextAnchorDate)
             }
 
