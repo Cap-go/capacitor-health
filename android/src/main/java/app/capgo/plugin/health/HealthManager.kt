@@ -25,6 +25,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlin.math.min
 import kotlin.collections.buildSet
+import kotlinx.coroutines.CancellationException
 
 class HealthManager {
 
@@ -361,27 +362,42 @@ class HealthManager {
         // Don't filter by dataOrigin - distance might come from different sources
         // than the workout session itself (e.g., fitness tracker vs workout app)
         
-        // Aggregate distance
-        val distanceAggregate = try {
+        // Aggregate distance and calories in a single request for efficiency
+        var distanceAggregate: Double? = null
+        var caloriesAggregate: Double? = null
+        
+        try {
             val aggregateRequest = AggregateRequest(
-                metrics = setOf(DistanceRecord.DISTANCE_TOTAL),
+                metrics = setOf(
+                    DistanceRecord.DISTANCE_TOTAL,
+                    ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL
+                ),
                 timeRangeFilter = timeRange
-                // Removed dataOriginFilter to get distance from all sources during workout time
+                // Removed dataOriginFilter to get data from all sources during workout time
             )
             val result = client.aggregate(aggregateRequest)
-            result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
+            distanceAggregate = result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
+            caloriesAggregate = result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+        } catch (e: CancellationException) {
+            // Rethrow cancellation to allow coroutine cancellation to propagate
+            throw e
+        } catch (e: SecurityException) {
+            // Permission not granted for one or both metrics
+            android.util.Log.d("HealthManager", "Permission denied for workout data aggregation: ${e.message}", e)
         } catch (e: Exception) {
-            android.util.Log.d("HealthManager", "Distance aggregation failed for workout: ${e.message}", e)
-            null // Permission might not be granted or no data available
+            // Other errors (e.g., no data available)
+            android.util.Log.d("HealthManager", "Workout data aggregation failed: ${e.message}", e)
         }
         
         return WorkoutAggregatedData(
-            totalDistance = distanceAggregate
+            totalDistance = distanceAggregate,
+            totalEnergyBurned = caloriesAggregate
         )
     }
     
     private data class WorkoutAggregatedData(
-        val totalDistance: Double?
+        val totalDistance: Double?,
+        val totalEnergyBurned: Double?
     )
     
     private fun createWorkoutPayload(session: ExerciseSessionRecord, aggregatedData: WorkoutAggregatedData): JSObject {
@@ -401,6 +417,11 @@ class HealthManager {
         // Total distance (aggregated from DistanceRecord)
         aggregatedData.totalDistance?.let { distance ->
             payload.put("totalDistance", distance)
+        }
+        
+        // Total energy burned (aggregated from ActiveCaloriesBurnedRecord)
+        aggregatedData.totalEnergyBurned?.let { energy ->
+            payload.put("totalEnergyBurned", energy)
         }
         
         // Source information
