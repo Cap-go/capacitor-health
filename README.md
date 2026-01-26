@@ -1,9 +1,19 @@
 # @capgo/capacitor-health
- <a href="https://capgo.app/"><img src='https://raw.githubusercontent.com/Cap-go/capgo/main/assets/capgo_banner.png' alt='Capgo - Instant updates for capacitor'/></a>
+
+<a href="https://capgo.app/">
+  <img
+    src="https://raw.githubusercontent.com/Cap-go/capgo/main/assets/capgo_banner.png"
+    alt="Capgo - Instant updates for capacitor"
+  />
+</a>
 
 <div align="center">
-  <h2><a href="https://capgo.app/?ref=plugin_health"> ➡️ Get Instant updates for your App with Capgo</a></h2>
-  <h2><a href="https://capgo.app/consulting/?ref=plugin_health"> Missing a feature? We’ll build the plugin for you 💪</a></h2>
+  <h2>
+    <a href="https://capgo.app/?ref=plugin_health"> ➡️ Get Instant updates for your App with Capgo</a>
+  </h2>
+  <h2>
+    <a href="https://capgo.app/consulting/?ref=plugin_health"> Missing a feature? We’ll build the plugin for you 💪</a>
+  </h2>
 </div>
 
 Capacitor plugin to read and write health metrics via Apple HealthKit (iOS) and Health Connect (Android). The TypeScript API keeps the same data types and units across platforms so you can build once and deploy everywhere.
@@ -51,7 +61,7 @@ This plugin now uses [Health Connect](https://developer.android.com/health-and-f
 
 1. **Min SDK 26+.** Health Connect is only available on Android 8.0 (API 26) and above. The plugin's Gradle setup already targets this level.
 2. **Declare Health permissions.** The plugin manifest ships with the required `<uses-permission>` declarations (`READ_/WRITE_STEPS`, `READ_/WRITE_DISTANCE`, `READ_/WRITE_ACTIVE_CALORIES_BURNED`, `READ_/WRITE_HEART_RATE`, `READ_/WRITE_WEIGHT`). Your app does not need to duplicate them, but you must surface a user-facing rationale because the permissions are considered health sensitive.
-3. **Ensure Health Connect is installed.** Devices on Android 14+ include it by default. For earlier versions the user must install *Health Connect by Android* from the Play Store. The `Health.isAvailable()` helper exposes the current status so you can prompt accordingly.
+3. **Ensure Health Connect is installed.** Devices on Android 14+ include it by default. For earlier versions the user must install _Health Connect by Android_ from the Play Store. The `Health.isAvailable()` helper exposes the current status so you can prompt accordingly.
 4. **Request runtime access.** The plugin opens the Health Connect permission UI when you call `requestAuthorization`. You should still handle denial flows (e.g., show a message if `checkAuthorization` reports missing scopes).
 5. **Provide a Privacy Policy.** Health Connect requires apps to display a privacy policy explaining how health data is used. See the [Privacy Policy Setup](#privacy-policy-setup) section below.
 
@@ -68,17 +78,17 @@ Place an HTML file at `android/app/src/main/assets/public/privacypolicy.html`:
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Privacy Policy</title>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Privacy Policy</h1>
     <p>Your privacy policy content here...</p>
     <h2>Health Data</h2>
     <p>Explain how you collect, use, and protect health data...</p>
-</body>
+  </body>
 </html>
 ```
 
@@ -141,21 +151,22 @@ await Health.saveSample({
 
 ### Supported data types
 
-| Identifier | Default unit  | Notes |
-| ---------- | ------------- | ----- |
-| `steps`    | `count`       | Step count deltas |
-| `distance` | `meter`       | Walking / running distance |
-| `calories` | `kilocalorie` | Active energy burned |
-| `heartRate`| `bpm`         | Beats per minute |
-| `weight`   | `kilogram`    | Body mass |
-| `workouts` | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
+| Identifier  | Default unit  | Notes                                                    |
+| ----------- | ------------- | -------------------------------------------------------- |
+| `steps`     | `count`       | Step count deltas                                        |
+| `distance`  | `meter`       | Walking / running distance                               |
+| `calories`  | `kilocalorie` | Active energy burned                                     |
+| `heartRate` | `bpm`         | Beats per minute                                         |
+| `weight`    | `kilogram`    | Body mass                                                |
+| `workouts`  | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
 
 All write operations expect the default unit shown above. On Android the `metadata` option is currently ignored by Health Connect.
 
 **Note about workouts:** To query workout data using `queryWorkouts()`, you need to explicitly request `workouts` permission:
+
 ```ts
 await Health.requestAuthorization({
-  read: ['steps', 'workouts'],  // Include 'workouts' to access workout sessions
+  read: ['steps', 'workouts'], // Include 'workouts' to access workout sessions
 });
 ```
 
@@ -195,24 +206,26 @@ The plugin supports pagination using anchors, but the behavior differs between p
 
 ```ts
 // iOS: Get new workouts since last query
+// Android: Paginate through workouts
 let result = await Health.queryWorkouts({
-  startDate: startDate,
-  endDate: endDate,
-  limit: 50,
+  startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+  limit: 10,
 });
 
-console.log('Initial workouts:', result.workouts);
+console.log(`Found ${result.workouts.length} workouts`);
 
-// iOS: Get workouts added AFTER the first query (incremental)
-// Android: Get next 50 workouts from the same query (pagination)
-if (result.anchor) {
-  const nextResult = await Health.queryWorkouts({
-    startDate: startDate,
-    endDate: endDate,
-    limit: 50,
-    anchor: result.anchor,
+// If there are more results, the anchor will be set
+while (result.anchor) {
+  // Next page: use the anchor to continue from where we left off
+  result = await Health.queryWorkouts({
+    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    endDate: new Date().toISOString(),
+    limit: 10,
+    anchor: result.anchor, // Continue from the last result
   });
-  console.log('Next batch:', nextResult.workouts);
+
+  console.log(`Found ${result.workouts.length} more workouts`);
 }
 ```
 

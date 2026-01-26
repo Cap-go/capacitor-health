@@ -601,6 +601,9 @@ struct AuthorizationStatusPayload {
 final class Health {
     private let healthStore = HKHealthStore()
     private let isoFormatter: ISO8601DateFormatter
+    
+    /// Small time offset (in seconds) added to the last workout's end date to avoid duplicate results in pagination
+    private let paginationOffsetSeconds: TimeInterval = 0.001
 
     init() {
         let formatter = ISO8601DateFormatter()
@@ -933,7 +936,16 @@ final class Health {
             return
         }
 
-        var predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
+        // If anchor is provided, use it as the continuation point for pagination.
+        // The anchor is the ISO 8601 date string of the last workout's end date from the previous query.
+        let effectiveStartDate: Date
+        if let anchorString = anchorString, let anchorDate = try? parseDate(anchorString, defaultValue: startDate) {
+            effectiveStartDate = anchorDate
+        } else {
+            effectiveStartDate = startDate
+        }
+
+        var predicate = HKQuery.predicateForSamples(withStart: effectiveStartDate, end: endDate, options: [])
 
         // Filter by workout type if specified
         if let workoutTypeString = workoutTypeString, let workoutType = WorkoutType(rawValue: workoutTypeString) {
