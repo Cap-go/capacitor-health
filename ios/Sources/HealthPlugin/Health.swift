@@ -236,6 +236,9 @@ struct AuthorizationStatusPayload {
 final class Health {
     private let healthStore = HKHealthStore()
     private let isoFormatter: ISO8601DateFormatter
+    
+    /// Small time offset (in seconds) added to the last workout's end date to avoid duplicate results in pagination
+    private let paginationOffsetSeconds: TimeInterval = 0.001
 
     init() {
         let formatter = ISO8601DateFormatter()
@@ -559,7 +562,7 @@ final class Health {
         return set
     }
 
-    func queryWorkouts(workoutTypeString: String?, startDateString: String?, endDateString: String?, limit: Int?, ascending: Bool, completion: @escaping (Result<[[String: Any]], Error>) -> Void) {
+    func queryWorkouts(workoutTypeString: String?, startDateString: String?, endDateString: String?, limit: Int?, ascending: Bool, anchorString: String?, completion: @escaping (Result<[String: Any], Error>) -> Void) {
         let startDate = (try? parseDate(startDateString, defaultValue: Date().addingTimeInterval(-86400))) ?? Date().addingTimeInterval(-86400)
         let endDate = (try? parseDate(endDateString, defaultValue: Date())) ?? Date()
 
@@ -568,7 +571,16 @@ final class Health {
             return
         }
 
-        var predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
+        // If anchor is provided, use it as the continuation point for pagination.
+        // The anchor is the ISO 8601 date string of the last workout's end date from the previous query.
+        let effectiveStartDate: Date
+        if let anchorString = anchorString, let anchorDate = try? parseDate(anchorString, defaultValue: startDate) {
+            effectiveStartDate = anchorDate
+        } else {
+            effectiveStartDate = startDate
+        }
+
+        var predicate = HKQuery.predicateForSamples(withStart: effectiveStartDate, end: endDate, options: [])
 
         // Filter by workout type if specified
         if let workoutTypeString = workoutTypeString, let workoutType = WorkoutType(rawValue: workoutTypeString) {
@@ -594,7 +606,7 @@ final class Health {
             }
 
             guard let workouts = samples as? [HKWorkout] else {
-                completion(.success([]))
+                completion(.success(["workouts": []]))
                 return
             }
 
@@ -641,7 +653,17 @@ final class Health {
                 return payload
             }
 
-            completion(.success(results))
+            // Generate next anchor if we have results and reached the limit
+            var response: [String: Any] = ["workouts": results]
+            if !workouts.isEmpty && workouts.count >= queryLimit {
+                // Use the last workout's end date as the anchor for the next page
+                let lastWorkout = workouts.last!
+                // Add a small offset to avoid getting the same workout again
+                let nextAnchorDate = lastWorkout.endDate.addingTimeInterval(self.paginationOffsetSeconds)
+                response["anchor"] = self.isoFormatter.string(from: nextAnchorDate)
+            }
+
+            completion(.success(response))
         }
 
         healthStore.execute(query)

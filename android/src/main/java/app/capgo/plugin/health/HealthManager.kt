@@ -298,11 +298,12 @@ class HealthManager {
         startTime: Instant,
         endTime: Instant,
         limit: Int,
-        ascending: Boolean
-    ): JSArray {
+        ascending: Boolean,
+        anchor: String?
+    ): JSObject {
         val workouts = mutableListOf<Pair<Instant, JSObject>>()
         
-        var pageToken: String? = null
+        var pageToken: String? = anchor  // Use anchor as initial pageToken (leverages Health Connect's native pagination)
         val pageSize = if (limit > 0) min(limit, MAX_PAGE_SIZE) else DEFAULT_PAGE_SIZE
         var fetched = 0
         
@@ -341,7 +342,15 @@ class HealthManager {
         
         val array = JSArray()
         limited.forEach { array.put(it.second) }
-        return array
+        
+        // Return result with workouts and next anchor (pageToken)
+        val result = JSObject()
+        result.put("workouts", array)
+        // Only include anchor if there might be more results
+        if (pageToken != null) {
+            result.put("anchor", pageToken)
+        }
+        return result
     }
     
     private suspend fun aggregateWorkoutData(
