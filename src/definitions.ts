@@ -106,6 +106,12 @@ export interface QueryWorkoutsOptions {
   limit?: number;
   /** Return results sorted ascending by start date (defaults to false). */
   ascending?: boolean;
+  /**
+   * Anchor for pagination. Use the anchor returned from a previous query to continue from that point.
+   * On iOS, this uses HKQueryAnchor. On Android, this uses Health Connect's pageToken.
+   * Omit this parameter to start from the beginning.
+   */
+  anchor?: string;
 }
 
 export interface Workout {
@@ -131,6 +137,11 @@ export interface Workout {
 
 export interface QueryWorkoutsResult {
   workouts: Workout[];
+  /**
+   * Anchor for the next page of results. Pass this value as the anchor parameter in the next query
+   * to continue pagination. If undefined or null, there are no more results.
+   */
+  anchor?: string;
 }
 
 export type AggregationBucket = 'hour' | 'day' | 'week' | 'month';

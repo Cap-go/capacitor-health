@@ -3,7 +3,7 @@ import Capacitor
 
 @objc(HealthPlugin)
 public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
-    private let pluginVersion: String = "8.2.5"
+    private let pluginVersion: String = "8.2.6"
     public let identifier = "HealthPlugin"
     public let jsName = "Health"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -154,18 +154,20 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         let endDate = call.getString("endDate")
         let limit = call.getInt("limit")
         let ascending = call.getBool("ascending") ?? false
+        let anchor = call.getString("anchor")
 
         implementation.queryWorkouts(
             workoutTypeString: workoutType,
             startDateString: startDate,
             endDateString: endDate,
             limit: limit,
-            ascending: ascending
+            ascending: ascending,
+            anchorString: anchor
         ) { result in
             DispatchQueue.main.async {
                 switch result {
-                case let .success(workouts):
-                    call.resolve(["workouts": workouts])
+                case let .success(response):
+                    call.resolve(response)
                 case let .failure(error):
                     call.reject(error.localizedDescription, nil, error)
                 }
