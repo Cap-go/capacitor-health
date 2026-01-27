@@ -1,6 +1,8 @@
 import { WebPlugin } from '@capacitor/core';
 
 import type {
+  AggregatedQueryOptions,
+  AggregatedQueryResult,
   AuthorizationOptions,
   AuthorizationStatus,
   AvailabilityResult,
@@ -51,5 +53,9 @@ export class HealthWeb extends WebPlugin implements HealthPlugin {
 
   async queryWorkouts(_options: QueryWorkoutsOptions): Promise<QueryWorkoutsResult> {
     throw this.unimplemented('Querying workouts is only available on native platforms.');
+  }
+
+  async queryAggregated(_options: AggregatedQueryOptions): Promise<AggregatedQueryResult> {
+    throw this.unimplemented('Querying aggregated data is only available on native platforms.');
   }
 }

@@ -385,6 +385,53 @@ class HealthPlugin : Plugin() {
         }
     }
 
+    @PluginMethod
+    fun queryAggregated(call: PluginCall) {
+        val identifier = call.getString("dataType")
+        if (identifier.isNullOrBlank()) {
+            call.reject("dataType is required")
+            return
+        }
+
+        val dataType = HealthDataType.from(identifier)
+        if (dataType == null) {
+            call.reject("Unsupported data type: $identifier")
+            return
+        }
+
+        val bucket = call.getString("bucket")
+        val aggregation = call.getString("aggregation")
+
+        val startInstant = try {
+            manager.parseInstant(call.getString("startDate"), Instant.now().minus(DEFAULT_PAST_DURATION))
+        } catch (e: DateTimeParseException) {
+            call.reject(e.message, null, e)
+            return
+        }
+
+        val endInstant = try {
+            manager.parseInstant(call.getString("endDate"), Instant.now())
+        } catch (e: DateTimeParseException) {
+            call.reject(e.message, null, e)
+            return
+        }
+
+        if (endInstant.isBefore(startInstant)) {
+            call.reject("endDate must be greater than or equal to startDate")
+            return
+        }
+
+        pluginScope.launch {
+            val client = getClientOrReject(call) ?: return@launch
+            try {
+                val result = manager.queryAggregated(client, dataType, startInstant, endInstant, bucket, aggregation)
+                call.resolve(result)
+            } catch (e: Exception) {
+                call.reject(e.message ?: "Failed to query aggregated data.", null, e)
+            }
+        }
+    }
+
     companion object {
         private const val DEFAULT_LIMIT = 100
         private val DEFAULT_PAST_DURATION: Duration = Duration.ofDays(1)

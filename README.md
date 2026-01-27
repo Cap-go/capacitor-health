@@ -209,6 +209,7 @@ while (result.anchor) {
 * [`openHealthConnectSettings()`](#openhealthconnectsettings)
 * [`showPrivacyPolicy()`](#showprivacypolicy)
 * [`queryWorkouts(...)`](#queryworkouts)
+* [`queryAggregated(...)`](#queryaggregated)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
@@ -361,6 +362,25 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 --------------------
 
 
+### queryAggregated(...)
+
+```typescript
+queryAggregated(options: AggregatedQueryOptions) => Promise<AggregatedQueryResult>
+```
+
+Queries aggregated health data from the native health store.
+Useful for getting daily summaries, totals, and averages without fetching individual samples.
+Supported on iOS (HealthKit) and Android (Health Connect).
+
+| Param         | Type                                                                      | Description                                                                      |
+| ------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **`options`** | <code><a href="#aggregatedqueryoptions">AggregatedQueryOptions</a></code> | Query options including data type, date range, aggregation type, and bucket size |
+
+**Returns:** <code>Promise&lt;<a href="#aggregatedqueryresult">AggregatedQueryResult</a>&gt;</code>
+
+--------------------
+
+
 ### Interfaces
 
 
@@ -469,17 +489,45 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`anchor`**      | <code>string</code>                                 | Anchor for pagination. Use the anchor returned from a previous query to continue from that point. On iOS, this uses HKQueryAnchor. On Android, this uses Health Connect's pageToken. Omit this parameter to start from the beginning. |
 
 
+#### AggregatedQueryResult
+
+| Prop             | Type                               | Description                                      |
+| ---------------- | ---------------------------------- | ------------------------------------------------ |
+| **`dataPoints`** | <code>AggregatedDataPoint[]</code> | Array of aggregated data points, one per bucket. |
+
+
+#### AggregatedDataPoint
+
+| Prop            | Type                                              | Description                        |
+| --------------- | ------------------------------------------------- | ---------------------------------- |
+| **`startDate`** | <code>string</code>                               | ISO 8601 start date of the bucket. |
+| **`endDate`**   | <code>string</code>                               | ISO 8601 end date of the bucket.   |
+| **`value`**     | <code>number</code>                               | Aggregated value for this bucket.  |
+| **`unit`**      | <code><a href="#healthunit">HealthUnit</a></code> | Unit of the aggregated value.      |
+
+
+#### AggregatedQueryOptions
+
+| Prop              | Type                                                        | Description                                               |
+| ----------------- | ----------------------------------------------------------- | --------------------------------------------------------- |
+| **`dataType`**    | <code><a href="#healthdatatype">HealthDataType</a></code>   | The type of data to aggregate from the health store.      |
+| **`startDate`**   | <code>string</code>                                         | Inclusive ISO 8601 start date (defaults to now - 1 day).  |
+| **`endDate`**     | <code>string</code>                                         | Exclusive ISO 8601 end date (defaults to now).            |
+| **`bucket`**      | <code><a href="#buckettype">BucketType</a></code>           | The time bucket size for aggregation (defaults to 'day'). |
+| **`aggregation`** | <code><a href="#aggregationtype">AggregationType</a></code> | The aggregation operation to perform (defaults to 'sum'). |
+
+
 ### Type Aliases
 
 
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight'</code>
+<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability'</code>
 
 
 #### HealthUnit
 
-<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram'</code>
+<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond'</code>
 
 
 #### Record
@@ -492,6 +540,16 @@ Construct a type with a set of properties K of type T
 #### WorkoutType
 
 <code>'running' | 'cycling' | 'walking' | 'swimming' | 'yoga' | 'strengthTraining' | 'hiking' | 'tennis' | 'basketball' | 'soccer' | 'americanFootball' | 'baseball' | 'crossTraining' | 'elliptical' | 'rowing' | 'stairClimbing' | 'traditionalStrengthTraining' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'wrestling' | 'other'</code>
+
+
+#### BucketType
+
+<code>'hour' | 'day' | 'week' | 'month'</code>
+
+
+#### AggregationType
+
+<code>'sum' | 'avg' | 'min' | 'max' | 'count'</code>
 
 </docgen-api>
 
