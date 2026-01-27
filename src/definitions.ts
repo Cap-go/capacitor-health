@@ -1,8 +1,8 @@
-export type HealthDataType = 
-  | 'steps' 
-  | 'distance' 
-  | 'calories' 
-  | 'heartRate' 
+export type HealthDataType =
+  | 'steps'
+  | 'distance'
+  | 'calories'
+  | 'heartRate'
   | 'weight'
   | 'sleep'
   | 'respiratoryRate'
@@ -10,15 +10,7 @@ export type HealthDataType =
   | 'restingHeartRate'
   | 'heartRateVariability';
 
-export type HealthUnit = 
-  | 'count' 
-  | 'meter' 
-  | 'kilocalorie' 
-  | 'bpm' 
-  | 'kilogram'
-  | 'minute'
-  | 'percent'
-  | 'millisecond';
+export type HealthUnit = 'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond';
 
 export interface AuthorizationOptions {
   /** Data types that should be readable after authorization. */
