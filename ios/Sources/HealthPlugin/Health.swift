@@ -457,17 +457,26 @@ final class Health {
         switch value {
         case HKCategoryValueSleepAnalysis.inBed.rawValue:
             return "inBed"
-        case HKCategoryValueSleepAnalysis.asleep.rawValue, HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue:
+        case HKCategoryValueSleepAnalysis.asleep.rawValue:
             return "asleep"
         case HKCategoryValueSleepAnalysis.awake.rawValue:
             return "awake"
-        case HKCategoryValueSleepAnalysis.asleepCore.rawValue:
-            return "light"
-        case HKCategoryValueSleepAnalysis.asleepDeep.rawValue:
-            return "deep"
-        case HKCategoryValueSleepAnalysis.asleepREM.rawValue:
-            return "rem"
         default:
+            // Handle iOS 16+ sleep states
+            if #available(iOS 16.0, *) {
+                switch value {
+                case HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue:
+                    return "asleep"
+                case HKCategoryValueSleepAnalysis.asleepCore.rawValue:
+                    return "light"
+                case HKCategoryValueSleepAnalysis.asleepDeep.rawValue:
+                    return "deep"
+                case HKCategoryValueSleepAnalysis.asleepREM.rawValue:
+                    return "rem"
+                default:
+                    return nil
+                }
+            }
             return nil
         }
     }
@@ -856,10 +865,7 @@ final class Health {
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: ascending)
         let queryLimit = limit ?? 100
 
-        guard let workoutSampleType = HKObjectType.workoutType() as? HKSampleType else {
-            completion(.failure(HealthManagerError.operationFailed("Workout type is not available.")))
-            return
-        }
+        let workoutSampleType = HKObjectType.workoutType()
 
         let query = HKSampleQuery(sampleType: workoutSampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
             guard let self = self else { return }
