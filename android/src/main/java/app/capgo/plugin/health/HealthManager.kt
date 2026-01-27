@@ -7,7 +7,12 @@ import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.Record
+import androidx.health.connect.client.records.RespiratoryRateRecord
+import androidx.health.connect.client.records.RestingHeartRateRecord
+import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
@@ -15,6 +20,8 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Length
 import androidx.health.connect.client.units.Mass
+import androidx.health.connect.client.units.Percentage
+import androidx.health.connect.client.units.Power
 import androidx.health.connect.client.records.metadata.Metadata
 import java.time.Duration
 import com.getcapacitor.JSArray
@@ -148,6 +155,62 @@ class HealthManager {
                     samples.add(sample.time to payload)
                 }
             }
+            HealthDataType.SLEEP -> readRecords(client, SleepSessionRecord::class, startTime, endTime, limit) { record ->
+                // For sleep sessions, calculate duration in minutes
+                val durationMinutes = Duration.between(record.startTime, record.endTime).toMinutes().toDouble()
+                val payload = createSamplePayload(
+                    dataType,
+                    record.startTime,
+                    record.endTime,
+                    durationMinutes,
+                    record.metadata
+                )
+                // Add sleep stage if available (map from sleep session stages)
+                // Note: SleepSessionRecord doesn't have individual stages in the main record
+                // Individual sleep stages would be in SleepStageRecord, but for simplicity
+                // we'll just return the session duration
+                samples.add(record.startTime to payload)
+            }
+            HealthDataType.RESPIRATORY_RATE -> readRecords(client, RespiratoryRateRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.rate,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.OXYGEN_SATURATION -> readRecords(client, OxygenSaturationRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.percentage.value,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.RESTING_HEART_RATE -> readRecords(client, RestingHeartRateRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.beatsPerMinute.toDouble(),
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.HEART_RATE_VARIABILITY -> readRecords(client, HeartRateVariabilityRmssdRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.heartRateVariabilityMillis,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
         }
 
         val sorted = samples.sortedBy { it.first }
@@ -246,6 +309,47 @@ class HealthManager {
                 )
                 client.insertRecords(listOf(record))
             }
+            HealthDataType.SLEEP -> {
+                val record = SleepSessionRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.RESPIRATORY_RATE -> {
+                val record = RespiratoryRateRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    rate = value
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.OXYGEN_SATURATION -> {
+                val record = OxygenSaturationRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    percentage = Percentage(value)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.RESTING_HEART_RATE -> {
+                val record = RestingHeartRateRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    beatsPerMinute = value.toBpmLong()
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.HEART_RATE_VARIABILITY -> {
+                val record = HeartRateVariabilityRmssdRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    heartRateVariabilityMillis = value
+                )
+                client.insertRecords(listOf(record))
+            }
         }
     }
 
@@ -291,6 +395,127 @@ class HealthManager {
 
     private fun Double.toBpmLong(): Long {
         return java.lang.Math.round(this.coerceAtLeast(0.0))
+    }
+
+    suspend fun queryAggregated(
+        client: HealthConnectClient,
+        dataType: HealthDataType,
+        startTime: Instant,
+        endTime: Instant,
+        bucket: String,
+        aggregation: String
+    ): JSObject {
+        // Sleep aggregation is not directly supported like other metrics
+        if (dataType == HealthDataType.SLEEP) {
+            throw IllegalArgumentException("Aggregated queries are not supported for sleep data. Use readSamples instead.")
+        }
+        
+        // Instantaneous measurement records don't support aggregation in Health Connect
+        // These data types should use readSamples instead
+        if (dataType == HealthDataType.RESPIRATORY_RATE || 
+            dataType == HealthDataType.OXYGEN_SATURATION || 
+            dataType == HealthDataType.HEART_RATE_VARIABILITY) {
+            throw IllegalArgumentException("Aggregated queries are not supported for ${dataType.identifier}. Use readSamples instead.")
+        }
+
+        val samples = JSArray()
+        
+        // Determine bucket size
+        // Note: Monthly buckets use 30 days as an approximation, which may not align exactly
+        // with calendar months. This provides consistent bucket sizes but users should be aware
+        // that "month" buckets don't correspond to actual calendar months (Jan, Feb, etc.).
+        val bucketDuration = when (bucket) {
+            "hour" -> Duration.ofHours(1)
+            "day" -> Duration.ofDays(1)
+            "week" -> Duration.ofDays(7)
+            "month" -> Duration.ofDays(30) // Approximation: not calendar months
+            else -> Duration.ofDays(1)
+        }
+        
+        // Create time buckets
+        var currentStart = startTime
+        while (currentStart.isBefore(endTime)) {
+            val currentEnd = currentStart.plus(bucketDuration).let {
+                if (it.isAfter(endTime)) endTime else it
+            }
+            
+            try {
+                val metrics = when (dataType) {
+                    HealthDataType.STEPS -> setOf(StepsRecord.COUNT_TOTAL)
+                    HealthDataType.DISTANCE -> setOf(DistanceRecord.DISTANCE_TOTAL)
+                    HealthDataType.CALORIES -> setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+                    HealthDataType.HEART_RATE -> setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN)
+                    HealthDataType.WEIGHT -> setOf(WeightRecord.WEIGHT_AVG, WeightRecord.WEIGHT_MAX, WeightRecord.WEIGHT_MIN)
+                    HealthDataType.RESTING_HEART_RATE -> setOf(RestingHeartRateRecord.BPM_AVG, RestingHeartRateRecord.BPM_MAX, RestingHeartRateRecord.BPM_MIN)
+                    else -> throw IllegalArgumentException("Unsupported data type for aggregation: ${dataType.identifier}")
+                }
+                
+                val aggregateRequest = AggregateRequest(
+                    metrics = metrics,
+                    timeRangeFilter = TimeRangeFilter.between(currentStart, currentEnd)
+                )
+                
+                val result = client.aggregate(aggregateRequest)
+                
+                // Extract the appropriate aggregated value based on the aggregation type and data type
+                val value: Double? = when (dataType) {
+                    HealthDataType.STEPS -> when (aggregation) {
+                        "sum" -> result[StepsRecord.COUNT_TOTAL]?.toDouble()
+                        else -> result[StepsRecord.COUNT_TOTAL]?.toDouble()
+                    }
+                    HealthDataType.DISTANCE -> when (aggregation) {
+                        "sum" -> result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
+                        else -> result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
+                    }
+                    HealthDataType.CALORIES -> when (aggregation) {
+                        "sum" -> result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+                        else -> result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+                    }
+                    HealthDataType.HEART_RATE -> when (aggregation) {
+                        "average" -> result[HeartRateRecord.BPM_AVG]?.toDouble()
+                        "max" -> result[HeartRateRecord.BPM_MAX]?.toDouble()
+                        "min" -> result[HeartRateRecord.BPM_MIN]?.toDouble()
+                        else -> result[HeartRateRecord.BPM_AVG]?.toDouble()
+                    }
+                    HealthDataType.WEIGHT -> when (aggregation) {
+                        "average" -> result[WeightRecord.WEIGHT_AVG]?.inKilograms
+                        "max" -> result[WeightRecord.WEIGHT_MAX]?.inKilograms
+                        "min" -> result[WeightRecord.WEIGHT_MIN]?.inKilograms
+                        else -> result[WeightRecord.WEIGHT_AVG]?.inKilograms
+                    }
+                    HealthDataType.RESTING_HEART_RATE -> when (aggregation) {
+                        "average" -> result[RestingHeartRateRecord.BPM_AVG]?.toDouble()
+                        "max" -> result[RestingHeartRateRecord.BPM_MAX]?.toDouble()
+                        "min" -> result[RestingHeartRateRecord.BPM_MIN]?.toDouble()
+                        else -> result[RestingHeartRateRecord.BPM_AVG]?.toDouble()
+                    }
+                    else -> null
+                }
+                
+                // Only add the sample if we have a value
+                if (value != null) {
+                    val sample = JSObject().apply {
+                        put("startDate", formatter.format(currentStart))
+                        put("endDate", formatter.format(currentEnd))
+                        put("value", value)
+                        put("unit", dataType.unit)
+                    }
+                    samples.put(sample)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SecurityException) {
+                android.util.Log.d("HealthManager", "Permission denied for aggregation: ${e.message}", e)
+            } catch (e: Exception) {
+                android.util.Log.d("HealthManager", "Aggregation failed for bucket: ${e.message}", e)
+            }
+            
+            currentStart = currentEnd
+        }
+        
+        return JSObject().apply {
+            put("samples", samples)
+        }
     }
 
     suspend fun queryWorkouts(
