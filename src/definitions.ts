@@ -10,15 +10,7 @@ export type HealthDataType =
   | 'restingHeartRate'
   | 'heartRateVariability';
 
-export type HealthUnit =
-  | 'count'
-  | 'meter'
-  | 'kilocalorie'
-  | 'bpm'
-  | 'kilogram'
-  | 'minute'
-  | 'percent'
-  | 'millisecond';
+export type HealthUnit = 'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond';
 
 export type SleepStage = 'asleep' | 'awake' | 'inBed' | 'rem' | 'deep' | 'light' | 'unknown';
 
