@@ -110,14 +110,17 @@ object WorkoutType {
             ExerciseSessionRecord.EXERCISE_TYPE_SOCCER -> "soccer"
             ExerciseSessionRecord.EXERCISE_TYPE_FOOTBALL_AMERICAN -> "americanFootball"
             ExerciseSessionRecord.EXERCISE_TYPE_BASEBALL -> "baseball"
-            ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING -> "highIntensityIntervalTraining"
+            // Keep backward compatible mapping for existing types
+            ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING -> "crossTraining"
             ExerciseSessionRecord.EXERCISE_TYPE_ELLIPTICAL -> "elliptical"
             ExerciseSessionRecord.EXERCISE_TYPE_ROWING -> "rowing"
             ExerciseSessionRecord.EXERCISE_TYPE_ROWING_MACHINE -> "rowing"
+            // Keep stairClimbing as primary mapping for backward compatibility
             ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING -> "stairClimbing"
             ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING_MACHINE -> "stepTraining"
             ExerciseSessionRecord.EXERCISE_TYPE_WATER_POLO -> "waterPolo"
-            ExerciseSessionRecord.EXERCISE_TYPE_MARTIAL_ARTS -> "martialArts"
+            // Keep wrestling as primary mapping for backward compatibility
+            ExerciseSessionRecord.EXERCISE_TYPE_MARTIAL_ARTS -> "wrestling"
             // Comprehensive Android to TypeScript workout type mappings
             ExerciseSessionRecord.EXERCISE_TYPE_FOOTBALL_AUSTRALIAN -> "australianFootball"
             ExerciseSessionRecord.EXERCISE_TYPE_BADMINTON -> "badminton"
