@@ -60,7 +60,7 @@ npx cap sync
 This plugin now uses [Health Connect](https://developer.android.com/health-and-fitness/guides/health-connect) instead of Google Fit. Make sure your app meets the requirements below:
 
 1. **Min SDK 26+.** Health Connect is only available on Android 8.0 (API 26) and above. The plugin's Gradle setup already targets this level.
-2. **Declare Health permissions.** The plugin manifest ships with the required `<uses-permission>` declarations (`READ_/WRITE_STEPS`, `READ_/WRITE_DISTANCE`, `READ_/WRITE_ACTIVE_CALORIES_BURNED`, `READ_/WRITE_HEART_RATE`, `READ_/WRITE_WEIGHT`). Your app does not need to duplicate them, but you must surface a user-facing rationale because the permissions are considered health sensitive.
+2. **Declare Health permissions.** The plugin manifest ships with the required `<uses-permission>` declarations for basic data types (`READ_/WRITE_STEPS`, `READ_/WRITE_DISTANCE`, `READ_/WRITE_ACTIVE_CALORIES_BURNED`, `READ_/WRITE_HEART_RATE`, `READ_/WRITE_WEIGHT`, `READ_/WRITE_SLEEP`, `READ_/WRITE_RESPIRATORY_RATE`, `READ_/WRITE_OXYGEN_SATURATION`, `READ_/WRITE_RESTING_HEART_RATE`, `READ_/WRITE_HEART_RATE_VARIABILITY`). Your app does not need to duplicate them, but you must surface a user-facing rationale because the permissions are considered health sensitive.
 3. **Ensure Health Connect is installed.** Devices on Android 14+ include it by default. For earlier versions the user must install _Health Connect by Android_ from the Play Store. The `Health.isAvailable()` helper exposes the current status so you can prompt accordingly.
 4. **Request runtime access.** The plugin opens the Health Connect permission UI when you call `requestAuthorization`. You should still handle denial flows (e.g., show a message if `checkAuthorization` reports missing scopes).
 5. **Provide a Privacy Policy.** Health Connect requires apps to display a privacy policy explaining how health data is used. See the [Privacy Policy Setup](#privacy-policy-setup) section below.
@@ -151,14 +151,19 @@ await Health.saveSample({
 
 ### Supported data types
 
-| Identifier  | Default unit  | Notes                                                    |
-| ----------- | ------------- | -------------------------------------------------------- |
-| `steps`     | `count`       | Step count deltas                                        |
-| `distance`  | `meter`       | Walking / running distance                               |
-| `calories`  | `kilocalorie` | Active energy burned                                     |
-| `heartRate` | `bpm`         | Beats per minute                                         |
-| `weight`    | `kilogram`    | Body mass                                                |
-| `workouts`  | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
+| Identifier              | Default unit  | Notes                                                    |
+| ----------------------- | ------------- | -------------------------------------------------------- |
+| `steps`                 | `count`       | Step count deltas                                        |
+| `distance`              | `meter`       | Walking / running distance                               |
+| `calories`              | `kilocalorie` | Active energy burned                                     |
+| `heartRate`             | `bpm`         | Beats per minute                                         |
+| `weight`                | `kilogram`    | Body mass                                                |
+| `sleep`                 | `minute`      | Sleep sessions with duration and states                  |
+| `respiratoryRate`       | `bpm`         | Breaths per minute                                       |
+| `oxygenSaturation`      | `percent`     | Blood oxygen saturation (SpO2)                           |
+| `restingHeartRate`      | `bpm`         | Resting heart rate                                       |
+| `heartRateVariability`  | `millisecond` | Heart rate variability (HRV)                             |
+| `workouts`              | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
 
 All write operations expect the default unit shown above. On Android the `metadata` option is currently ignored by Health Connect.
 
@@ -195,6 +200,79 @@ while (result.anchor) {
   console.log(`Found ${result.workouts.length} more workouts`);
 }
 ```
+
+### New Data Types Examples
+
+**Sleep data:**
+```ts
+// Request permission for sleep data
+await Health.requestAuthorization({
+  read: ['sleep'],
+});
+
+// Read sleep sessions from the past week
+const { samples } = await Health.readSamples({
+  dataType: 'sleep',
+  startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+});
+
+samples.forEach(sample => {
+  console.log(`Sleep: ${sample.value} minutes, state: ${sample.sleepState}`);
+});
+```
+
+**Respiratory rate, oxygen saturation, and HRV:**
+```ts
+// Request permission
+await Health.requestAuthorization({
+  read: ['respiratoryRate', 'oxygenSaturation', 'restingHeartRate', 'heartRateVariability'],
+});
+
+// Read respiratory rate
+const { samples: respiratoryRate } = await Health.readSamples({
+  dataType: 'respiratoryRate',
+  startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+});
+
+// Read oxygen saturation (SpO2)
+const { samples: oxygenSat } = await Health.readSamples({
+  dataType: 'oxygenSaturation',
+  startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+});
+```
+
+### Aggregated Queries
+
+For large date ranges, use `queryAggregated()` to get aggregated data efficiently instead of fetching individual samples:
+
+```ts
+// Get daily step totals for the past month
+const { samples } = await Health.queryAggregated({
+  dataType: 'steps',
+  startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+  bucket: 'day',        // Options: 'hour', 'day', 'week', 'month'
+  aggregation: 'sum',   // Options: 'sum', 'average', 'min', 'max'
+});
+
+samples.forEach(sample => {
+  console.log(`${sample.startDate}: ${sample.value} ${sample.unit}`);
+});
+
+// Get average heart rate by day
+const { samples: avgHR } = await Health.queryAggregated({
+  dataType: 'heartRate',
+  startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+  bucket: 'day',
+  aggregation: 'average',
+});
+```
+
+**Note:** Aggregated queries are not supported for sleep data. Use `readSamples()` instead.
 
 ## API
 
