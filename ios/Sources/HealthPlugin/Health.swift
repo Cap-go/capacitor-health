@@ -719,6 +719,13 @@ final class Health {
                 return
             }
             
+            // Instantaneous measurement types don't support meaningful aggregation
+            // These should use readSamples instead
+            if dataType == .respiratoryRate || dataType == .oxygenSaturation || dataType == .heartRateVariability {
+                completion(.failure(HealthManagerError.operationFailed("Aggregated queries are not supported for \(dataType.rawValue). Use readSamples instead.")))
+                return
+            }
+            
             let quantityType = try dataType.quantityType()
             
             let startDate = try parseDate(startDateString, defaultValue: Date().addingTimeInterval(-86400))

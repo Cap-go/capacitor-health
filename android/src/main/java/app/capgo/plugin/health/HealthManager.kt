@@ -409,6 +409,14 @@ class HealthManager {
         if (dataType == HealthDataType.SLEEP) {
             throw IllegalArgumentException("Aggregated queries are not supported for sleep data. Use readSamples instead.")
         }
+        
+        // Instantaneous measurement records don't support aggregation in Health Connect
+        // These data types should use readSamples instead
+        if (dataType == HealthDataType.RESPIRATORY_RATE || 
+            dataType == HealthDataType.OXYGEN_SATURATION || 
+            dataType == HealthDataType.HEART_RATE_VARIABILITY) {
+            throw IllegalArgumentException("Aggregated queries are not supported for ${dataType.identifier}. Use readSamples instead.")
+        }
 
         val samples = JSArray()
         
@@ -439,9 +447,6 @@ class HealthManager {
                     HealthDataType.HEART_RATE -> setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN)
                     HealthDataType.WEIGHT -> setOf(WeightRecord.WEIGHT_AVG, WeightRecord.WEIGHT_MAX, WeightRecord.WEIGHT_MIN)
                     HealthDataType.RESTING_HEART_RATE -> setOf(RestingHeartRateRecord.BPM_AVG, RestingHeartRateRecord.BPM_MAX, RestingHeartRateRecord.BPM_MIN)
-                    HealthDataType.RESPIRATORY_RATE -> setOf(RespiratoryRateRecord.RATE_AVG, RespiratoryRateRecord.RATE_MAX, RespiratoryRateRecord.RATE_MIN)
-                    HealthDataType.OXYGEN_SATURATION -> setOf(OxygenSaturationRecord.PERCENTAGE_AVG, OxygenSaturationRecord.PERCENTAGE_MAX, OxygenSaturationRecord.PERCENTAGE_MIN)
-                    HealthDataType.HEART_RATE_VARIABILITY -> setOf(HeartRateVariabilityRmssdRecord.HEART_RATE_VARIABILITY_AVG, HeartRateVariabilityRmssdRecord.HEART_RATE_VARIABILITY_MAX, HeartRateVariabilityRmssdRecord.HEART_RATE_VARIABILITY_MIN)
                     else -> throw IllegalArgumentException("Unsupported data type for aggregation: ${dataType.identifier}")
                 }
                 
@@ -483,24 +488,6 @@ class HealthManager {
                         "max" -> result[RestingHeartRateRecord.BPM_MAX]?.toDouble()
                         "min" -> result[RestingHeartRateRecord.BPM_MIN]?.toDouble()
                         else -> result[RestingHeartRateRecord.BPM_AVG]?.toDouble()
-                    }
-                    HealthDataType.RESPIRATORY_RATE -> when (aggregation) {
-                        "average" -> result[RespiratoryRateRecord.RATE_AVG]
-                        "max" -> result[RespiratoryRateRecord.RATE_MAX]
-                        "min" -> result[RespiratoryRateRecord.RATE_MIN]
-                        else -> result[RespiratoryRateRecord.RATE_AVG]
-                    }
-                    HealthDataType.OXYGEN_SATURATION -> when (aggregation) {
-                        "average" -> result[OxygenSaturationRecord.PERCENTAGE_AVG]?.value
-                        "max" -> result[OxygenSaturationRecord.PERCENTAGE_MAX]?.value
-                        "min" -> result[OxygenSaturationRecord.PERCENTAGE_MIN]?.value
-                        else -> result[OxygenSaturationRecord.PERCENTAGE_AVG]?.value
-                    }
-                    HealthDataType.HEART_RATE_VARIABILITY -> when (aggregation) {
-                        "average" -> result[HeartRateVariabilityRmssdRecord.HEART_RATE_VARIABILITY_AVG]
-                        "max" -> result[HeartRateVariabilityRmssdRecord.HEART_RATE_VARIABILITY_MAX]
-                        "min" -> result[HeartRateVariabilityRmssdRecord.HEART_RATE_VARIABILITY_MIN]
-                        else -> result[HeartRateVariabilityRmssdRecord.HEART_RATE_VARIABILITY_AVG]
                     }
                     else -> null
                 }
