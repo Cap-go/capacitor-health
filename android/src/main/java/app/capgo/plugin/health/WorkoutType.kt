@@ -2,6 +2,24 @@ package app.capgo.plugin.health
 
 import androidx.health.connect.client.records.ExerciseSessionRecord
 
+/**
+ * WorkoutType mapper between TypeScript workout types and Android Health Connect exercise types.
+ * 
+ * Note: Due to platform limitations, some TypeScript workout types map to the same Android
+ * exercise type. When reading workouts from Android, these will return the primary/legacy 
+ * workout type to maintain backward compatibility:
+ * 
+ * - highIntensityIntervalTraining, mixedCardio, crossTraining → reads as "crossTraining"
+ * - kickboxing, martialArts, wrestling → reads as "wrestling"
+ * - wheelchairRunPace, wheelchairWalkPace → reads as "wheelchairWalkPace"
+ * - stairs, stairClimbing → reads as "stairClimbing"
+ * - barre, pilates → reads as "pilates"
+ * - cooldown, flexibility, preparationAndRecovery → reads as "flexibility"
+ * - coreTraining, functionalStrengthTraining, strengthTraining, traditionalStrengthTraining → reads as "strengthTraining"
+ * 
+ * This asymmetric mapping is intentional to support the full iOS workout type set while
+ * maintaining compatibility with Android's more limited exercise type taxonomy.
+ */
 object WorkoutType {
     fun fromString(type: String?): Int? {
         if (type.isNullOrBlank()) return null

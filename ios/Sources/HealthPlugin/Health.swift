@@ -27,6 +27,17 @@ enum HealthManagerError: LocalizedError {
     }
 }
 
+/// WorkoutType enum that maps TypeScript workout types to iOS HealthKit HKWorkoutActivityType values.
+///
+/// This enum provides bidirectional mapping between the plugin's TypeScript workout types and
+/// native iOS HealthKit workout activity types. The mapping is designed to provide maximum
+/// compatibility across all iOS versions.
+///
+/// iOS Version Compatibility:
+/// - Most workout types are available on all supported iOS versions
+/// - cardioDance and socialDance require iOS 14.0+ and fallback to .dance on older versions
+///
+/// Note: The enum case names match the TypeScript WorkoutType union type for consistency.
 enum WorkoutType: String, CaseIterable {
     case running
     case cycling
@@ -272,11 +283,13 @@ enum WorkoutType: String, CaseIterable {
         case .wheelchairWalkPace:
             return .wheelchairWalkPace
         case .cardioDance:
+            // cardioDance requires iOS 14.0+, fallback to dance for older versions
             if #available(iOS 14.0, *) {
                 return .cardioDance
             }
             return .dance
         case .socialDance:
+            // socialDance requires iOS 14.0+, fallback to dance for older versions
             if #available(iOS 14.0, *) {
                 return .socialDance
             }
