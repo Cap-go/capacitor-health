@@ -75,7 +75,7 @@ object WorkoutType {
             "highIntensityIntervalTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
             "hockey" -> ExerciseSessionRecord.EXERCISE_TYPE_ICE_HOCKEY
             "hunting" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
-            "jumpRope" -> ExerciseSessionRecord.EXERCISE_TYPE_JUMPING_ROPE
+            "jumpRope" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
             "kickboxing" -> ExerciseSessionRecord.EXERCISE_TYPE_MARTIAL_ARTS
             "lacrosse" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
             "martialArts" -> ExerciseSessionRecord.EXERCISE_TYPE_MARTIAL_ARTS
@@ -156,7 +156,6 @@ object WorkoutType {
             ExerciseSessionRecord.EXERCISE_TYPE_HANDBALL -> "handball"
             ExerciseSessionRecord.EXERCISE_TYPE_WHEELCHAIR -> "wheelchairWalkPace"
             ExerciseSessionRecord.EXERCISE_TYPE_ICE_HOCKEY -> "hockey"
-            ExerciseSessionRecord.EXERCISE_TYPE_JUMPING_ROPE -> "jumpRope"
             ExerciseSessionRecord.EXERCISE_TYPE_PADDLING -> "paddleSports"
             ExerciseSessionRecord.EXERCISE_TYPE_RACQUETBALL -> "racquetball"
             ExerciseSessionRecord.EXERCISE_TYPE_RUGBY -> "rugby"
