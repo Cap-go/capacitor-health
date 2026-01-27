@@ -273,9 +273,17 @@ enum WorkoutType: String, CaseIterable {
         case .trackAndField:
             return .trackAndField
         case .transition:
-            return .transition
+            // transition requires iOS 16.0+, fallback to other for older versions
+            if #available(iOS 16.0, *) {
+                return .transition
+            }
+            return .other
         case .underwaterDiving:
-            return .underwaterDiving
+            // underwaterDiving requires iOS 17.0+, fallback to swimming for older versions
+            if #available(iOS 17.0, *) {
+                return .underwaterDiving
+            }
+            return .swimming
         case .volleyball:
             return .volleyball
         case .wheelchairRunPace:
@@ -447,10 +455,6 @@ enum WorkoutType: String, CaseIterable {
             return .taiChi
         case .trackAndField:
             return .trackAndField
-        case .transition:
-            return .transition
-        case .underwaterDiving:
-            return .underwaterDiving
         case .volleyball:
             return .volleyball
         case .wheelchairRunPace:
@@ -465,6 +469,18 @@ enum WorkoutType: String, CaseIterable {
                 }
                 if hkType == .socialDance {
                     return .socialDance
+                }
+            }
+            // Handle iOS 16+ types
+            if #available(iOS 16.0, *) {
+                if hkType == .transition {
+                    return .transition
+                }
+            }
+            // Handle iOS 17+ types
+            if #available(iOS 17.0, *) {
+                if hkType == .underwaterDiving {
+                    return .underwaterDiving
                 }
             }
             return .other
