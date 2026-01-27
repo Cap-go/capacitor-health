@@ -491,7 +491,7 @@ Construct a type with a set of properties K of type T
 
 #### WorkoutType
 
-<code>'running' | 'cycling' | 'walking' | 'swimming' | 'yoga' | 'strengthTraining' | 'hiking' | 'tennis' | 'basketball' | 'soccer' | 'americanFootball' | 'baseball' | 'crossTraining' | 'elliptical' | 'rowing' | 'stairClimbing' | 'traditionalStrengthTraining' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'wrestling' | 'other'</code>
+<code>'running' | 'cycling' | 'walking' | 'swimming' | 'yoga' | 'strengthTraining' | 'hiking' | 'tennis' | 'basketball' | 'soccer' | 'americanFootball' | 'baseball' | 'crossTraining' | 'elliptical' | 'rowing' | 'stairClimbing' | 'traditionalStrengthTraining' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'wrestling' | 'archery' | 'australianFootball' | 'badminton' | 'barre' | 'bowling' | 'boxing' | 'climbing' | 'cooldown' | 'coreTraining' | 'cricket' | 'crossCountrySkiing' | 'curling' | 'dance' | 'discSports' | 'downhillSkiing' | 'equestrianSports' | 'fencing' | 'fishing' | 'fitnessGaming' | 'flexibility' | 'functionalStrengthTraining' | 'golf' | 'gymnastics' | 'handball' | 'handCycling' | 'highIntensityIntervalTraining' | 'hockey' | 'hunting' | 'jumpRope' | 'kickboxing' | 'lacrosse' | 'martialArts' | 'mindAndBody' | 'mixedCardio' | 'paddleSports' | 'pickleball' | 'pilates' | 'play' | 'preparationAndRecovery' | 'racquetball' | 'rugby' | 'sailing' | 'skatingSports' | 'snowboarding' | 'snowSports' | 'softball' | 'squash' | 'stairs' | 'stepTraining' | 'surfingSports' | 'tableTennis' | 'taiChi' | 'trackAndField' | 'transition' | 'underwaterDiving' | 'volleyball' | 'wheelchairRunPace' | 'wheelchairWalkPace' | 'cardioDance' | 'socialDance' | 'other'</code>
 
 </docgen-api>
 
