@@ -15,7 +15,8 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getPluginVersion", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openHealthConnectSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showPrivacyPolicy", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "queryWorkouts", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "queryWorkouts", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "queryAggregated", returnType: CAPPluginReturnPromise)
     ]
 
     private let implementation = Health()
@@ -162,6 +163,35 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
             limit: limit,
             ascending: ascending,
             anchorString: anchor
+        ) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case let .success(response):
+                    call.resolve(response)
+                case let .failure(error):
+                    call.reject(error.localizedDescription, nil, error)
+                }
+            }
+        }
+    }
+
+    @objc func queryAggregated(_ call: CAPPluginCall) {
+        guard let dataType = call.getString("dataType") else {
+            call.reject("dataType is required")
+            return
+        }
+
+        let startDate = call.getString("startDate")
+        let endDate = call.getString("endDate")
+        let bucket = call.getString("bucket")
+        let aggregation = call.getString("aggregation")
+
+        implementation.queryAggregated(
+            dataTypeIdentifier: dataType,
+            startDateString: startDate,
+            endDateString: endDate,
+            bucketString: bucket,
+            aggregationString: aggregation
         ) { result in
             DispatchQueue.main.async {
                 switch result {

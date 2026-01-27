@@ -1,6 +1,24 @@
-export type HealthDataType = 'steps' | 'distance' | 'calories' | 'heartRate' | 'weight';
+export type HealthDataType = 
+  | 'steps' 
+  | 'distance' 
+  | 'calories' 
+  | 'heartRate' 
+  | 'weight'
+  | 'sleep'
+  | 'respiratoryRate'
+  | 'oxygenSaturation'
+  | 'restingHeartRate'
+  | 'heartRateVariability';
 
-export type HealthUnit = 'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram';
+export type HealthUnit = 
+  | 'count' 
+  | 'meter' 
+  | 'kilocalorie' 
+  | 'bpm' 
+  | 'kilogram'
+  | 'minute'
+  | 'percent'
+  | 'millisecond';
 
 export interface AuthorizationOptions {
   /** Data types that should be readable after authorization. */
@@ -36,6 +54,8 @@ export interface QueryOptions {
   ascending?: boolean;
 }
 
+export type SleepState = 'inBed' | 'asleep' | 'awake' | 'rem' | 'deep' | 'light';
+
 export interface HealthSample {
   dataType: HealthDataType;
   value: number;
@@ -44,6 +64,8 @@ export interface HealthSample {
   endDate: string;
   sourceName?: string;
   sourceId?: string;
+  /** For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light'). */
+  sleepState?: SleepState;
 }
 
 export interface ReadSamplesResult {
@@ -139,6 +161,38 @@ export interface WriteSampleOptions {
   metadata?: Record<string, string>;
 }
 
+export type BucketType = 'hour' | 'day' | 'week' | 'month';
+
+export type AggregationType = 'sum' | 'average' | 'min' | 'max';
+
+export interface QueryAggregatedOptions {
+  /** The type of data to aggregate from the health store. */
+  dataType: HealthDataType;
+  /** Inclusive ISO 8601 start date (defaults to now - 1 day). */
+  startDate?: string;
+  /** Exclusive ISO 8601 end date (defaults to now). */
+  endDate?: string;
+  /** Time bucket for aggregation (defaults to 'day'). */
+  bucket?: BucketType;
+  /** Aggregation operation to perform (defaults to 'sum'). */
+  aggregation?: AggregationType;
+}
+
+export interface AggregatedSample {
+  /** ISO 8601 start date of the bucket. */
+  startDate: string;
+  /** ISO 8601 end date of the bucket. */
+  endDate: string;
+  /** Aggregated value for the bucket. */
+  value: number;
+  /** Unit of the aggregated value. */
+  unit: HealthUnit;
+}
+
+export interface QueryAggregatedResult {
+  samples: AggregatedSample[];
+}
+
 export interface HealthPlugin {
   /** Returns whether the current platform supports the native health SDK. */
   isAvailable(): Promise<AvailabilityResult>;
@@ -194,4 +248,17 @@ export interface HealthPlugin {
    * @throws An error if something went wrong
    */
   queryWorkouts(options: QueryWorkoutsOptions): Promise<QueryWorkoutsResult>;
+
+  /**
+   * Queries aggregated health data from the native health store.
+   * Aggregates data into time buckets (hour, day, week, month) with operations like sum, average, min, or max.
+   * This is more efficient than fetching individual samples for large date ranges.
+   *
+   * Supported on iOS (HealthKit) and Android (Health Connect).
+   *
+   * @param options Query options including data type, date range, bucket size, and aggregation type
+   * @returns A promise that resolves with the aggregated samples
+   * @throws An error if something went wrong
+   */
+  queryAggregated(options: QueryAggregatedOptions): Promise<QueryAggregatedResult>;
 }

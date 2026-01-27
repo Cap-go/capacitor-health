@@ -209,6 +209,7 @@ while (result.anchor) {
 * [`openHealthConnectSettings()`](#openhealthconnectsettings)
 * [`showPrivacyPolicy()`](#showprivacypolicy)
 * [`queryWorkouts(...)`](#queryworkouts)
+* [`queryAggregated(...)`](#queryaggregated)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
@@ -361,6 +362,27 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 --------------------
 
 
+### queryAggregated(...)
+
+```typescript
+queryAggregated(options: QueryAggregatedOptions) => Promise<QueryAggregatedResult>
+```
+
+Queries aggregated health data from the native health store.
+Aggregates data into time buckets (hour, day, week, month) with operations like sum, average, min, or max.
+This is more efficient than fetching individual samples for large date ranges.
+
+Supported on iOS (HealthKit) and Android (Health Connect).
+
+| Param         | Type                                                                      | Description                                                                      |
+| ------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **`options`** | <code><a href="#queryaggregatedoptions">QueryAggregatedOptions</a></code> | Query options including data type, date range, bucket size, and aggregation type |
+
+**Returns:** <code>Promise&lt;<a href="#queryaggregatedresult">QueryAggregatedResult</a>&gt;</code>
+
+--------------------
+
+
 ### Interfaces
 
 
@@ -400,15 +422,16 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### HealthSample
 
-| Prop             | Type                                                      |
-| ---------------- | --------------------------------------------------------- |
-| **`dataType`**   | <code><a href="#healthdatatype">HealthDataType</a></code> |
-| **`value`**      | <code>number</code>                                       |
-| **`unit`**       | <code><a href="#healthunit">HealthUnit</a></code>         |
-| **`startDate`**  | <code>string</code>                                       |
-| **`endDate`**    | <code>string</code>                                       |
-| **`sourceName`** | <code>string</code>                                       |
-| **`sourceId`**   | <code>string</code>                                       |
+| Prop             | Type                                                      | Description                                                                                  |
+| ---------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **`dataType`**   | <code><a href="#healthdatatype">HealthDataType</a></code> |                                                                                              |
+| **`value`**      | <code>number</code>                                       |                                                                                              |
+| **`unit`**       | <code><a href="#healthunit">HealthUnit</a></code>         |                                                                                              |
+| **`startDate`**  | <code>string</code>                                       |                                                                                              |
+| **`endDate`**    | <code>string</code>                                       |                                                                                              |
+| **`sourceName`** | <code>string</code>                                       |                                                                                              |
+| **`sourceId`**   | <code>string</code>                                       |                                                                                              |
+| **`sleepState`** | <code><a href="#sleepstate">SleepState</a></code>         | For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light'). |
 
 
 #### QueryOptions
@@ -469,17 +492,50 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`anchor`**      | <code>string</code>                                 | Anchor for pagination. Use the anchor returned from a previous query to continue from that point. On iOS, this uses HKQueryAnchor. On Android, this uses Health Connect's pageToken. Omit this parameter to start from the beginning. |
 
 
+#### QueryAggregatedResult
+
+| Prop          | Type                            |
+| ------------- | ------------------------------- |
+| **`samples`** | <code>AggregatedSample[]</code> |
+
+
+#### AggregatedSample
+
+| Prop            | Type                                              | Description                        |
+| --------------- | ------------------------------------------------- | ---------------------------------- |
+| **`startDate`** | <code>string</code>                               | ISO 8601 start date of the bucket. |
+| **`endDate`**   | <code>string</code>                               | ISO 8601 end date of the bucket.   |
+| **`value`**     | <code>number</code>                               | Aggregated value for the bucket.   |
+| **`unit`**      | <code><a href="#healthunit">HealthUnit</a></code> | Unit of the aggregated value.      |
+
+
+#### QueryAggregatedOptions
+
+| Prop              | Type                                                        | Description                                              |
+| ----------------- | ----------------------------------------------------------- | -------------------------------------------------------- |
+| **`dataType`**    | <code><a href="#healthdatatype">HealthDataType</a></code>   | The type of data to aggregate from the health store.     |
+| **`startDate`**   | <code>string</code>                                         | Inclusive ISO 8601 start date (defaults to now - 1 day). |
+| **`endDate`**     | <code>string</code>                                         | Exclusive ISO 8601 end date (defaults to now).           |
+| **`bucket`**      | <code><a href="#buckettype">BucketType</a></code>           | Time bucket for aggregation (defaults to 'day').         |
+| **`aggregation`** | <code><a href="#aggregationtype">AggregationType</a></code> | Aggregation operation to perform (defaults to 'sum').    |
+
+
 ### Type Aliases
 
 
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight'</code>
+<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability'</code>
 
 
 #### HealthUnit
 
-<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram'</code>
+<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond'</code>
+
+
+#### SleepState
+
+<code>'inBed' | 'asleep' | 'awake' | 'rem' | 'deep' | 'light'</code>
 
 
 #### Record
@@ -492,6 +548,16 @@ Construct a type with a set of properties K of type T
 #### WorkoutType
 
 <code>'running' | 'cycling' | 'walking' | 'swimming' | 'yoga' | 'strengthTraining' | 'hiking' | 'tennis' | 'basketball' | 'soccer' | 'americanFootball' | 'baseball' | 'crossTraining' | 'elliptical' | 'rowing' | 'stairClimbing' | 'traditionalStrengthTraining' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'wrestling' | 'other'</code>
+
+
+#### BucketType
+
+<code>'hour' | 'day' | 'week' | 'month'</code>
+
+
+#### AggregationType
+
+<code>'sum' | 'average' | 'min' | 'max'</code>
 
 </docgen-api>
 
