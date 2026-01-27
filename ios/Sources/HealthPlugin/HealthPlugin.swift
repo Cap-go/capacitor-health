@@ -3,7 +3,7 @@ import Capacitor
 
 @objc(HealthPlugin)
 public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
-    private let pluginVersion: String = "8.2.6"
+    private let pluginVersion: String = "8.2.8"
     public let identifier = "HealthPlugin"
     public let jsName = "Health"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -165,8 +165,8 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         ) { result in
             DispatchQueue.main.async {
                 switch result {
-                case let .success(result):
-                    call.resolve(result)
+                case let .success(response):
+                    call.resolve(response)
                 case let .failure(error):
                     call.reject(error.localizedDescription, nil, error)
                 }

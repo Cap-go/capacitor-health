@@ -982,33 +982,29 @@ final class Health {
                 return
             }
 
-            guard let samples = samplesOrNil as? [HKWorkout] else {
-                // Return empty results with new anchor
-                var result: [String: Any] = ["workouts": []]
-                if let newAnchor = newAnchor,
-                   let anchorData = try? NSKeyedArchiver.archivedData(withRootObject: newAnchor, requiringSecureCoding: true) {
-                    result["anchor"] = anchorData.base64EncodedString()
-                }
-                completion(.success(result))
+            guard let workouts = samples as? [HKWorkout] else {
+                completion(.success(["workouts": []]))
                 return
             }
 
             // Note: We don't sort results from HKAnchoredObjectQuery to preserve anchor-based
             // pagination consistency. Sorting could cause the same workout to appear in multiple
             // result sets across paginated queries.
-            let workoutPayloads = samples.map { workout -> [String: Any] in
+            let workoutPayloads = workouts.map { workout -> [String: Any] in
                 self.workoutToPayload(workout)
             }
 
-            var result: [String: Any] = ["workouts": workoutPayloads]
-            
-            // Encode and return the new anchor for pagination
-            if let newAnchor = newAnchor,
-               let anchorData = try? NSKeyedArchiver.archivedData(withRootObject: newAnchor, requiringSecureCoding: true) {
-                result["anchor"] = anchorData.base64EncodedString()
+            // Generate next anchor if we have results and reached the limit
+            var response: [String: Any] = ["workouts": workoutPayloads]
+            if !workouts.isEmpty && workouts.count >= queryLimit {
+                // Use the last workout's end date as the anchor for the next page
+                let lastWorkout = workouts.last!
+                // Add a small offset to avoid getting the same workout again
+                let nextAnchorDate = lastWorkout.endDate.addingTimeInterval(self.paginationOffsetSeconds)
+                response["anchor"] = self.isoFormatter.string(from: nextAnchorDate)
             }
 
-            completion(.success(result))
+            completion(.success(response))
         }
 
         healthStore.execute(anchoredQuery)

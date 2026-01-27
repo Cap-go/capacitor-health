@@ -351,7 +351,6 @@ class HealthManager {
         if (pageToken != null) {
             result.put("anchor", pageToken)
         }
-        
         return result
     }
     

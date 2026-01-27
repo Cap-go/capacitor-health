@@ -170,45 +170,12 @@ await Health.requestAuthorization({
 });
 ```
 
-### Querying Workouts
-
-The plugin supports querying workout sessions from both iOS HealthKit and Android Health Connect.
-
-**Note:** The `queryWorkouts` method now returns an object with `workouts` and optional `anchor` fields (instead of just an array). The TypeScript interface handles this automatically, but if you're using the native APIs directly, be aware of this change.
+**Pagination example:** Use the `anchor` parameter to paginate through workout results:
 
 ```ts
-// Query all workouts from the last 7 days
-const result = await Health.queryWorkouts({
-  startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-  endDate: new Date().toISOString(),
-  limit: 100,
-});
-
-console.log('Workouts:', result.workouts);
-// Optional: Save the anchor for pagination
-const anchor = result.anchor;
-```
-
-#### Pagination Support
-
-The plugin supports pagination using anchors, but the behavior differs between platforms:
-
-**iOS (Incremental Queries):**
-- Uses `HKAnchoredObjectQuery` to efficiently fetch only NEW workouts since the anchor
-- When you provide an anchor, iOS returns workouts that haven't been delivered since that anchor was created
-- Best for tracking new workout data over time
-- The `ascending` parameter is ignored to maintain pagination consistency
-
-**Android (Simple Pagination):**
-- Uses Health Connect's pagination tokens to continue through a result set
-- Returns the next page of results from the same query
-- Best for loading large result sets in batches
-
-```ts
-// iOS: Get new workouts since last query
-// Android: Paginate through workouts
+// First page: get the first 10 workouts
 let result = await Health.queryWorkouts({
-  startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // Last 30 days
   endDate: new Date().toISOString(),
   limit: 10,
 });
@@ -228,11 +195,6 @@ while (result.anchor) {
   console.log(`Found ${result.workouts.length} more workouts`);
 }
 ```
-
-**Note:** Due to these platform differences, anchor-based pagination is **optional** and should be used based on your use case:
-- Use anchors on iOS for efficient incremental updates
-- Use anchors on Android for paginating through large result sets
-- For simple queries with reasonable limits, anchors may not be necessary
 
 #### Supported Workout Types
 
@@ -490,10 +452,10 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### QueryWorkoutsResult
 
-| Prop           | Type                   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **`workouts`** | <code>Workout[]</code> |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **`anchor`**   | <code>string</code>    | Anchor for pagination or incremental queries. Save this value and pass it to the next queryWorkouts call. **iOS**: Returns an HKQueryAnchor (as base64 string) that can be used for incremental queries. The anchor is returned even when the workouts array is empty, allowing subsequent queries to detect new data. **Android**: Returns a pagination token to continue reading through the result set. The token may be absent when there are no more results to fetch. **Platform differences**: - iOS: Enables incremental queries - returns NEW workouts since the anchor was created - Android: Simple pagination - continues through the same result set The anchor may be omitted when: - The platform doesn't support anchors (web implementation) - There are no more results (Android pagination exhausted) Always check for the presence of anchor before using it for pagination. |
+| Prop           | Type                   | Description                                                                                                                                                             |
+| -------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`workouts`** | <code>Workout[]</code> |                                                                                                                                                                         |
+| **`anchor`**   | <code>string</code>    | Anchor for the next page of results. Pass this value as the anchor parameter in the next query to continue pagination. If undefined or null, there are no more results. |
 
 
 #### Workout
@@ -513,14 +475,14 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### QueryWorkoutsOptions
 
-| Prop              | Type                                                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **`workoutType`** | <code><a href="#workouttype">WorkoutType</a></code> | Optional workout type filter. If omitted, all workout types are returned.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **`startDate`**   | <code>string</code>                                 | Inclusive ISO 8601 start date (defaults to now - 1 day).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **`endDate`**     | <code>string</code>                                 | Exclusive ISO 8601 end date (defaults to now).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **`limit`**       | <code>number</code>                                 | Maximum number of workouts to return (defaults to 100).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| **`ascending`**   | <code>boolean</code>                                | Return results sorted ascending by start date (defaults to false).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **`anchor`**      | <code>string</code>                                 | Anchor for pagination or incremental queries. Use the anchor returned in <a href="#queryworkoutsresult">QueryWorkoutsResult</a> to fetch the next page or incremental set of results. **iOS behavior**: Uses HKAnchoredObjectQuery. When an anchor is provided with a date range, HealthKit returns workouts that match the predicate and haven't been delivered since the anchor was created. This enables efficient incremental queries for NEW workouts, but does NOT track modifications to existing workouts. **Android behavior**: Uses Health Connect's pagination tokens for simple pagination through a result set. This does NOT track changes - it simply continues reading through results matching the query. To detect truly new/modified workouts on Android, you would need Health Connect's change tracking API. **Important**: The `ascending` parameter is ignored when using anchored queries to maintain consistency. |
+| Prop              | Type                                                | Description                                                                                                                                                                                                                           |
+| ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`workoutType`** | <code><a href="#workouttype">WorkoutType</a></code> | Optional workout type filter. If omitted, all workout types are returned.                                                                                                                                                             |
+| **`startDate`**   | <code>string</code>                                 | Inclusive ISO 8601 start date (defaults to now - 1 day).                                                                                                                                                                              |
+| **`endDate`**     | <code>string</code>                                 | Exclusive ISO 8601 end date (defaults to now).                                                                                                                                                                                        |
+| **`limit`**       | <code>number</code>                                 | Maximum number of workouts to return (defaults to 100).                                                                                                                                                                               |
+| **`ascending`**   | <code>boolean</code>                                | Return results sorted ascending by start date (defaults to false).                                                                                                                                                                    |
+| **`anchor`**      | <code>string</code>                                 | Anchor for pagination. Use the anchor returned from a previous query to continue from that point. On iOS, this uses HKQueryAnchor. On Android, this uses Health Connect's pageToken. Omit this parameter to start from the beginning. |
 
 
 ### Type Aliases
