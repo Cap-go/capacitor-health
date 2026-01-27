@@ -413,11 +413,14 @@ class HealthManager {
         val samples = JSArray()
         
         // Determine bucket size
+        // Note: Monthly buckets use 30 days as an approximation, which may not align exactly
+        // with calendar months. This provides consistent bucket sizes but users should be aware
+        // that "month" buckets don't correspond to actual calendar months (Jan, Feb, etc.).
         val bucketDuration = when (bucket) {
             "hour" -> Duration.ofHours(1)
             "day" -> Duration.ofDays(1)
             "week" -> Duration.ofDays(7)
-            "month" -> Duration.ofDays(30) // Approximation
+            "month" -> Duration.ofDays(30) // Approximation: not calendar months
             else -> Duration.ofDays(1)
         }
         

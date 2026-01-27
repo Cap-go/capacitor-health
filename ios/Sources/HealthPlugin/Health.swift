@@ -498,8 +498,8 @@ final class Health {
             guard let categoryType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else {
                 throw HealthManagerError.dataTypeUnavailable(dataTypeIdentifier)
             }
-            // For sleep, value represents the sleep state
-            // Default to asleep if not specified
+            // For sleep, the value parameter should represent a sleep state value from HKCategoryValueSleepAnalysis
+            // If value is 0 or not specified, default to asleep (HKCategoryValueSleepAnalysis.asleep.rawValue)
             let sleepValue = Int(value) == 0 ? HKCategoryValueSleepAnalysis.asleep.rawValue : Int(value)
             let sample = HKCategorySample(type: categoryType, value: sleepValue, start: startDate, end: endDate, metadata: metadataDictionary)
             
@@ -720,6 +720,7 @@ final class Health {
                 return
             }
             
+            // Default bucket is "day" and default aggregation is "sum" (consistent with TypeScript defaults)
             let bucket = bucketString ?? "day"
             let aggregation = aggregationString ?? "sum"
             
@@ -736,7 +737,10 @@ final class Health {
             case "week":
                 intervalComponents.day = 7
             case "month":
-                intervalComponents.month = 1
+                // Note: Using 30 days as an approximation. This may not align exactly with calendar months
+                // but provides consistent bucket sizes. For calendar-month accuracy, consider using
+                // readSamples with appropriate date ranges instead.
+                intervalComponents.day = 30
             default:
                 intervalComponents.day = 1
             }
