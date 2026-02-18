@@ -22,7 +22,20 @@ export type HealthDataType =
   | 'totalCalories'
   | 'mindfulness';
 
-export type HealthUnit = 'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter';
+export type HealthUnit =
+  | 'count'
+  | 'meter'
+  | 'kilocalorie'
+  | 'bpm'
+  | 'kilogram'
+  | 'minute'
+  | 'percent'
+  | 'millisecond'
+  | 'mmHg'
+  | 'mg/dL'
+  | 'celsius'
+  | 'fahrenheit'
+  | 'centimeter';
 
 export interface AuthorizationOptions {
   /** Data types that should be readable after authorization. */

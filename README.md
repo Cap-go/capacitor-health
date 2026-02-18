@@ -521,6 +521,8 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`sourceName`** | <code>string</code>                                       |                                                                                              |
 | **`sourceId`**   | <code>string</code>                                       |                                                                                              |
 | **`sleepState`** | <code><a href="#sleepstate">SleepState</a></code>         | For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light'). |
+| **`systolic`**   | <code>number</code>                                       | For blood pressure data, the systolic value in mmHg.                                         |
+| **`diastolic`**  | <code>number</code>                                       | For blood pressure data, the diastolic value in mmHg.                                        |
 
 
 #### QueryOptions
@@ -544,6 +546,8 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`startDate`** | <code>string</code>                                             | ISO 8601 start date for the sample. Defaults to now.                                                                                                                                              |
 | **`endDate`**   | <code>string</code>                                             | ISO 8601 end date for the sample. Defaults to startDate.                                                                                                                                          |
 | **`metadata`**  | <code><a href="#record">Record</a>&lt;string, string&gt;</code> | Metadata key-value pairs forwarded to the native APIs where supported.                                                                                                                            |
+| **`systolic`**  | <code>number</code>                                             | For blood pressure data, the systolic value in mmHg. Required when dataType is 'bloodPressure'.                                                                                                   |
+| **`diastolic`** | <code>number</code>                                             | For blood pressure data, the diastolic value in mmHg. Required when dataType is 'bloodPressure'.                                                                                                  |
 
 
 #### QueryWorkoutsResult
@@ -614,12 +618,12 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability'</code>
+<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness'</code>
 
 
 #### HealthUnit
 
-<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond'</code>
+<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter'</code>
 
 
 #### SleepState
