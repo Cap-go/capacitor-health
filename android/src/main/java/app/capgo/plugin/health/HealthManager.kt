@@ -211,6 +211,119 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
+            HealthDataType.BLOOD_PRESSURE -> readRecords(client, BloodPressureRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.systolic.inMillimetersOfMercury,
+                    record.metadata
+                )
+                payload.put("systolic", record.systolic.inMillimetersOfMercury)
+                payload.put("diastolic", record.diastolic.inMillimetersOfMercury)
+                samples.add(record.time to payload)
+            }
+            HealthDataType.BLOOD_GLUCOSE -> readRecords(client, BloodGlucoseRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.level.inMilligramsPerDeciliter,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.BODY_TEMPERATURE -> readRecords(client, BodyTemperatureRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.temperature.inCelsius,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.HEIGHT -> readRecords(client, HeightRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.height.inMeters * 100.0, // Convert to centimeters
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.FLIGHTS_CLIMBED -> readRecords(client, FloorsClimbedRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.startTime,
+                    record.endTime,
+                    record.floors,
+                    record.metadata
+                )
+                samples.add(record.startTime to payload)
+            }
+            HealthDataType.DISTANCE_CYCLING -> readRecords(client, DistanceRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.startTime,
+                    record.endTime,
+                    record.distance.inMeters,
+                    record.metadata
+                )
+                samples.add(record.startTime to payload)
+            }
+            HealthDataType.BODY_FAT -> readRecords(client, BodyFatRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.percentage.value,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.BASAL_BODY_TEMPERATURE -> readRecords(client, BasalBodyTemperatureRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.temperature.inCelsius,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.BASAL_CALORIES -> readRecords(client, BasalMetabolicRateRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.basalMetabolicRate.inKilocaloriesPerDay,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.TOTAL_CALORIES -> readRecords(client, TotalCaloriesBurnedRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.startTime,
+                    record.endTime,
+                    record.energy.inKilocalories,
+                    record.metadata
+                )
+                samples.add(record.startTime to payload)
+            }
+            HealthDataType.MINDFULNESS -> readRecords(client, MindfulnessSessionRecord::class, startTime, endTime, limit) { record ->
+                val durationMinutes = Duration.between(record.startTime, record.endTime).toMinutes().toDouble()
+                val payload = createSamplePayload(
+                    dataType,
+                    record.startTime,
+                    record.endTime,
+                    durationMinutes,
+                    record.metadata
+                )
+                samples.add(record.startTime to payload)
+            }
         }
 
         val sorted = samples.sortedBy { it.first }
@@ -257,7 +370,9 @@ class HealthManager {
         value: Double,
         startTime: Instant,
         endTime: Instant,
-        metadata: Map<String, String>?
+        metadata: Map<String, String>?,
+        systolic: Double?,
+        diastolic: Double?
     ) {
         when (dataType) {
             HealthDataType.STEPS -> {
@@ -347,6 +462,105 @@ class HealthManager {
                     time = startTime,
                     zoneOffset = zoneOffset(startTime),
                     heartRateVariabilityMillis = value
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.BLOOD_PRESSURE -> {
+                if (systolic == null || diastolic == null) {
+                    throw IllegalArgumentException("Blood pressure requires both systolic and diastolic values")
+                }
+                val record = BloodPressureRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    systolic = androidx.health.connect.client.units.Pressure.millimetersOfMercury(systolic),
+                    diastolic = androidx.health.connect.client.units.Pressure.millimetersOfMercury(diastolic)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.BLOOD_GLUCOSE -> {
+                val record = BloodGlucoseRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    level = androidx.health.connect.client.units.BloodGlucose.milligramsPerDeciliter(value)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.BODY_TEMPERATURE -> {
+                val record = BodyTemperatureRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    temperature = androidx.health.connect.client.units.Temperature.celsius(value)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.HEIGHT -> {
+                val record = HeightRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    height = Length.meters(value / 100.0) // Convert from centimeters to meters
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.FLIGHTS_CLIMBED -> {
+                val record = FloorsClimbedRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime),
+                    floors = value
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.DISTANCE_CYCLING -> {
+                val record = DistanceRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime),
+                    distance = Length.meters(value)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.BODY_FAT -> {
+                val record = BodyFatRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    percentage = Percentage(value)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.BASAL_BODY_TEMPERATURE -> {
+                val record = BasalBodyTemperatureRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    temperature = androidx.health.connect.client.units.Temperature.celsius(value)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.BASAL_CALORIES -> {
+                val record = BasalMetabolicRateRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    basalMetabolicRate = Power.kilocaloriesPerDay(value)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.TOTAL_CALORIES -> {
+                val record = TotalCaloriesBurnedRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime),
+                    energy = Energy.kilocalories(value)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.MINDFULNESS -> {
+                val record = MindfulnessSessionRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime)
                 )
                 client.insertRecords(listOf(record))
             }

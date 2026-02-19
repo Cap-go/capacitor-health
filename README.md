@@ -174,9 +174,44 @@ await Health.saveSample({
 | `oxygenSaturation`      | `percent`     | Blood oxygen saturation (SpO2)                           |
 | `restingHeartRate`      | `bpm`         | Resting heart rate                                       |
 | `heartRateVariability`  | `millisecond` | Heart rate variability (HRV)                             |
+| `bloodPressure`         | `mmHg`        | Blood pressure (requires systolic/diastolic values)      |
+| `bloodGlucose`          | `mg/dL`       | Blood glucose level                                      |
+| `bodyTemperature`       | `celsius`     | Body temperature                                         |
+| `height`                | `centimeter`  | Body height                                              |
+| `flightsClimbed`        | `count`       | Floors / flights of stairs climbed                       |
+| `exerciseTime`          | `minute`      | Apple Exercise Time (iOS only)                           |
+| `distanceCycling`       | `meter`       | Cycling distance                                         |
+| `bodyFat`               | `percent`     | Body fat percentage                                      |
+| `basalBodyTemperature`  | `celsius`     | Basal body temperature                                   |
+| `basalCalories`         | `kilocalorie` | Basal metabolic rate / resting energy                    |
+| `totalCalories`         | `kilocalorie` | Total energy burned (active + basal)                     |
+| `mindfulness`           | `minute`      | Mindfulness / meditation sessions                        |
 | `workouts`              | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
 
 All write operations expect the default unit shown above. On Android the `metadata` option is currently ignored by Health Connect.
+
+**Blood Pressure:** Blood pressure requires both systolic and diastolic values:
+
+```ts
+await Health.saveSample({
+  dataType: 'bloodPressure',
+  value: 120, // systolic value (used as main value)
+  systolic: 120,
+  diastolic: 80,
+  startDate: new Date().toISOString(),
+});
+
+// Reading blood pressure returns samples with systolic/diastolic fields
+const { samples } = await Health.readSamples({
+  dataType: 'bloodPressure',
+  startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+});
+
+samples.forEach((sample) => {
+  console.log(`BP: ${sample.systolic}/${sample.diastolic} mmHg`);
+});
+```
 
 **Note about workouts:** To query workout data using `queryWorkouts()`, you need to explicitly request `workouts` permission:
 
@@ -521,6 +556,8 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`sourceName`** | <code>string</code>                                       |                                                                                              |
 | **`sourceId`**   | <code>string</code>                                       |                                                                                              |
 | **`sleepState`** | <code><a href="#sleepstate">SleepState</a></code>         | For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light'). |
+| **`systolic`**   | <code>number</code>                                       | For blood pressure data, the systolic value in mmHg.                                         |
+| **`diastolic`**  | <code>number</code>                                       | For blood pressure data, the diastolic value in mmHg.                                        |
 
 
 #### QueryOptions
@@ -544,6 +581,8 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`startDate`** | <code>string</code>                                             | ISO 8601 start date for the sample. Defaults to now.                                                                                                                                              |
 | **`endDate`**   | <code>string</code>                                             | ISO 8601 end date for the sample. Defaults to startDate.                                                                                                                                          |
 | **`metadata`**  | <code><a href="#record">Record</a>&lt;string, string&gt;</code> | Metadata key-value pairs forwarded to the native APIs where supported.                                                                                                                            |
+| **`systolic`**  | <code>number</code>                                             | For blood pressure data, the systolic value in mmHg. Required when dataType is 'bloodPressure'.                                                                                                   |
+| **`diastolic`** | <code>number</code>                                             | For blood pressure data, the diastolic value in mmHg. Required when dataType is 'bloodPressure'.                                                                                                  |
 
 
 #### QueryWorkoutsResult
@@ -614,12 +653,12 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability'</code>
+<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness'</code>
 
 
 #### HealthUnit
 
-<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond'</code>
+<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter'</code>
 
 
 #### SleepState

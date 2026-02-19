@@ -160,11 +160,33 @@ enum HealthDataType: String, CaseIterable {
     case oxygenSaturation
     case restingHeartRate
     case heartRateVariability
+    case bloodPressure
+    case bloodGlucose
+    case bodyTemperature
+    case height
+    case flightsClimbed
+    case exerciseTime
+    case distanceCycling
+    case bodyFat
+    case basalBodyTemperature
+    case basalCalories
+    case totalCalories
+    case mindfulness
 
     func sampleType() throws -> HKSampleType {
         switch self {
         case .sleep:
             guard let type = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else {
+                throw HealthManagerError.dataTypeUnavailable(rawValue)
+            }
+            return type
+        case .bloodPressure:
+            guard let type = HKObjectType.correlationType(forIdentifier: .bloodPressure) else {
+                throw HealthManagerError.dataTypeUnavailable(rawValue)
+            }
+            return type
+        case .mindfulness:
+            guard let type = HKObjectType.categoryType(forIdentifier: .mindfulSession) else {
                 throw HealthManagerError.dataTypeUnavailable(rawValue)
             }
             return type
@@ -194,8 +216,32 @@ enum HealthDataType: String, CaseIterable {
             identifier = .restingHeartRate
         case .heartRateVariability:
             identifier = .heartRateVariabilitySDNN
+        case .bloodGlucose:
+            identifier = .bloodGlucose
+        case .bodyTemperature:
+            identifier = .bodyTemperature
+        case .height:
+            identifier = .height
+        case .flightsClimbed:
+            identifier = .flightsClimbed
+        case .exerciseTime:
+            identifier = .appleExerciseTime
+        case .distanceCycling:
+            identifier = .distanceCycling
+        case .bodyFat:
+            identifier = .bodyFatPercentage
+        case .basalBodyTemperature:
+            identifier = .basalBodyTemperature
+        case .basalCalories:
+            identifier = .basalEnergyBurned
+        case .totalCalories:
+            identifier = .activeEnergyBurned
         case .sleep:
             throw HealthManagerError.invalidDataType("Sleep is a category type, not a quantity type")
+        case .bloodPressure:
+            throw HealthManagerError.invalidDataType("Blood pressure is a correlation type, not a quantity type")
+        case .mindfulness:
+            throw HealthManagerError.invalidDataType("Mindfulness is a category type, not a quantity type")
         }
 
         guard let type = HKObjectType.quantityType(forIdentifier: identifier) else {
@@ -224,6 +270,28 @@ enum HealthDataType: String, CaseIterable {
             return HKUnit.secondUnit(with: .milli)
         case .sleep:
             return HKUnit.minute()
+        case .bloodPressure:
+            return HKUnit.millimeterOfMercury()
+        case .bloodGlucose:
+            return HKUnit.gramUnit(with: .milli).unitDivided(by: HKUnit.literUnit(with: .deci))
+        case .bodyTemperature, .basalBodyTemperature:
+            return HKUnit.degreeCelsius()
+        case .height:
+            return HKUnit.meterUnit(with: .centi)
+        case .flightsClimbed:
+            return HKUnit.count()
+        case .exerciseTime:
+            return HKUnit.minute()
+        case .distanceCycling:
+            return HKUnit.meter()
+        case .bodyFat:
+            return HKUnit.percent()
+        case .basalCalories:
+            return HKUnit.kilocalorie()
+        case .totalCalories:
+            return HKUnit.kilocalorie()
+        case .mindfulness:
+            return HKUnit.minute()
         }
     }
 
@@ -244,6 +312,28 @@ enum HealthDataType: String, CaseIterable {
         case .heartRateVariability:
             return "millisecond"
         case .sleep:
+            return "minute"
+        case .bloodPressure:
+            return "mmHg"
+        case .bloodGlucose:
+            return "mg/dL"
+        case .bodyTemperature, .basalBodyTemperature:
+            return "celsius"
+        case .height:
+            return "centimeter"
+        case .flightsClimbed:
+            return "count"
+        case .exerciseTime:
+            return "minute"
+        case .distanceCycling:
+            return "meter"
+        case .bodyFat:
+            return "percent"
+        case .basalCalories:
+            return "kilocalorie"
+        case .totalCalories:
+            return "kilocalorie"
+        case .mindfulness:
             return "minute"
         }
     }
@@ -415,6 +505,94 @@ final class Health {
             healthStore.execute(query)
             return
         }
+        
+        // Handle mindfulness as a category sample
+        if dataType == .mindfulness {
+            let query = HKSampleQuery(sampleType: sampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
+                guard let self = self else { return }
+
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let categorySamples = samples as? [HKCategorySample] else {
+                    completion(.success([]))
+                    return
+                }
+
+                let results = categorySamples.map { sample -> [String: Any] in
+                    let durationMinutes = sample.endDate.timeIntervalSince(sample.startDate) / 60.0
+                    
+                    var payload: [String: Any] = [
+                        "dataType": dataType.rawValue,
+                        "value": durationMinutes,
+                        "unit": dataType.unitIdentifier,
+                        "startDate": self.isoFormatter.string(from: sample.startDate),
+                        "endDate": self.isoFormatter.string(from: sample.endDate)
+                    ]
+
+                    let source = sample.sourceRevision.source
+                    payload["sourceName"] = source.name
+                    payload["sourceId"] = source.bundleIdentifier
+
+                    return payload
+                }
+
+                completion(.success(results))
+            }
+            healthStore.execute(query)
+            return
+        }
+        
+        // Handle blood pressure as a correlation sample
+        if dataType == .bloodPressure {
+            let query = HKSampleQuery(sampleType: sampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
+                guard let self = self else { return }
+
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let correlations = samples as? [HKCorrelation] else {
+                    completion(.success([]))
+                    return
+                }
+
+                let results = correlations.compactMap { correlation -> [String: Any]? in
+                    guard let systolicType = HKObjectType.quantityType(forIdentifier: .bloodPressureSystolic),
+                          let diastolicType = HKObjectType.quantityType(forIdentifier: .bloodPressureDiastolic),
+                          let systolicSample = correlation.objects(for: systolicType).first as? HKQuantitySample,
+                          let diastolicSample = correlation.objects(for: diastolicType).first as? HKQuantitySample else {
+                        return nil
+                    }
+                    
+                    let systolicValue = systolicSample.quantity.doubleValue(for: HKUnit.millimeterOfMercury())
+                    let diastolicValue = diastolicSample.quantity.doubleValue(for: HKUnit.millimeterOfMercury())
+                    
+                    var payload: [String: Any] = [
+                        "dataType": dataType.rawValue,
+                        "value": systolicValue,
+                        "unit": dataType.unitIdentifier,
+                        "startDate": self.isoFormatter.string(from: correlation.startDate),
+                        "endDate": self.isoFormatter.string(from: correlation.endDate),
+                        "systolic": systolicValue,
+                        "diastolic": diastolicValue
+                    ]
+
+                    let source = correlation.sourceRevision.source
+                    payload["sourceName"] = source.name
+                    payload["sourceId"] = source.bundleIdentifier
+
+                    return payload
+                }
+
+                completion(.success(results))
+            }
+            healthStore.execute(query)
+            return
+        }
 
         // Handle quantity samples
         let query = HKSampleQuery(sampleType: sampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
@@ -481,7 +659,7 @@ final class Health {
         }
     }
 
-    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, completion: @escaping (Result<Void, Error>) -> Void) throws {
+    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, completion: @escaping (Result<Void, Error>) -> Void) throws {
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthManagerError.healthDataUnavailable
         }
@@ -513,6 +691,63 @@ final class Health {
             let sample = HKCategorySample(type: categoryType, value: sleepValue, start: startDate, end: endDate, metadata: metadataDictionary)
             
             healthStore.save(sample) { success, error in
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                
+                if success {
+                    completion(.success(()))
+                } else {
+                    completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
+                }
+            }
+            return
+        }
+        
+        // Handle mindfulness as a category sample
+        if dataType == .mindfulness {
+            guard let categoryType = HKObjectType.categoryType(forIdentifier: .mindfulSession) else {
+                throw HealthManagerError.dataTypeUnavailable(dataTypeIdentifier)
+            }
+            let sample = HKCategorySample(type: categoryType, value: 0, start: startDate, end: endDate, metadata: metadataDictionary)
+            
+            healthStore.save(sample) { success, error in
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                
+                if success {
+                    completion(.success(()))
+                } else {
+                    completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
+                }
+            }
+            return
+        }
+        
+        // Handle blood pressure as a correlation sample
+        if dataType == .bloodPressure {
+            guard let systolicValue = systolic, let diastolicValue = diastolic else {
+                throw HealthManagerError.operationFailed("Blood pressure requires both systolic and diastolic values")
+            }
+            
+            guard let systolicType = HKObjectType.quantityType(forIdentifier: .bloodPressureSystolic),
+                  let diastolicType = HKObjectType.quantityType(forIdentifier: .bloodPressureDiastolic),
+                  let correlationType = HKObjectType.correlationType(forIdentifier: .bloodPressure) else {
+                throw HealthManagerError.dataTypeUnavailable(dataTypeIdentifier)
+            }
+            
+            let systolicQuantity = HKQuantity(unit: HKUnit.millimeterOfMercury(), doubleValue: systolicValue)
+            let diastolicQuantity = HKQuantity(unit: HKUnit.millimeterOfMercury(), doubleValue: diastolicValue)
+            
+            let systolicSample = HKQuantitySample(type: systolicType, quantity: systolicQuantity, start: startDate, end: endDate)
+            let diastolicSample = HKQuantitySample(type: diastolicType, quantity: diastolicQuantity, start: startDate, end: endDate)
+            
+            let correlation = HKCorrelation(type: correlationType, start: startDate, end: endDate, objects: [systolicSample, diastolicSample], metadata: metadataDictionary)
+            
+            healthStore.save(correlation) { success, error in
                 if let error = error {
                     completion(.failure(error))
                     return
