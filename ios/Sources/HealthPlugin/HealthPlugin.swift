@@ -110,6 +110,9 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
                 result[entry.key] = stringValue
             }
         }
+        
+        let systolic = call.getDouble("systolic")
+        let diastolic = call.getDouble("diastolic")
 
         do {
             try implementation.saveSample(
@@ -118,7 +121,9 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
                 unitIdentifier: unit,
                 startDateString: startDate,
                 endDateString: endDate,
-                metadata: metadata
+                metadata: metadata,
+                systolic: systolic,
+                diastolic: diastolic
             ) { result in
                 DispatchQueue.main.async {
                     switch result {

@@ -8,9 +8,34 @@ export type HealthDataType =
   | 'respiratoryRate'
   | 'oxygenSaturation'
   | 'restingHeartRate'
-  | 'heartRateVariability';
+  | 'heartRateVariability'
+  | 'bloodPressure'
+  | 'bloodGlucose'
+  | 'bodyTemperature'
+  | 'height'
+  | 'flightsClimbed'
+  | 'exerciseTime'
+  | 'distanceCycling'
+  | 'bodyFat'
+  | 'basalBodyTemperature'
+  | 'basalCalories'
+  | 'totalCalories'
+  | 'mindfulness';
 
-export type HealthUnit = 'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond';
+export type HealthUnit =
+  | 'count'
+  | 'meter'
+  | 'kilocalorie'
+  | 'bpm'
+  | 'kilogram'
+  | 'minute'
+  | 'percent'
+  | 'millisecond'
+  | 'mmHg'
+  | 'mg/dL'
+  | 'celsius'
+  | 'fahrenheit'
+  | 'centimeter';
 
 export interface AuthorizationOptions {
   /** Data types that should be readable after authorization. */
@@ -58,6 +83,10 @@ export interface HealthSample {
   sourceId?: string;
   /** For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light'). */
   sleepState?: SleepState;
+  /** For blood pressure data, the systolic value in mmHg. */
+  systolic?: number;
+  /** For blood pressure data, the diastolic value in mmHg. */
+  diastolic?: number;
 }
 
 export interface ReadSamplesResult {
@@ -151,6 +180,10 @@ export interface WriteSampleOptions {
   endDate?: string;
   /** Metadata key-value pairs forwarded to the native APIs where supported. */
   metadata?: Record<string, string>;
+  /** For blood pressure data, the systolic value in mmHg. Required when dataType is 'bloodPressure'. */
+  systolic?: number;
+  /** For blood pressure data, the diastolic value in mmHg. Required when dataType is 'bloodPressure'. */
+  diastolic?: number;
 }
 
 export type BucketType = 'hour' | 'day' | 'week' | 'month';

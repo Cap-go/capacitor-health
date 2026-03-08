@@ -245,11 +245,14 @@ class HealthPlugin : Plugin() {
             }
             map.takeIf { it.isNotEmpty() }
         }
+        
+        val systolic = call.getDouble("systolic")
+        val diastolic = call.getDouble("diastolic")
 
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
             try {
-                manager.saveSample(client, dataType, value, startInstant, endInstant, metadata)
+                manager.saveSample(client, dataType, value, startInstant, endInstant, metadata, systolic, diastolic)
                 call.resolve()
             } catch (e: Exception) {
                 call.reject(e.message ?: "Failed to save sample.", null, e)
