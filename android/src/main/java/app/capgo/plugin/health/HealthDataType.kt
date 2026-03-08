@@ -1,5 +1,6 @@
 package app.capgo.plugin.health
 
+import androidx.health.connect.client.feature.ExperimentalMindfulnessSessionApi
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BasalBodyTemperatureRecord
@@ -24,6 +25,7 @@ import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.WeightRecord
 import kotlin.reflect.KClass
 
+@OptIn(ExperimentalMindfulnessSessionApi::class)
 enum class HealthDataType(
     val identifier: String,
     val recordClass: KClass<out Record>,
