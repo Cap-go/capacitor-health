@@ -36,6 +36,8 @@ enum HealthManagerError: LocalizedError {
 /// iOS Version Compatibility:
 /// - Most workout types are available on all supported iOS versions
 /// - cardioDance and socialDance require iOS 14.0+ and fallback to .dance on older versions
+/// - transition requires iOS 16.0+ and falls back to .other on older versions
+/// - underwaterDiving requires iOS 17.0+ and falls back to .swimming on older versions
 ///
 /// Note: The enum case names match the TypeScript WorkoutType union type for consistency.
 enum WorkoutType: String, CaseIterable {
