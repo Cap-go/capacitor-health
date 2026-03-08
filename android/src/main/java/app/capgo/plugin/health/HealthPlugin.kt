@@ -245,11 +245,14 @@ class HealthPlugin : Plugin() {
             }
             map.takeIf { it.isNotEmpty() }
         }
+        
+        val systolic = call.getDouble("systolic")
+        val diastolic = call.getDouble("diastolic")
 
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
             try {
-                manager.saveSample(client, dataType, value, startInstant, endInstant, metadata)
+                manager.saveSample(client, dataType, value, startInstant, endInstant, metadata, systolic, diastolic)
                 call.resolve()
             } catch (e: Exception) {
                 call.reject(e.message ?: "Failed to save sample.", null, e)
@@ -381,6 +384,55 @@ class HealthPlugin : Plugin() {
                 call.resolve(result)
             } catch (e: Exception) {
                 call.reject(e.message ?: "Failed to query workouts.", null, e)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun queryAggregated(call: PluginCall) {
+        val identifier = call.getString("dataType")
+        if (identifier.isNullOrBlank()) {
+            call.reject("dataType is required")
+            return
+        }
+
+        val dataType = HealthDataType.from(identifier)
+        if (dataType == null) {
+            call.reject("Unsupported data type: $identifier")
+            return
+        }
+
+        val bucket = call.getString("bucket") ?: "day"
+        val aggregation = call.getString("aggregation") ?: "sum"
+
+        val startInstant = try {
+            manager.parseInstant(call.getString("startDate"), Instant.now().minus(DEFAULT_PAST_DURATION))
+        } catch (e: DateTimeParseException) {
+            call.reject(e.message, null, e)
+            return
+        }
+
+        val endInstant = try {
+            manager.parseInstant(call.getString("endDate"), Instant.now())
+        } catch (e: DateTimeParseException) {
+            call.reject(e.message, null, e)
+            return
+        }
+
+        if (endInstant.isBefore(startInstant)) {
+            call.reject("endDate must be greater than or equal to startDate")
+            return
+        }
+
+        pluginScope.launch {
+            val client = getClientOrReject(call) ?: return@launch
+            try {
+                val result = manager.queryAggregated(client, dataType, startInstant, endInstant, bucket, aggregation)
+                call.resolve(result)
+            } catch (e: IllegalArgumentException) {
+                call.reject(e.message ?: "Unsupported aggregation.", null, e)
+            } catch (e: Exception) {
+                call.reject(e.message ?: "Failed to query aggregated data.", null, e)
             }
         }
     }

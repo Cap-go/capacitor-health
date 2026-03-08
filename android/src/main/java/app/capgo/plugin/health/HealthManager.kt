@@ -1,32 +1,51 @@
 package app.capgo.plugin.health
 
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.feature.ExperimentalMindfulnessSessionApi
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.records.BasalBodyTemperatureRecord
+import androidx.health.connect.client.records.BasalMetabolicRateRecord
+import androidx.health.connect.client.records.BloodGlucoseRecord
+import androidx.health.connect.client.records.BloodPressureRecord
+import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.BodyTemperatureRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.FloorsClimbedRecord
 import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.HeightRecord
+import androidx.health.connect.client.records.MindfulnessSessionRecord
+import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.Record
+import androidx.health.connect.client.records.RespiratoryRateRecord
+import androidx.health.connect.client.records.RestingHeartRateRecord
+import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.WeightRecord
+import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Length
 import androidx.health.connect.client.units.Mass
-import androidx.health.connect.client.records.metadata.Metadata
-import java.time.Duration
+import androidx.health.connect.client.units.Percentage
+import androidx.health.connect.client.units.Power
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import kotlin.math.min
 import kotlin.collections.buildSet
+import kotlin.math.min
 import kotlinx.coroutines.CancellationException
 
+@OptIn(ExperimentalMindfulnessSessionApi::class)
 class HealthManager {
 
     private val formatter: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT
@@ -148,6 +167,175 @@ class HealthManager {
                     samples.add(sample.time to payload)
                 }
             }
+            HealthDataType.SLEEP -> readRecords(client, SleepSessionRecord::class, startTime, endTime, limit) { record ->
+                // For sleep sessions, calculate duration in minutes
+                val durationMinutes = Duration.between(record.startTime, record.endTime).toMinutes().toDouble()
+                val payload = createSamplePayload(
+                    dataType,
+                    record.startTime,
+                    record.endTime,
+                    durationMinutes,
+                    record.metadata
+                )
+                // Add sleep stage if available (map from sleep session stages)
+                // Note: SleepSessionRecord doesn't have individual stages in the main record
+                // Individual sleep stages would be in SleepStageRecord, but for simplicity
+                // we'll just return the session duration
+                samples.add(record.startTime to payload)
+            }
+            HealthDataType.RESPIRATORY_RATE -> readRecords(client, RespiratoryRateRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.rate,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.OXYGEN_SATURATION -> readRecords(client, OxygenSaturationRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.percentage.value,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.RESTING_HEART_RATE -> readRecords(client, RestingHeartRateRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.beatsPerMinute.toDouble(),
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.HEART_RATE_VARIABILITY -> readRecords(client, HeartRateVariabilityRmssdRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.heartRateVariabilityMillis,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.BLOOD_PRESSURE -> readRecords(client, BloodPressureRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.systolic.inMillimetersOfMercury,
+                    record.metadata
+                )
+                payload.put("systolic", record.systolic.inMillimetersOfMercury)
+                payload.put("diastolic", record.diastolic.inMillimetersOfMercury)
+                samples.add(record.time to payload)
+            }
+            HealthDataType.BLOOD_GLUCOSE -> readRecords(client, BloodGlucoseRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.level.inMilligramsPerDeciliter,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.BODY_TEMPERATURE -> readRecords(client, BodyTemperatureRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.temperature.inCelsius,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.HEIGHT -> readRecords(client, HeightRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.height.inMeters * 100.0, // Convert to centimeters
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.FLIGHTS_CLIMBED -> readRecords(client, FloorsClimbedRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.startTime,
+                    record.endTime,
+                    record.floors,
+                    record.metadata
+                )
+                samples.add(record.startTime to payload)
+            }
+            HealthDataType.DISTANCE_CYCLING -> readRecords(client, DistanceRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.startTime,
+                    record.endTime,
+                    record.distance.inMeters,
+                    record.metadata
+                )
+                samples.add(record.startTime to payload)
+            }
+            HealthDataType.BODY_FAT -> readRecords(client, BodyFatRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.percentage.value,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.BASAL_BODY_TEMPERATURE -> readRecords(client, BasalBodyTemperatureRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.temperature.inCelsius,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.BASAL_CALORIES -> readRecords(client, BasalMetabolicRateRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.basalMetabolicRate.inKilocaloriesPerDay,
+                    record.metadata
+                )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.TOTAL_CALORIES -> readRecords(client, TotalCaloriesBurnedRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.startTime,
+                    record.endTime,
+                    record.energy.inKilocalories,
+                    record.metadata
+                )
+                samples.add(record.startTime to payload)
+            }
+            HealthDataType.MINDFULNESS -> readRecords(client, MindfulnessSessionRecord::class, startTime, endTime, limit) { record ->
+                val durationMinutes = Duration.between(record.startTime, record.endTime).toMinutes().toDouble()
+                val payload = createSamplePayload(
+                    dataType,
+                    record.startTime,
+                    record.endTime,
+                    durationMinutes,
+                    record.metadata
+                )
+                samples.add(record.startTime to payload)
+            }
         }
 
         val sorted = samples.sortedBy { it.first }
@@ -194,8 +382,12 @@ class HealthManager {
         value: Double,
         startTime: Instant,
         endTime: Instant,
-        metadata: Map<String, String>?
+        metadata: Map<String, String>?,
+        systolic: Double?,
+        diastolic: Double?
     ) {
+        val recordMetadata = Metadata.manualEntry()
+
         when (dataType) {
             HealthDataType.STEPS -> {
                 val record = StepsRecord(
@@ -203,7 +395,8 @@ class HealthManager {
                     startZoneOffset = zoneOffset(startTime),
                     endTime = endTime,
                     endZoneOffset = zoneOffset(endTime),
-                    count = value.toLong().coerceAtLeast(0)
+                    count = value.toLong().coerceAtLeast(0),
+                    metadata = recordMetadata
                 )
                 client.insertRecords(listOf(record))
             }
@@ -213,7 +406,8 @@ class HealthManager {
                     startZoneOffset = zoneOffset(startTime),
                     endTime = endTime,
                     endZoneOffset = zoneOffset(endTime),
-                    distance = Length.meters(value)
+                    distance = Length.meters(value),
+                    metadata = recordMetadata
                 )
                 client.insertRecords(listOf(record))
             }
@@ -223,7 +417,8 @@ class HealthManager {
                     startZoneOffset = zoneOffset(startTime),
                     endTime = endTime,
                     endZoneOffset = zoneOffset(endTime),
-                    energy = Energy.kilocalories(value)
+                    energy = Energy.kilocalories(value),
+                    metadata = recordMetadata
                 )
                 client.insertRecords(listOf(record))
             }
@@ -231,7 +426,8 @@ class HealthManager {
                 val record = WeightRecord(
                     time = startTime,
                     zoneOffset = zoneOffset(startTime),
-                    weight = Mass.kilograms(value)
+                    weight = Mass.kilograms(value),
+                    metadata = recordMetadata
                 )
                 client.insertRecords(listOf(record))
             }
@@ -242,7 +438,165 @@ class HealthManager {
                     startZoneOffset = zoneOffset(startTime),
                     endTime = endTime,
                     endZoneOffset = zoneOffset(endTime),
-                    samples = samples
+                    samples = samples,
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.SLEEP -> {
+                val record = SleepSessionRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime),
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.RESPIRATORY_RATE -> {
+                val record = RespiratoryRateRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    rate = value,
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.OXYGEN_SATURATION -> {
+                val record = OxygenSaturationRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    percentage = Percentage(value),
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.RESTING_HEART_RATE -> {
+                val record = RestingHeartRateRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    beatsPerMinute = value.toBpmLong(),
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.HEART_RATE_VARIABILITY -> {
+                val record = HeartRateVariabilityRmssdRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    heartRateVariabilityMillis = value,
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.BLOOD_PRESSURE -> {
+                if (systolic == null || diastolic == null) {
+                    throw IllegalArgumentException("Blood pressure requires both systolic and diastolic values")
+                }
+                val record = BloodPressureRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    metadata = recordMetadata,
+                    systolic = androidx.health.connect.client.units.Pressure.millimetersOfMercury(systolic),
+                    diastolic = androidx.health.connect.client.units.Pressure.millimetersOfMercury(diastolic)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.BLOOD_GLUCOSE -> {
+                val record = BloodGlucoseRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    metadata = recordMetadata,
+                    level = androidx.health.connect.client.units.BloodGlucose.milligramsPerDeciliter(value)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.BODY_TEMPERATURE -> {
+                val record = BodyTemperatureRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    metadata = recordMetadata,
+                    temperature = androidx.health.connect.client.units.Temperature.celsius(value)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.HEIGHT -> {
+                val record = HeightRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    height = Length.meters(value / 100.0), // Convert from centimeters to meters
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.FLIGHTS_CLIMBED -> {
+                val record = FloorsClimbedRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime),
+                    floors = value,
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.DISTANCE_CYCLING -> {
+                val record = DistanceRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime),
+                    distance = Length.meters(value),
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.BODY_FAT -> {
+                val record = BodyFatRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    percentage = Percentage(value),
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.BASAL_BODY_TEMPERATURE -> {
+                val record = BasalBodyTemperatureRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    metadata = recordMetadata,
+                    temperature = androidx.health.connect.client.units.Temperature.celsius(value)
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.BASAL_CALORIES -> {
+                val record = BasalMetabolicRateRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    basalMetabolicRate = Power.kilocaloriesPerDay(value),
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.TOTAL_CALORIES -> {
+                val record = TotalCaloriesBurnedRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime),
+                    energy = Energy.kilocalories(value),
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.MINDFULNESS -> {
+                val record = MindfulnessSessionRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime),
+                    metadata = recordMetadata,
+                    mindfulnessSessionType = MindfulnessSessionRecord.MINDFULNESS_SESSION_TYPE_UNKNOWN
                 )
                 client.insertRecords(listOf(record))
             }
@@ -291,6 +645,127 @@ class HealthManager {
 
     private fun Double.toBpmLong(): Long {
         return java.lang.Math.round(this.coerceAtLeast(0.0))
+    }
+
+    suspend fun queryAggregated(
+        client: HealthConnectClient,
+        dataType: HealthDataType,
+        startTime: Instant,
+        endTime: Instant,
+        bucket: String,
+        aggregation: String
+    ): JSObject {
+        // Sleep aggregation is not directly supported like other metrics
+        if (dataType == HealthDataType.SLEEP) {
+            throw IllegalArgumentException("Aggregated queries are not supported for sleep data. Use readSamples instead.")
+        }
+        
+        // Instantaneous measurement records don't support aggregation in Health Connect
+        // These data types should use readSamples instead
+        if (dataType == HealthDataType.RESPIRATORY_RATE || 
+            dataType == HealthDataType.OXYGEN_SATURATION || 
+            dataType == HealthDataType.HEART_RATE_VARIABILITY) {
+            throw IllegalArgumentException("Aggregated queries are not supported for ${dataType.identifier}. Use readSamples instead.")
+        }
+
+        val samples = JSArray()
+        
+        // Determine bucket size
+        // Note: Monthly buckets use 30 days as an approximation, which may not align exactly
+        // with calendar months. This provides consistent bucket sizes but users should be aware
+        // that "month" buckets don't correspond to actual calendar months (Jan, Feb, etc.).
+        val bucketDuration = when (bucket) {
+            "hour" -> Duration.ofHours(1)
+            "day" -> Duration.ofDays(1)
+            "week" -> Duration.ofDays(7)
+            "month" -> Duration.ofDays(30) // Approximation: not calendar months
+            else -> Duration.ofDays(1)
+        }
+        
+        // Create time buckets
+        var currentStart = startTime
+        while (currentStart.isBefore(endTime)) {
+            val currentEnd = currentStart.plus(bucketDuration).let {
+                if (it.isAfter(endTime)) endTime else it
+            }
+            
+            try {
+                val metrics = when (dataType) {
+                    HealthDataType.STEPS -> setOf(StepsRecord.COUNT_TOTAL)
+                    HealthDataType.DISTANCE -> setOf(DistanceRecord.DISTANCE_TOTAL)
+                    HealthDataType.CALORIES -> setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+                    HealthDataType.HEART_RATE -> setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN)
+                    HealthDataType.WEIGHT -> setOf(WeightRecord.WEIGHT_AVG, WeightRecord.WEIGHT_MAX, WeightRecord.WEIGHT_MIN)
+                    HealthDataType.RESTING_HEART_RATE -> setOf(RestingHeartRateRecord.BPM_AVG, RestingHeartRateRecord.BPM_MAX, RestingHeartRateRecord.BPM_MIN)
+                    else -> throw IllegalArgumentException("Unsupported data type for aggregation: ${dataType.identifier}")
+                }
+                
+                val aggregateRequest = AggregateRequest(
+                    metrics = metrics,
+                    timeRangeFilter = TimeRangeFilter.between(currentStart, currentEnd)
+                )
+                
+                val result = client.aggregate(aggregateRequest)
+                
+                // Extract the appropriate aggregated value based on the aggregation type and data type
+                val value: Double? = when (dataType) {
+                    HealthDataType.STEPS -> when (aggregation) {
+                        "sum" -> result[StepsRecord.COUNT_TOTAL]?.toDouble()
+                        else -> result[StepsRecord.COUNT_TOTAL]?.toDouble()
+                    }
+                    HealthDataType.DISTANCE -> when (aggregation) {
+                        "sum" -> result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
+                        else -> result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
+                    }
+                    HealthDataType.CALORIES -> when (aggregation) {
+                        "sum" -> result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+                        else -> result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+                    }
+                    HealthDataType.HEART_RATE -> when (aggregation) {
+                        "average" -> result[HeartRateRecord.BPM_AVG]?.toDouble()
+                        "max" -> result[HeartRateRecord.BPM_MAX]?.toDouble()
+                        "min" -> result[HeartRateRecord.BPM_MIN]?.toDouble()
+                        else -> result[HeartRateRecord.BPM_AVG]?.toDouble()
+                    }
+                    HealthDataType.WEIGHT -> when (aggregation) {
+                        "average" -> result[WeightRecord.WEIGHT_AVG]?.inKilograms
+                        "max" -> result[WeightRecord.WEIGHT_MAX]?.inKilograms
+                        "min" -> result[WeightRecord.WEIGHT_MIN]?.inKilograms
+                        else -> result[WeightRecord.WEIGHT_AVG]?.inKilograms
+                    }
+                    HealthDataType.RESTING_HEART_RATE -> when (aggregation) {
+                        "average" -> result[RestingHeartRateRecord.BPM_AVG]?.toDouble()
+                        "max" -> result[RestingHeartRateRecord.BPM_MAX]?.toDouble()
+                        "min" -> result[RestingHeartRateRecord.BPM_MIN]?.toDouble()
+                        else -> result[RestingHeartRateRecord.BPM_AVG]?.toDouble()
+                    }
+                    else -> null
+                }
+                
+                // Only add the sample if we have a value
+                if (value != null) {
+                    val sample = JSObject().apply {
+                        put("startDate", formatter.format(currentStart))
+                        put("endDate", formatter.format(currentEnd))
+                        put("value", value)
+                        put("unit", dataType.unit)
+                    }
+                    samples.put(sample)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SecurityException) {
+                android.util.Log.d("HealthManager", "Permission denied for aggregation: ${e.message}", e)
+            } catch (e: Exception) {
+                android.util.Log.d("HealthManager", "Aggregation failed for bucket: ${e.message}", e)
+            }
+            
+            currentStart = currentEnd
+        }
+        
+        return JSObject().apply {
+            put("samples", samples)
+        }
     }
 
     suspend fun queryWorkouts(

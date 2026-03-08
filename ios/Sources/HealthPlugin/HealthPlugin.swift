@@ -3,7 +3,7 @@ import Capacitor
 
 @objc(HealthPlugin)
 public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
-    private let pluginVersion: String = "8.2.8"
+    private let pluginVersion: String = "8.2.18"
     public let identifier = "HealthPlugin"
     public let jsName = "Health"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -15,7 +15,8 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getPluginVersion", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openHealthConnectSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showPrivacyPolicy", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "queryWorkouts", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "queryWorkouts", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "queryAggregated", returnType: CAPPluginReturnPromise)
     ]
 
     private let implementation = Health()
@@ -109,6 +110,9 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
                 result[entry.key] = stringValue
             }
         }
+        
+        let systolic = call.getDouble("systolic")
+        let diastolic = call.getDouble("diastolic")
 
         do {
             try implementation.saveSample(
@@ -117,7 +121,9 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
                 unitIdentifier: unit,
                 startDateString: startDate,
                 endDateString: endDate,
-                metadata: metadata
+                metadata: metadata,
+                systolic: systolic,
+                diastolic: diastolic
             ) { result in
                 DispatchQueue.main.async {
                     switch result {
@@ -162,6 +168,35 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
             limit: limit,
             ascending: ascending,
             anchorString: anchor
+        ) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case let .success(response):
+                    call.resolve(response)
+                case let .failure(error):
+                    call.reject(error.localizedDescription, nil, error)
+                }
+            }
+        }
+    }
+
+    @objc func queryAggregated(_ call: CAPPluginCall) {
+        guard let dataType = call.getString("dataType") else {
+            call.reject("dataType is required")
+            return
+        }
+
+        let startDate = call.getString("startDate")
+        let endDate = call.getString("endDate")
+        let bucket = call.getString("bucket")
+        let aggregation = call.getString("aggregation")
+
+        implementation.queryAggregated(
+            dataTypeIdentifier: dataType,
+            startDateString: startDate,
+            endDateString: endDate,
+            bucketString: bucket,
+            aggregationString: aggregation
         ) { result in
             DispatchQueue.main.async {
                 switch result {

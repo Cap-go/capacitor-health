@@ -36,6 +36,17 @@ Perfect for fitness apps, health trackers, wellness platforms, and medical appli
 
 The most complete doc is available here: https://capgo.app/docs/plugins/health/
 
+## Compatibility
+
+| Plugin version | Capacitor compatibility | Maintained |
+| -------------- | ----------------------- | ---------- |
+| v8.\*.\*       | v8.\*.\*                | ✅          |
+| v7.\*.\*       | v7.\*.\*                | On demand   |
+| v6.\*.\*       | v6.\*.\*                | ❌          |
+| v5.\*.\*       | v5.\*.\*                | ❌          |
+
+> **Note:** The major version of this plugin follows the major version of Capacitor. Use the version that matches your Capacitor installation (e.g., plugin v8 for Capacitor 8). Only the latest major version is actively maintained.
+
 ## Install
 
 ```bash
@@ -60,7 +71,7 @@ npx cap sync
 This plugin now uses [Health Connect](https://developer.android.com/health-and-fitness/guides/health-connect) instead of Google Fit. Make sure your app meets the requirements below:
 
 1. **Min SDK 26+.** Health Connect is only available on Android 8.0 (API 26) and above. The plugin's Gradle setup already targets this level.
-2. **Declare Health permissions.** The plugin manifest ships with the required `<uses-permission>` declarations (`READ_/WRITE_STEPS`, `READ_/WRITE_DISTANCE`, `READ_/WRITE_ACTIVE_CALORIES_BURNED`, `READ_/WRITE_HEART_RATE`, `READ_/WRITE_WEIGHT`). Your app does not need to duplicate them, but you must surface a user-facing rationale because the permissions are considered health sensitive.
+2. **Declare Health permissions.** The plugin manifest ships with the required `<uses-permission>` declarations for basic data types (`READ_/WRITE_STEPS`, `READ_/WRITE_DISTANCE`, `READ_/WRITE_ACTIVE_CALORIES_BURNED`, `READ_/WRITE_HEART_RATE`, `READ_/WRITE_WEIGHT`, `READ_/WRITE_SLEEP`, `READ_/WRITE_RESPIRATORY_RATE`, `READ_/WRITE_OXYGEN_SATURATION`, `READ_/WRITE_RESTING_HEART_RATE`, `READ_/WRITE_HEART_RATE_VARIABILITY`). Your app does not need to duplicate them, but you must surface a user-facing rationale because the permissions are considered health sensitive.
 3. **Ensure Health Connect is installed.** Devices on Android 14+ include it by default. For earlier versions the user must install _Health Connect by Android_ from the Play Store. The `Health.isAvailable()` helper exposes the current status so you can prompt accordingly.
 4. **Request runtime access.** The plugin opens the Health Connect permission UI when you call `requestAuthorization`. You should still handle denial flows (e.g., show a message if `checkAuthorization` reports missing scopes).
 5. **Provide a Privacy Policy.** Health Connect requires apps to display a privacy policy explaining how health data is used. See the [Privacy Policy Setup](#privacy-policy-setup) section below.
@@ -151,16 +162,56 @@ await Health.saveSample({
 
 ### Supported data types
 
-| Identifier  | Default unit  | Notes                                                    |
-| ----------- | ------------- | -------------------------------------------------------- |
-| `steps`     | `count`       | Step count deltas                                        |
-| `distance`  | `meter`       | Walking / running distance                               |
-| `calories`  | `kilocalorie` | Active energy burned                                     |
-| `heartRate` | `bpm`         | Beats per minute                                         |
-| `weight`    | `kilogram`    | Body mass                                                |
-| `workouts`  | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
+| Identifier              | Default unit  | Notes                                                    |
+| ----------------------- | ------------- | -------------------------------------------------------- |
+| `steps`                 | `count`       | Step count deltas                                        |
+| `distance`              | `meter`       | Walking / running distance                               |
+| `calories`              | `kilocalorie` | Active energy burned                                     |
+| `heartRate`             | `bpm`         | Beats per minute                                         |
+| `weight`                | `kilogram`    | Body mass                                                |
+| `sleep`                 | `minute`      | Sleep sessions with duration and states                  |
+| `respiratoryRate`       | `bpm`         | Breaths per minute                                       |
+| `oxygenSaturation`      | `percent`     | Blood oxygen saturation (SpO2)                           |
+| `restingHeartRate`      | `bpm`         | Resting heart rate                                       |
+| `heartRateVariability`  | `millisecond` | Heart rate variability (HRV)                             |
+| `bloodPressure`         | `mmHg`        | Blood pressure (requires systolic/diastolic values)      |
+| `bloodGlucose`          | `mg/dL`       | Blood glucose level                                      |
+| `bodyTemperature`       | `celsius`     | Body temperature                                         |
+| `height`                | `centimeter`  | Body height                                              |
+| `flightsClimbed`        | `count`       | Floors / flights of stairs climbed                       |
+| `exerciseTime`          | `minute`      | Apple Exercise Time (iOS only)                           |
+| `distanceCycling`       | `meter`       | Cycling distance                                         |
+| `bodyFat`               | `percent`     | Body fat percentage                                      |
+| `basalBodyTemperature`  | `celsius`     | Basal body temperature                                   |
+| `basalCalories`         | `kilocalorie` | Basal metabolic rate / resting energy                    |
+| `totalCalories`         | `kilocalorie` | Total energy burned (active + basal)                     |
+| `mindfulness`           | `minute`      | Mindfulness / meditation sessions                        |
+| `workouts`              | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
 
 All write operations expect the default unit shown above. On Android the `metadata` option is currently ignored by Health Connect.
+
+**Blood Pressure:** Blood pressure requires both systolic and diastolic values:
+
+```ts
+await Health.saveSample({
+  dataType: 'bloodPressure',
+  value: 120, // systolic value (used as main value)
+  systolic: 120,
+  diastolic: 80,
+  startDate: new Date().toISOString(),
+});
+
+// Reading blood pressure returns samples with systolic/diastolic fields
+const { samples } = await Health.readSamples({
+  dataType: 'bloodPressure',
+  startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+});
+
+samples.forEach((sample) => {
+  console.log(`BP: ${sample.systolic}/${sample.diastolic} mmHg`);
+});
+```
 
 **Note about workouts:** To query workout data using `queryWorkouts()`, you need to explicitly request `workouts` permission:
 
@@ -196,21 +247,78 @@ while (result.anchor) {
 }
 ```
 
-#### Supported Workout Types
+### New Data Types Examples
 
-The plugin supports **130+ workout types** across iOS and Android platforms:
+**Sleep data:**
+```ts
+// Request permission for sleep data
+await Health.requestAuthorization({
+  read: ['sleep'],
+});
 
-**Common types** (available on both platforms): running, cycling, walking, swimming, yoga, strengthTraining, basketball, soccer, tennis, hiking, and many more.
+// Read sleep sessions from the past week
+const { samples } = await Health.readSamples({
+  dataType: 'sleep',
+  startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+});
 
-**iOS-specific types**: archery, barre, cooldown, crossCountrySkiing, equestrianSports, pickleball, taiChi, and more.
+samples.forEach(sample => {
+  console.log(`Sleep: ${sample.value} minutes, state: ${sample.sleepState}`);
+});
+```
 
-**Android-specific types**: backExtension, benchPress, burpee, calisthenics, deadlift, meditation, plank, and more.
+**Respiratory rate, oxygen saturation, and HRV:**
+```ts
+// Request permission
+await Health.requestAuthorization({
+  read: ['respiratoryRate', 'oxygenSaturation', 'restingHeartRate', 'heartRateVariability'],
+});
 
-See the [WorkoutType documentation](#workouttype) for the complete list.
+// Read respiratory rate
+const { samples: respiratoryRate } = await Health.readSamples({
+  dataType: 'respiratoryRate',
+  startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+});
 
-#### Future: Background Updates
+// Read oxygen saturation (SpO2)
+const { samples: oxygenSat } = await Health.readSamples({
+  dataType: 'oxygenSaturation',
+  startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+});
+```
 
-Background observation of workout changes (to get only newly added/updated workouts without re-fetching all data) is planned for a future release. This would use `HKObserverQuery` on iOS and Health Connect change tokens on Android.
+### Aggregated Queries
+
+For large date ranges, use `queryAggregated()` to get aggregated data efficiently instead of fetching individual samples:
+
+```ts
+// Get daily step totals for the past month
+const { samples } = await Health.queryAggregated({
+  dataType: 'steps',
+  startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+  bucket: 'day',        // Options: 'hour', 'day', 'week', 'month'
+  aggregation: 'sum',   // Options: 'sum', 'average', 'min', 'max'
+});
+
+samples.forEach(sample => {
+  console.log(`${sample.startDate}: ${sample.value} ${sample.unit}`);
+});
+
+// Get average heart rate by day
+const { samples: avgHR } = await Health.queryAggregated({
+  dataType: 'heartRate',
+  startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+  bucket: 'day',
+  aggregation: 'average',
+});
+```
+
+**Note:** Aggregated queries are not supported for sleep, respiratory rate, oxygen saturation, and heart rate variability data types. These are instantaneous measurements and should use `readSamples()` instead. Aggregation is supported for: steps, distance, calories, heart rate, weight, and resting heart rate.
 
 ## API
 
@@ -225,6 +333,7 @@ Background observation of workout changes (to get only newly added/updated worko
 * [`openHealthConnectSettings()`](#openhealthconnectsettings)
 * [`showPrivacyPolicy()`](#showprivacypolicy)
 * [`queryWorkouts(...)`](#queryworkouts)
+* [`queryAggregated(...)`](#queryaggregated)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
@@ -377,6 +486,27 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 --------------------
 
 
+### queryAggregated(...)
+
+```typescript
+queryAggregated(options: QueryAggregatedOptions) => Promise<QueryAggregatedResult>
+```
+
+Queries aggregated health data from the native health store.
+Aggregates data into time buckets (hour, day, week, month) with operations like sum, average, min, or max.
+This is more efficient than fetching individual samples for large date ranges.
+
+Supported on iOS (HealthKit) and Android (Health Connect).
+
+| Param         | Type                                                                      | Description                                                                      |
+| ------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **`options`** | <code><a href="#queryaggregatedoptions">QueryAggregatedOptions</a></code> | Query options including data type, date range, bucket size, and aggregation type |
+
+**Returns:** <code>Promise&lt;<a href="#queryaggregatedresult">QueryAggregatedResult</a>&gt;</code>
+
+--------------------
+
+
 ### Interfaces
 
 
@@ -416,15 +546,18 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### HealthSample
 
-| Prop             | Type                                                      |
-| ---------------- | --------------------------------------------------------- |
-| **`dataType`**   | <code><a href="#healthdatatype">HealthDataType</a></code> |
-| **`value`**      | <code>number</code>                                       |
-| **`unit`**       | <code><a href="#healthunit">HealthUnit</a></code>         |
-| **`startDate`**  | <code>string</code>                                       |
-| **`endDate`**    | <code>string</code>                                       |
-| **`sourceName`** | <code>string</code>                                       |
-| **`sourceId`**   | <code>string</code>                                       |
+| Prop             | Type                                                      | Description                                                                                  |
+| ---------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **`dataType`**   | <code><a href="#healthdatatype">HealthDataType</a></code> |                                                                                              |
+| **`value`**      | <code>number</code>                                       |                                                                                              |
+| **`unit`**       | <code><a href="#healthunit">HealthUnit</a></code>         |                                                                                              |
+| **`startDate`**  | <code>string</code>                                       |                                                                                              |
+| **`endDate`**    | <code>string</code>                                       |                                                                                              |
+| **`sourceName`** | <code>string</code>                                       |                                                                                              |
+| **`sourceId`**   | <code>string</code>                                       |                                                                                              |
+| **`sleepState`** | <code><a href="#sleepstate">SleepState</a></code>         | For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light'). |
+| **`systolic`**   | <code>number</code>                                       | For blood pressure data, the systolic value in mmHg.                                         |
+| **`diastolic`**  | <code>number</code>                                       | For blood pressure data, the diastolic value in mmHg.                                        |
 
 
 #### QueryOptions
@@ -448,6 +581,8 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`startDate`** | <code>string</code>                                             | ISO 8601 start date for the sample. Defaults to now.                                                                                                                                              |
 | **`endDate`**   | <code>string</code>                                             | ISO 8601 end date for the sample. Defaults to startDate.                                                                                                                                          |
 | **`metadata`**  | <code><a href="#record">Record</a>&lt;string, string&gt;</code> | Metadata key-value pairs forwarded to the native APIs where supported.                                                                                                                            |
+| **`systolic`**  | <code>number</code>                                             | For blood pressure data, the systolic value in mmHg. Required when dataType is 'bloodPressure'.                                                                                                   |
+| **`diastolic`** | <code>number</code>                                             | For blood pressure data, the diastolic value in mmHg. Required when dataType is 'bloodPressure'.                                                                                                  |
 
 
 #### QueryWorkoutsResult
@@ -485,17 +620,50 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`anchor`**      | <code>string</code>                                 | Anchor for pagination. Use the anchor returned from a previous query to continue from that point. On iOS, this uses HKQueryAnchor. On Android, this uses Health Connect's pageToken. Omit this parameter to start from the beginning. |
 
 
+#### QueryAggregatedResult
+
+| Prop          | Type                            |
+| ------------- | ------------------------------- |
+| **`samples`** | <code>AggregatedSample[]</code> |
+
+
+#### AggregatedSample
+
+| Prop            | Type                                              | Description                        |
+| --------------- | ------------------------------------------------- | ---------------------------------- |
+| **`startDate`** | <code>string</code>                               | ISO 8601 start date of the bucket. |
+| **`endDate`**   | <code>string</code>                               | ISO 8601 end date of the bucket.   |
+| **`value`**     | <code>number</code>                               | Aggregated value for the bucket.   |
+| **`unit`**      | <code><a href="#healthunit">HealthUnit</a></code> | Unit of the aggregated value.      |
+
+
+#### QueryAggregatedOptions
+
+| Prop              | Type                                                        | Description                                              |
+| ----------------- | ----------------------------------------------------------- | -------------------------------------------------------- |
+| **`dataType`**    | <code><a href="#healthdatatype">HealthDataType</a></code>   | The type of data to aggregate from the health store.     |
+| **`startDate`**   | <code>string</code>                                         | Inclusive ISO 8601 start date (defaults to now - 1 day). |
+| **`endDate`**     | <code>string</code>                                         | Exclusive ISO 8601 end date (defaults to now).           |
+| **`bucket`**      | <code><a href="#buckettype">BucketType</a></code>           | Time bucket for aggregation (defaults to 'day').         |
+| **`aggregation`** | <code><a href="#aggregationtype">AggregationType</a></code> | Aggregation operation to perform (defaults to 'sum').    |
+
+
 ### Type Aliases
 
 
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight'</code>
+<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness'</code>
 
 
 #### HealthUnit
 
-<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram'</code>
+<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter'</code>
+
+
+#### SleepState
+
+<code>'inBed' | 'asleep' | 'awake' | 'rem' | 'deep' | 'light'</code>
 
 
 #### Record
@@ -508,6 +676,16 @@ Construct a type with a set of properties K of type T
 #### WorkoutType
 
 <code>'americanFootball' | 'australianFootball' | 'badminton' | 'baseball' | 'basketball' | 'bowling' | 'boxing' | 'climbing' | 'cricket' | 'crossTraining' | 'curling' | 'cycling' | 'dance' | 'elliptical' | 'fencing' | 'functionalStrengthTraining' | 'golf' | 'gymnastics' | 'handball' | 'hiking' | 'hockey' | 'jumpRope' | 'kickboxing' | 'lacrosse' | 'martialArts' | 'pilates' | 'racquetball' | 'rowing' | 'rugby' | 'running' | 'sailing' | 'skatingSports' | 'skiing' | 'snowboarding' | 'soccer' | 'softball' | 'squash' | 'stairClimbing' | 'strengthTraining' | 'surfing' | 'swimming' | 'swimmingPool' | 'swimmingOpenWater' | 'tableTennis' | 'tennis' | 'trackAndField' | 'traditionalStrengthTraining' | 'volleyball' | 'walking' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'weightlifting' | 'wheelchair' | 'yoga' | 'archery' | 'barre' | 'cooldown' | 'coreTraining' | 'crossCountrySkiing' | 'discSports' | 'downhillSkiing' | 'equestrianSports' | 'fishing' | 'fitnessGaming' | 'flexibility' | 'handCycling' | 'highIntensityIntervalTraining' | 'hunting' | 'mindAndBody' | 'mixedCardio' | 'paddleSports' | 'pickleball' | 'play' | 'preparationAndRecovery' | 'snowSports' | 'stepTraining' | 'surfingSports' | 'taiChi' | 'transition' | 'wheelchairRunPace' | 'wheelchairWalkPace' | 'wrestling' | 'backExtension' | 'barbellShoulderPress' | 'benchPress' | 'benchSitUp' | 'bikingStationary' | 'bootCamp' | 'burpee' | 'calisthenics' | 'crunch' | 'dancing' | 'deadlift' | 'dumbbellCurlLeftArm' | 'dumbbellCurlRightArm' | 'dumbbellFrontRaise' | 'dumbbellLateralRaise' | 'dumbbellTricepsExtensionLeftArm' | 'dumbbellTricepsExtensionRightArm' | 'dumbbellTricepsExtensionTwoArm' | 'exerciseClass' | 'forwardTwist' | 'frisbeedisc' | 'guidedBreathing' | 'iceHockey' | 'iceSkating' | 'jumpingJack' | 'latPullDown' | 'lunge' | 'meditation' | 'paddling' | 'paraGliding' | 'plank' | 'rockClimbing' | 'rollerHockey' | 'rowingMachine' | 'runningTreadmill' | 'scubaDiving' | 'skating' | 'snowshoeing' | 'stairClimbingMachine' | 'stretching' | 'upperTwist' | 'other'</code>
+
+
+#### BucketType
+
+<code>'hour' | 'day' | 'week' | 'month'</code>
+
+
+#### AggregationType
+
+<code>'sum' | 'average' | 'min' | 'max'</code>
 
 </docgen-api>
 
