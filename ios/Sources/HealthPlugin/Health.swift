@@ -321,6 +321,10 @@ enum WorkoutType: String, CaseIterable {
             return .swimming
         case .yoga:
             return .yoga
+        // Note: Both plugin workout types "strengthTraining" and "traditionalStrengthTraining"
+        // are written to HealthKit as HKWorkoutActivityType.traditionalStrengthTraining.
+        // When reading from HealthKit we always normalize back to .strengthTraining to keep
+        // a single canonical plugin type and maintain backward compatibility.
         case .traditionalStrengthTraining:
             return .strengthTraining
         case .hiking:
