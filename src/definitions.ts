@@ -18,6 +18,7 @@ export type HealthUnit =
   | 'kilogram'
   | 'breathsPerMinute'
   | 'percent'
+  | 'minute'
   | 'millisecond'
   | 'minute';
 
