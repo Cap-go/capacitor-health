@@ -172,13 +172,17 @@ export type WorkoutType =
   | 'play'
   | 'preparationAndRecovery'
   | 'snowSports'
+  | 'stairs'
   | 'stepTraining'
   | 'surfingSports'
   | 'taiChi'
   | 'transition'
+  | 'underwaterDiving'
   | 'wheelchairRunPace'
   | 'wheelchairWalkPace'
   | 'wrestling'
+  | 'cardioDance'
+  | 'socialDance'
   // Android specific types
   | 'backExtension'
   | 'barbellShoulderPress'
@@ -236,7 +240,8 @@ export interface QueryWorkoutsOptions {
   ascending?: boolean;
   /**
    * Anchor for pagination. Use the anchor returned from a previous query to continue from that point.
-   * On iOS, this uses HKQueryAnchor. On Android, this uses Health Connect's pageToken.
+   * On iOS, this is the ISO 8601 cursor returned by the previous query. On Android, this uses
+   * Health Connect's pageToken.
    * Omit this parameter to start from the beginning.
    */
   anchor?: string;
