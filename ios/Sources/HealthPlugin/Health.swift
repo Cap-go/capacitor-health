@@ -35,179 +35,181 @@ enum HealthManagerError: LocalizedError {
 ///
 /// iOS Version Compatibility:
 /// - Most workout types are available on all supported iOS versions
-/// - cardioDance and socialDance require iOS 14.0+ and fallback to .dance on older versions
+/// - cardioDance and socialDance require iOS 14.0+ and fall back to .dance on older versions
 /// - transition requires iOS 16.0+ and falls back to .other on older versions
 /// - underwaterDiving requires iOS 17.0+ and falls back to .swimming on older versions
 ///
-/// Note: The enum case names match the TypeScript WorkoutType union type for consistency.
+/// Note: Some cross-platform workout names and Android-specific aliases do not have a 1:1
+/// HealthKit workout type. Those values are mapped to the closest supported HKWorkoutActivityType
+/// when filtering workouts on iOS.
 enum WorkoutType: String, CaseIterable {
-    case running
-    case cycling
-    case walking
-    case swimming
-    case yoga
-    case strengthTraining
-    case hiking
-    case tennis
-    case basketball
-    case soccer
+    // Common cross-platform types
     case americanFootball
-    case baseball
-    case crossTraining
-    case elliptical
-    case rowing
-    case stairClimbing
-    case traditionalStrengthTraining
-    case waterFitness
-    case waterPolo
-    case waterSports
-    case wrestling
-    case archery
     case australianFootball
     case badminton
-    case barre
+    case baseball
+    case basketball
     case bowling
     case boxing
     case climbing
-    case cooldown
-    case coreTraining
     case cricket
-    case crossCountrySkiing
+    case crossTraining
     case curling
+    case cycling
     case dance
-    case discSports
-    case downhillSkiing
-    case equestrianSports
+    case elliptical
     case fencing
-    case fishing
-    case fitnessGaming
-    case flexibility
     case functionalStrengthTraining
     case golf
     case gymnastics
     case handball
-    case handCycling
-    case highIntensityIntervalTraining
+    case hiking
     case hockey
-    case hunting
     case jumpRope
     case kickboxing
     case lacrosse
     case martialArts
+    case pilates
+    case racquetball
+    case rowing
+    case rugby
+    case running
+    case sailing
+    case skatingSports
+    case skiing
+    case snowboarding
+    case soccer
+    case softball
+    case squash
+    case stairClimbing
+    case strengthTraining
+    case surfing
+    case swimming
+    case swimmingPool
+    case swimmingOpenWater
+    case tableTennis
+    case tennis
+    case trackAndField
+    case traditionalStrengthTraining
+    case volleyball
+    case walking
+    case waterFitness
+    case waterPolo
+    case waterSports
+    case weightlifting
+    case wheelchair
+    case yoga
+
+    // iOS specific types
+    case archery
+    case barre
+    case cooldown
+    case coreTraining
+    case crossCountrySkiing
+    case discSports
+    case downhillSkiing
+    case equestrianSports
+    case fishing
+    case fitnessGaming
+    case flexibility
+    case handCycling
+    case highIntensityIntervalTraining
+    case hunting
     case mindAndBody
     case mixedCardio
     case paddleSports
     case pickleball
-    case pilates
     case play
     case preparationAndRecovery
-    case racquetball
-    case rugby
-    case sailing
-    case skatingSports
-    case snowboarding
     case snowSports
-    case softball
-    case squash
     case stairs
     case stepTraining
     case surfingSports
-    case tableTennis
     case taiChi
-    case trackAndField
     case transition
     case underwaterDiving
-    case volleyball
     case wheelchairRunPace
     case wheelchairWalkPace
+    case wrestling
     case cardioDance
     case socialDance
+
+    // Android-specific aliases accepted by the public API
+    case backExtension
+    case barbellShoulderPress
+    case benchPress
+    case benchSitUp
+    case bikingStationary
+    case bootCamp
+    case burpee
+    case calisthenics
+    case crunch
+    case dancing
+    case deadlift
+    case dumbbellCurlLeftArm
+    case dumbbellCurlRightArm
+    case dumbbellFrontRaise
+    case dumbbellLateralRaise
+    case dumbbellTricepsExtensionLeftArm
+    case dumbbellTricepsExtensionRightArm
+    case dumbbellTricepsExtensionTwoArm
+    case exerciseClass
+    case forwardTwist
+    case frisbeedisc
+    case guidedBreathing
+    case iceHockey
+    case iceSkating
+    case jumpingJack
+    case latPullDown
+    case lunge
+    case meditation
+    case paddling
+    case paraGliding
+    case plank
+    case rockClimbing
+    case rollerHockey
+    case rowingMachine
+    case runningTreadmill
+    case scubaDiving
+    case skating
+    case snowshoeing
+    case stairClimbingMachine
+    case stretching
+    case upperTwist
     case other
 
     func hkWorkoutActivityType() -> HKWorkoutActivityType {
         switch self {
-        case .running:
-            return .running
-        case .cycling:
-            return .cycling
-        case .walking:
-            return .walking
-        case .swimming:
-            return .swimming
-        case .yoga:
-            return .yoga
-        case .strengthTraining:
-            return .traditionalStrengthTraining
-        case .hiking:
-            return .hiking
-        case .tennis:
-            return .tennis
-        case .basketball:
-            return .basketball
-        case .soccer:
-            return .soccer
         case .americanFootball:
             return .americanFootball
-        case .baseball:
-            return .baseball
-        case .crossTraining:
-            return .crossTraining
-        case .elliptical:
-            return .elliptical
-        case .rowing:
-            return .rowing
-        case .stairClimbing:
-            return .stairClimbing
-        case .traditionalStrengthTraining:
-            return .traditionalStrengthTraining
-        case .waterFitness:
-            return .waterFitness
-        case .waterPolo:
-            return .waterPolo
-        case .waterSports:
-            return .waterSports
-        case .wrestling:
-            return .wrestling
-        case .archery:
-            return .archery
         case .australianFootball:
             return .australianFootball
         case .badminton:
             return .badminton
-        case .barre:
-            return .barre
+        case .baseball:
+            return .baseball
+        case .basketball:
+            return .basketball
         case .bowling:
             return .bowling
         case .boxing:
             return .boxing
-        case .climbing:
+        case .climbing, .rockClimbing:
             return .climbing
-        case .cooldown:
-            return .cooldown
-        case .coreTraining:
-            return .coreTraining
         case .cricket:
             return .cricket
-        case .crossCountrySkiing:
-            return .crossCountrySkiing
+        case .crossTraining:
+            return .crossTraining
         case .curling:
             return .curling
-        case .dance:
+        case .cycling, .bikingStationary:
+            return .cycling
+        case .dance, .dancing:
             return .dance
-        case .discSports:
-            return .discSports
-        case .downhillSkiing:
-            return .downhillSkiing
-        case .equestrianSports:
-            return .equestrianSports
+        case .elliptical:
+            return .elliptical
         case .fencing:
             return .fencing
-        case .fishing:
-            return .fishing
-        case .fitnessGaming:
-            return .fitnessGaming
-        case .flexibility:
-            return .flexibility
         case .functionalStrengthTraining:
             return .functionalStrengthTraining
         case .golf:
@@ -216,14 +218,10 @@ enum WorkoutType: String, CaseIterable {
             return .gymnastics
         case .handball:
             return .handball
-        case .handCycling:
-            return .handCycling
-        case .highIntensityIntervalTraining:
-            return .highIntensityIntervalTraining
-        case .hockey:
+        case .hiking:
+            return .hiking
+        case .hockey, .iceHockey, .rollerHockey:
             return .hockey
-        case .hunting:
-            return .hunting
         case .jumpRope:
             return .jumpRope
         case .kickboxing:
@@ -232,79 +230,150 @@ enum WorkoutType: String, CaseIterable {
             return .lacrosse
         case .martialArts:
             return .martialArts
-        case .mindAndBody:
-            return .mindAndBody
-        case .mixedCardio:
-            return .mixedCardio
-        case .paddleSports:
-            return .paddleSports
-        case .pickleball:
-            return .pickleball
         case .pilates:
             return .pilates
-        case .play:
-            return .play
-        case .preparationAndRecovery:
-            return .preparationAndRecovery
         case .racquetball:
             return .racquetball
+        case .rowing, .rowingMachine:
+            return .rowing
         case .rugby:
             return .rugby
+        case .running, .runningTreadmill:
+            return .running
         case .sailing:
             return .sailing
-        case .skatingSports:
+        case .skatingSports, .skating, .iceSkating:
             return .skatingSports
+        case .skiing:
+            return .downhillSkiing
         case .snowboarding:
             return .snowboarding
-        case .snowSports:
-            return .snowSports
+        case .soccer:
+            return .soccer
         case .softball:
             return .softball
         case .squash:
             return .squash
-        case .stairs:
-            return .stairs
-        case .stepTraining:
-            return .stepTraining
-        case .surfingSports:
+        case .stairClimbing:
+            return .stairClimbing
+        case .strengthTraining:
+            return .traditionalStrengthTraining
+        case .surfing, .surfingSports:
             return .surfingSports
+        case .swimming, .swimmingPool:
+            return .swimming
+        case .swimmingOpenWater:
+            return .waterSports
         case .tableTennis:
             return .tableTennis
-        case .taiChi:
-            return .taiChi
+        case .tennis:
+            return .tennis
         case .trackAndField:
             return .trackAndField
+        case .traditionalStrengthTraining:
+            return .traditionalStrengthTraining
+        case .volleyball:
+            return .volleyball
+        case .walking:
+            return .walking
+        case .waterFitness:
+            return .waterFitness
+        case .waterPolo:
+            return .waterPolo
+        case .waterSports:
+            return .waterSports
+        case .weightlifting:
+            return .functionalStrengthTraining
+        case .wheelchair:
+            return .wheelchairWalkPace
+        case .yoga:
+            return .yoga
+        case .archery:
+            return .archery
+        case .barre:
+            return .barre
+        case .cooldown:
+            return .cooldown
+        case .coreTraining:
+            return .coreTraining
+        case .crossCountrySkiing:
+            return .crossCountrySkiing
+        case .discSports, .frisbeedisc:
+            return .discSports
+        case .downhillSkiing:
+            return .downhillSkiing
+        case .equestrianSports:
+            return .equestrianSports
+        case .fishing:
+            return .fishing
+        case .fitnessGaming:
+            return .fitnessGaming
+        case .flexibility, .stretching:
+            return .flexibility
+        case .handCycling:
+            return .handCycling
+        case .highIntensityIntervalTraining:
+            return .highIntensityIntervalTraining
+        case .hunting:
+            return .hunting
+        case .mindAndBody, .guidedBreathing, .meditation:
+            return .mindAndBody
+        case .mixedCardio:
+            return .mixedCardio
+        case .paddleSports, .paddling:
+            return .paddleSports
+        case .pickleball:
+            return .pickleball
+        case .play:
+            return .play
+        case .preparationAndRecovery:
+            return .preparationAndRecovery
+        case .snowSports, .snowshoeing:
+            return .snowSports
+        case .stairs:
+            return .stairs
+        case .stepTraining, .stairClimbingMachine:
+            return .stepTraining
+        case .taiChi:
+            return .taiChi
         case .transition:
-            // transition requires iOS 16.0+, fallback to other for older versions
             if #available(iOS 16.0, *) {
                 return .transition
             }
             return .other
         case .underwaterDiving:
-            // underwaterDiving requires iOS 17.0+, fallback to swimming for older versions
             if #available(iOS 17.0, *) {
                 return .underwaterDiving
             }
             return .swimming
-        case .volleyball:
-            return .volleyball
         case .wheelchairRunPace:
             return .wheelchairRunPace
         case .wheelchairWalkPace:
             return .wheelchairWalkPace
+        case .wrestling:
+            return .wrestling
         case .cardioDance:
-            // cardioDance requires iOS 14.0+, fallback to dance for older versions
             if #available(iOS 14.0, *) {
                 return .cardioDance
             }
             return .dance
         case .socialDance:
-            // socialDance requires iOS 14.0+, fallback to dance for older versions
             if #available(iOS 14.0, *) {
                 return .socialDance
             }
             return .dance
-        case .other:
+        case .scubaDiving:
+            if #available(iOS 17.0, *) {
+                return .underwaterDiving
+            }
+            return .swimming
+        case .backExtension, .barbellShoulderPress, .benchPress, .benchSitUp,
+             .bootCamp, .burpee, .calisthenics, .crunch, .deadlift,
+             .dumbbellCurlLeftArm, .dumbbellCurlRightArm, .dumbbellFrontRaise,
+             .dumbbellLateralRaise, .dumbbellTricepsExtensionLeftArm,
+             .dumbbellTricepsExtensionRightArm, .dumbbellTricepsExtensionTwoArm,
+             .exerciseClass, .forwardTwist, .jumpingJack, .latPullDown, .lunge,
+             .paraGliding, .plank, .upperTwist, .other:
             return .other
         }
     }
@@ -321,10 +390,6 @@ enum WorkoutType: String, CaseIterable {
             return .swimming
         case .yoga:
             return .yoga
-        // Note: Both plugin workout types "strengthTraining" and "traditionalStrengthTraining"
-        // are written to HealthKit as HKWorkoutActivityType.traditionalStrengthTraining.
-        // When reading from HealthKit we always normalize back to .strengthTraining to keep
-        // a single canonical plugin type and maintain backward compatibility.
         case .traditionalStrengthTraining:
             return .strengthTraining
         case .hiking:
@@ -337,24 +402,6 @@ enum WorkoutType: String, CaseIterable {
             return .soccer
         case .americanFootball:
             return .americanFootball
-        case .baseball:
-            return .baseball
-        case .crossTraining:
-            return .crossTraining
-        case .elliptical:
-            return .elliptical
-        case .rowing:
-            return .rowing
-        case .stairClimbing:
-            return .stairClimbing
-        case .waterFitness:
-            return .waterFitness
-        case .waterPolo:
-            return .waterPolo
-        case .waterSports:
-            return .waterSports
-        case .wrestling:
-            return .wrestling
         case .archery:
             return .archery
         case .australianFootball:
@@ -363,6 +410,8 @@ enum WorkoutType: String, CaseIterable {
             return .badminton
         case .barre:
             return .barre
+        case .baseball:
+            return .baseball
         case .bowling:
             return .bowling
         case .boxing:
@@ -377,6 +426,8 @@ enum WorkoutType: String, CaseIterable {
             return .cricket
         case .crossCountrySkiing:
             return .crossCountrySkiing
+        case .crossTraining:
+            return .crossTraining
         case .curling:
             return .curling
         case .dance:
@@ -385,6 +436,8 @@ enum WorkoutType: String, CaseIterable {
             return .discSports
         case .downhillSkiing:
             return .downhillSkiing
+        case .elliptical:
+            return .elliptical
         case .equestrianSports:
             return .equestrianSports
         case .fencing:
@@ -435,6 +488,8 @@ enum WorkoutType: String, CaseIterable {
             return .preparationAndRecovery
         case .racquetball:
             return .racquetball
+        case .rowing:
+            return .rowing
         case .rugby:
             return .rugby
         case .sailing:
@@ -463,12 +518,19 @@ enum WorkoutType: String, CaseIterable {
             return .trackAndField
         case .volleyball:
             return .volleyball
+        case .waterFitness:
+            return .waterFitness
+        case .waterPolo:
+            return .waterPolo
+        case .waterSports:
+            return .waterSports
         case .wheelchairRunPace:
             return .wheelchairRunPace
         case .wheelchairWalkPace:
             return .wheelchairWalkPace
+        case .wrestling:
+            return .wrestling
         default:
-            // Handle iOS 14+ types
             if #available(iOS 14.0, *) {
                 if hkType == .cardioDance {
                     return .cardioDance
@@ -477,13 +539,11 @@ enum WorkoutType: String, CaseIterable {
                     return .socialDance
                 }
             }
-            // Handle iOS 16+ types
             if #available(iOS 16.0, *) {
                 if hkType == .transition {
                     return .transition
                 }
             }
-            // Handle iOS 17+ types
             if #available(iOS 17.0, *) {
                 if hkType == .underwaterDiving {
                     return .underwaterDiving
@@ -713,7 +773,7 @@ final class Health {
     private let healthStore = HKHealthStore()
     private let isoFormatter: ISO8601DateFormatter
     
-    /// Small time offset (in seconds) added to the last workout's end date to avoid duplicate results in pagination
+    /// Small time offset used to move the workout pagination cursor past the last item of a page.
     private let paginationOffsetSeconds: TimeInterval = 0.001
 
     init() {
@@ -1431,21 +1491,35 @@ final class Health {
             return
         }
 
-        // If anchor is provided, use it as the continuation point for pagination.
-        // The anchor is the ISO 8601 date string of the last workout's end date from the previous query.
-        let effectiveStartDate: Date
-        if let anchorString = anchorString, let anchorDate = try? parseDate(anchorString, defaultValue: startDate) {
-            effectiveStartDate = anchorDate
-        } else {
-            effectiveStartDate = startDate
+        // The iOS anchor is an ISO 8601 cursor emitted by the previous query.
+        // When sorting ascending it advances the lower bound; when sorting descending
+        // it pulls the upper bound backward.
+        var effectiveStartDate = startDate
+        var effectiveEndDate = endDate
+        if let anchorString = anchorString {
+            let defaultCursor = ascending ? startDate : endDate
+            if let anchorDate = try? parseDate(anchorString, defaultValue: defaultCursor) {
+                if ascending {
+                    effectiveStartDate = anchorDate
+                } else {
+                    effectiveEndDate = anchorDate
+                }
+            }
         }
 
-        var predicate = HKQuery.predicateForSamples(withStart: effectiveStartDate, end: endDate, options: [])
+        var predicate = HKQuery.predicateForSamples(withStart: effectiveStartDate, end: effectiveEndDate, options: [])
 
         // Filter by workout type if specified
         if let workoutTypeString = workoutTypeString, let workoutType = WorkoutType(rawValue: workoutTypeString) {
-            let hkWorkoutType = workoutType.hkWorkoutActivityType()
-            let typePredicate = HKQuery.predicateForWorkouts(with: hkWorkoutType)
+            let typePredicate: NSPredicate
+            if workoutType == .wheelchair {
+                typePredicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
+                    HKQuery.predicateForWorkouts(with: .wheelchairRunPace),
+                    HKQuery.predicateForWorkouts(with: .wheelchairWalkPace),
+                ])
+            } else {
+                typePredicate = HKQuery.predicateForWorkouts(with: workoutType.hkWorkoutActivityType())
+            }
             predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [predicate, typePredicate])
         }
 
@@ -1454,7 +1528,12 @@ final class Health {
 
         let workoutSampleType = HKObjectType.workoutType()
 
-        let query = HKSampleQuery(sampleType: workoutSampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
+        let query = HKSampleQuery(
+            sampleType: workoutSampleType,
+            predicate: predicate,
+            limit: queryLimit,
+            sortDescriptors: [sortDescriptor]
+        ) { [weak self] _, samples, error in
             guard let self = self else { return }
 
             if let error = error {
@@ -1467,56 +1546,15 @@ final class Health {
                 return
             }
 
-            let results = workouts.map { workout -> [String: Any] in
-                var payload: [String: Any] = [
-                    "workoutType": WorkoutType.fromHKWorkoutActivityType(workout.workoutActivityType).rawValue,
-                    "duration": Int(workout.duration),
-                    "startDate": self.isoFormatter.string(from: workout.startDate),
-                    "endDate": self.isoFormatter.string(from: workout.endDate)
-                ]
-
-                // Add total energy burned if available
-                if let totalEnergyBurned = workout.totalEnergyBurned {
-                    let energyInKilocalories = totalEnergyBurned.doubleValue(for: HKUnit.kilocalorie())
-                    payload["totalEnergyBurned"] = energyInKilocalories
-                }
-
-                // Add total distance if available
-                if let totalDistance = workout.totalDistance {
-                    let distanceInMeters = totalDistance.doubleValue(for: HKUnit.meter())
-                    payload["totalDistance"] = distanceInMeters
-                }
-
-                // Add source information
-                let source = workout.sourceRevision.source
-                payload["sourceName"] = source.name
-                payload["sourceId"] = source.bundleIdentifier
-
-                // Add metadata if available
-                if let metadata = workout.metadata, !metadata.isEmpty {
-                    var metadataDict: [String: String] = [:]
-                    for (key, value) in metadata {
-                        if let stringValue = value as? String {
-                            metadataDict[key] = stringValue
-                        } else if let numberValue = value as? NSNumber {
-                            metadataDict[key] = numberValue.stringValue
-                        }
-                    }
-                    if !metadataDict.isEmpty {
-                        payload["metadata"] = metadataDict
-                    }
-                }
-
-                return payload
-            }
+            let workoutPayloads = workouts.map { self.workoutToPayload($0) }
 
             // Generate next anchor if we have results and reached the limit
-            var response: [String: Any] = ["workouts": results]
+            var response: [String: Any] = ["workouts": workoutPayloads]
             if !workouts.isEmpty && workouts.count >= queryLimit {
-                // Use the last workout's end date as the anchor for the next page
                 let lastWorkout = workouts.last!
-                // Add a small offset to avoid getting the same workout again
-                let nextAnchorDate = lastWorkout.endDate.addingTimeInterval(self.paginationOffsetSeconds)
+                let nextAnchorDate = ascending
+                    ? lastWorkout.endDate.addingTimeInterval(self.paginationOffsetSeconds)
+                    : lastWorkout.startDate.addingTimeInterval(-self.paginationOffsetSeconds)
                 response["anchor"] = self.isoFormatter.string(from: nextAnchorDate)
             }
 
@@ -1524,5 +1562,48 @@ final class Health {
         }
 
         healthStore.execute(query)
+    }
+    
+    private func workoutToPayload(_ workout: HKWorkout) -> [String: Any] {
+        var payload: [String: Any] = [
+            "workoutType": WorkoutType.fromHKWorkoutActivityType(workout.workoutActivityType).rawValue,
+            "duration": Int(workout.duration),
+            "startDate": isoFormatter.string(from: workout.startDate),
+            "endDate": isoFormatter.string(from: workout.endDate)
+        ]
+
+        // Add total energy burned if available
+        if let totalEnergyBurned = workout.totalEnergyBurned {
+            let energyInKilocalories = totalEnergyBurned.doubleValue(for: HKUnit.kilocalorie())
+            payload["totalEnergyBurned"] = energyInKilocalories
+        }
+
+        // Add total distance if available
+        if let totalDistance = workout.totalDistance {
+            let distanceInMeters = totalDistance.doubleValue(for: HKUnit.meter())
+            payload["totalDistance"] = distanceInMeters
+        }
+
+        // Add source information
+        let source = workout.sourceRevision.source
+        payload["sourceName"] = source.name
+        payload["sourceId"] = source.bundleIdentifier
+
+        // Add metadata if available
+        if let metadata = workout.metadata, !metadata.isEmpty {
+            var metadataDict: [String: String] = [:]
+            for (key, value) in metadata {
+                if let stringValue = value as? String {
+                    metadataDict[key] = stringValue
+                } else if let numberValue = value as? NSNumber {
+                    metadataDict[key] = numberValue.stringValue
+                }
+            }
+            if !metadataDict.isEmpty {
+                payload["metadata"] = metadataDict
+            }
+        }
+
+        return payload
     }
 }

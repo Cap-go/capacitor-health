@@ -3,114 +3,112 @@ package app.capgo.plugin.health
 import androidx.health.connect.client.records.ExerciseSessionRecord
 
 /**
- * WorkoutType mapper between TypeScript workout types and Android Health Connect exercise types.
- * 
- * Note: Due to platform limitations, some TypeScript workout types map to the same Android
- * exercise type. When reading workouts from Android, these will return the primary/legacy 
- * workout type to maintain backward compatibility:
- * 
- * - highIntensityIntervalTraining, mixedCardio, crossTraining → reads as "crossTraining"
- * - kickboxing, martialArts, wrestling → reads as "wrestling"
- * - wheelchairRunPace, wheelchairWalkPace → reads as "wheelchairWalkPace"
- * - stairs, stairClimbing → reads as "stairClimbing"
- * - barre, pilates → reads as "pilates"
- * - cooldown, flexibility, preparationAndRecovery → reads as "flexibility"
- * - coreTraining, functionalStrengthTraining, strengthTraining, traditionalStrengthTraining → reads as "strengthTraining"
- * - mindAndBody, taiChi, yoga → reads as "yoga"
- * - trackAndField, running → reads as "running"
- * - cardioDance, socialDance, dance → reads as "dance"
- * - crossCountrySkiing, downhillSkiing → reads as "downhillSkiing"
- * 
- * This asymmetric mapping is intentional to support the full iOS workout type set while
- * maintaining compatibility with Android's more limited exercise type taxonomy.
+ * Maps plugin workout strings to Android Health Connect exercise types.
+ *
+ * Several plugin workout types intentionally share the same Android exercise type. The plugin
+ * accepts both cross-platform names and platform-specific aliases when filtering workouts.
  */
 object WorkoutType {
     fun fromString(type: String?): Int? {
         if (type.isNullOrBlank()) return null
-        
+
         return when (type) {
-            "running" -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING
-            "cycling" -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING
-            "walking" -> ExerciseSessionRecord.EXERCISE_TYPE_WALKING
-            "swimming" -> ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL
-            "yoga" -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
-            "strengthTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
-            "hiking" -> ExerciseSessionRecord.EXERCISE_TYPE_HIKING
-            "tennis" -> ExerciseSessionRecord.EXERCISE_TYPE_TENNIS
-            "basketball" -> ExerciseSessionRecord.EXERCISE_TYPE_BASKETBALL
-            "soccer" -> ExerciseSessionRecord.EXERCISE_TYPE_SOCCER
             "americanFootball" -> ExerciseSessionRecord.EXERCISE_TYPE_FOOTBALL_AMERICAN
-            "baseball" -> ExerciseSessionRecord.EXERCISE_TYPE_BASEBALL
-            "crossTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
-            "elliptical" -> ExerciseSessionRecord.EXERCISE_TYPE_ELLIPTICAL
-            "rowing" -> ExerciseSessionRecord.EXERCISE_TYPE_ROWING
-            "stairClimbing" -> ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING
-            "traditionalStrengthTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
-            "waterFitness" -> ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL
-            "waterPolo" -> ExerciseSessionRecord.EXERCISE_TYPE_WATER_POLO
-            "waterSports" -> ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER
-            "wrestling" -> ExerciseSessionRecord.EXERCISE_TYPE_MARTIAL_ARTS
-            // New comprehensive workout type mappings
-            "archery" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
             "australianFootball" -> ExerciseSessionRecord.EXERCISE_TYPE_FOOTBALL_AUSTRALIAN
             "badminton" -> ExerciseSessionRecord.EXERCISE_TYPE_BADMINTON
-            "barre" -> ExerciseSessionRecord.EXERCISE_TYPE_PILATES
+            "baseball" -> ExerciseSessionRecord.EXERCISE_TYPE_BASEBALL
+            "basketball" -> ExerciseSessionRecord.EXERCISE_TYPE_BASKETBALL
             "bowling" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
             "boxing" -> ExerciseSessionRecord.EXERCISE_TYPE_BOXING
-            "climbing" -> ExerciseSessionRecord.EXERCISE_TYPE_ROCK_CLIMBING
-            "cooldown" -> ExerciseSessionRecord.EXERCISE_TYPE_STRETCHING
-            "coreTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
+            "climbing", "rockClimbing" -> ExerciseSessionRecord.EXERCISE_TYPE_ROCK_CLIMBING
             "cricket" -> ExerciseSessionRecord.EXERCISE_TYPE_CRICKET
-            "crossCountrySkiing" -> ExerciseSessionRecord.EXERCISE_TYPE_SKIING
+            "crossTraining", "highIntensityIntervalTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
             "curling" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
-            "dance" -> ExerciseSessionRecord.EXERCISE_TYPE_DANCING
-            "discSports" -> ExerciseSessionRecord.EXERCISE_TYPE_FRISBEE_DISC
-            "downhillSkiing" -> ExerciseSessionRecord.EXERCISE_TYPE_SKIING
-            "equestrianSports" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            "cycling" -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING
+            "dancing", "dance", "cardioDance", "socialDance" -> ExerciseSessionRecord.EXERCISE_TYPE_DANCING
+            "elliptical" -> ExerciseSessionRecord.EXERCISE_TYPE_ELLIPTICAL
             "fencing" -> ExerciseSessionRecord.EXERCISE_TYPE_FENCING
-            "fishing" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
-            "fitnessGaming" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
-            "flexibility" -> ExerciseSessionRecord.EXERCISE_TYPE_STRETCHING
-            "functionalStrengthTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
+            "functionalStrengthTraining", "strengthTraining", "traditionalStrengthTraining", "coreTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
             "golf" -> ExerciseSessionRecord.EXERCISE_TYPE_GOLF
             "gymnastics" -> ExerciseSessionRecord.EXERCISE_TYPE_GYMNASTICS
             "handball" -> ExerciseSessionRecord.EXERCISE_TYPE_HANDBALL
-            "handCycling" -> ExerciseSessionRecord.EXERCISE_TYPE_WHEELCHAIR
-            "highIntensityIntervalTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
-            "hockey" -> ExerciseSessionRecord.EXERCISE_TYPE_ICE_HOCKEY
-            "hunting" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            "hiking" -> ExerciseSessionRecord.EXERCISE_TYPE_HIKING
+            "hockey", "iceHockey" -> ExerciseSessionRecord.EXERCISE_TYPE_ICE_HOCKEY
             "jumpRope" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
-            "kickboxing" -> ExerciseSessionRecord.EXERCISE_TYPE_MARTIAL_ARTS
+            "kickboxing", "martialArts", "taiChi", "wrestling" -> ExerciseSessionRecord.EXERCISE_TYPE_MARTIAL_ARTS
             "lacrosse" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
-            "martialArts" -> ExerciseSessionRecord.EXERCISE_TYPE_MARTIAL_ARTS
-            "mindAndBody" -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
-            "mixedCardio" -> ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
-            "paddleSports" -> ExerciseSessionRecord.EXERCISE_TYPE_PADDLING
+            "mindAndBody", "meditation" -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
+            "mixedCardio", "calisthenics" -> ExerciseSessionRecord.EXERCISE_TYPE_CALISTHENICS
+            "paddleSports", "paddling" -> ExerciseSessionRecord.EXERCISE_TYPE_PADDLING
             "pickleball" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
             "pilates" -> ExerciseSessionRecord.EXERCISE_TYPE_PILATES
             "play" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
-            "preparationAndRecovery" -> ExerciseSessionRecord.EXERCISE_TYPE_STRETCHING
+            "preparationAndRecovery", "flexibility", "stretching" -> ExerciseSessionRecord.EXERCISE_TYPE_STRETCHING
             "racquetball" -> ExerciseSessionRecord.EXERCISE_TYPE_RACQUETBALL
+            "rowing" -> ExerciseSessionRecord.EXERCISE_TYPE_ROWING
+            "rowingMachine" -> ExerciseSessionRecord.EXERCISE_TYPE_ROWING_MACHINE
             "rugby" -> ExerciseSessionRecord.EXERCISE_TYPE_RUGBY
+            "running" -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING
+            "runningTreadmill" -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL
             "sailing" -> ExerciseSessionRecord.EXERCISE_TYPE_SAILING
             "skatingSports" -> ExerciseSessionRecord.EXERCISE_TYPE_SKATING
+            "skating" -> ExerciseSessionRecord.EXERCISE_TYPE_SKATING
+            "skiing", "crossCountrySkiing", "downhillSkiing" -> ExerciseSessionRecord.EXERCISE_TYPE_SKIING
             "snowboarding" -> ExerciseSessionRecord.EXERCISE_TYPE_SNOWBOARDING
-            "snowSports" -> ExerciseSessionRecord.EXERCISE_TYPE_SNOWSHOEING
+            "snowSports", "snowshoeing" -> ExerciseSessionRecord.EXERCISE_TYPE_SNOWSHOEING
+            "soccer" -> ExerciseSessionRecord.EXERCISE_TYPE_SOCCER
             "softball" -> ExerciseSessionRecord.EXERCISE_TYPE_SOFTBALL
             "squash" -> ExerciseSessionRecord.EXERCISE_TYPE_SQUASH
-            "stairs" -> ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING
-            "stepTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING_MACHINE
-            "surfingSports" -> ExerciseSessionRecord.EXERCISE_TYPE_SURFING
+            "stairClimbing", "stairs" -> ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING
+            "stepTraining", "stairClimbingMachine" -> ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING_MACHINE
+            "surfing", "surfingSports" -> ExerciseSessionRecord.EXERCISE_TYPE_SURFING
+            "swimming", "swimmingPool", "waterFitness" -> ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL
+            "swimmingOpenWater", "waterSports" -> ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER
             "tableTennis" -> ExerciseSessionRecord.EXERCISE_TYPE_TABLE_TENNIS
-            "taiChi" -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
-            "trackAndField" -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING
-            "transition" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
-            "underwaterDiving" -> ExerciseSessionRecord.EXERCISE_TYPE_SCUBA_DIVING
+            "tennis" -> ExerciseSessionRecord.EXERCISE_TYPE_TENNIS
+            "trackAndField" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            "underwaterDiving", "scubaDiving" -> ExerciseSessionRecord.EXERCISE_TYPE_SCUBA_DIVING
             "volleyball" -> ExerciseSessionRecord.EXERCISE_TYPE_VOLLEYBALL
-            "wheelchairRunPace" -> ExerciseSessionRecord.EXERCISE_TYPE_WHEELCHAIR
-            "wheelchairWalkPace" -> ExerciseSessionRecord.EXERCISE_TYPE_WHEELCHAIR
-            "cardioDance" -> ExerciseSessionRecord.EXERCISE_TYPE_DANCING
-            "socialDance" -> ExerciseSessionRecord.EXERCISE_TYPE_DANCING
+            "walking" -> ExerciseSessionRecord.EXERCISE_TYPE_WALKING
+            "waterPolo" -> ExerciseSessionRecord.EXERCISE_TYPE_WATER_POLO
+            "weightlifting" -> ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING
+            "wheelchair", "wheelchairRunPace", "wheelchairWalkPace", "handCycling" -> ExerciseSessionRecord.EXERCISE_TYPE_WHEELCHAIR
+            "yoga" -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
+            "archery" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            "barre" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            "cooldown" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            "discSports", "frisbeedisc" -> ExerciseSessionRecord.EXERCISE_TYPE_FRISBEE_DISC
+            "equestrianSports" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            "fishing" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            "fitnessGaming" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            "hunting" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            "transition" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            "backExtension",
+            "barbellShoulderPress",
+            "benchPress",
+            "benchSitUp",
+            "crunch",
+            "deadlift",
+            "dumbbellCurlLeftArm",
+            "dumbbellCurlRightArm",
+            "dumbbellFrontRaise",
+            "dumbbellLateralRaise",
+            "dumbbellTricepsExtensionLeftArm",
+            "dumbbellTricepsExtensionRightArm",
+            "dumbbellTricepsExtensionTwoArm",
+            "forwardTwist",
+            "latPullDown",
+            "lunge",
+            "plank",
+            "upperTwist" -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
+            "bikingStationary" -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY
+            "bootCamp" -> ExerciseSessionRecord.EXERCISE_TYPE_BOOT_CAMP
+            "burpee", "jumpingJack" -> ExerciseSessionRecord.EXERCISE_TYPE_CALISTHENICS
+            "exerciseClass" -> ExerciseSessionRecord.EXERCISE_TYPE_EXERCISE_CLASS
+            "guidedBreathing" -> ExerciseSessionRecord.EXERCISE_TYPE_GUIDED_BREATHING
+            "iceSkating" -> ExerciseSessionRecord.EXERCISE_TYPE_ICE_SKATING
+            "paraGliding" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            "rollerHockey" -> ExerciseSessionRecord.EXERCISE_TYPE_ROLLER_HOCKEY
             "other" -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
             else -> null
         }
@@ -118,61 +116,65 @@ object WorkoutType {
 
     fun toWorkoutTypeString(exerciseType: Int): String {
         return when (exerciseType) {
-            ExerciseSessionRecord.EXERCISE_TYPE_RUNNING -> "running"
-            ExerciseSessionRecord.EXERCISE_TYPE_BIKING -> "cycling"
-            ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY -> "cycling"
-            ExerciseSessionRecord.EXERCISE_TYPE_WALKING -> "walking"
-            ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL -> "swimming"
-            ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER -> "swimming"
-            ExerciseSessionRecord.EXERCISE_TYPE_YOGA -> "yoga"
-            ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING -> "strengthTraining"
-            ExerciseSessionRecord.EXERCISE_TYPE_HIKING -> "hiking"
-            ExerciseSessionRecord.EXERCISE_TYPE_TENNIS -> "tennis"
-            ExerciseSessionRecord.EXERCISE_TYPE_BASKETBALL -> "basketball"
-            ExerciseSessionRecord.EXERCISE_TYPE_SOCCER -> "soccer"
             ExerciseSessionRecord.EXERCISE_TYPE_FOOTBALL_AMERICAN -> "americanFootball"
-            ExerciseSessionRecord.EXERCISE_TYPE_BASEBALL -> "baseball"
-            // Keep backward compatible mapping for existing types
-            ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING -> "crossTraining"
-            ExerciseSessionRecord.EXERCISE_TYPE_ELLIPTICAL -> "elliptical"
-            ExerciseSessionRecord.EXERCISE_TYPE_ROWING -> "rowing"
-            ExerciseSessionRecord.EXERCISE_TYPE_ROWING_MACHINE -> "rowing"
-            // Keep stairClimbing as primary mapping for backward compatibility
-            ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING -> "stairClimbing"
-            ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING_MACHINE -> "stepTraining"
-            ExerciseSessionRecord.EXERCISE_TYPE_WATER_POLO -> "waterPolo"
-            // Keep wrestling as primary mapping for backward compatibility
-            ExerciseSessionRecord.EXERCISE_TYPE_MARTIAL_ARTS -> "wrestling"
-            // Comprehensive Android to TypeScript workout type mappings
             ExerciseSessionRecord.EXERCISE_TYPE_FOOTBALL_AUSTRALIAN -> "australianFootball"
             ExerciseSessionRecord.EXERCISE_TYPE_BADMINTON -> "badminton"
-            ExerciseSessionRecord.EXERCISE_TYPE_PILATES -> "pilates"
+            ExerciseSessionRecord.EXERCISE_TYPE_BASEBALL -> "baseball"
+            ExerciseSessionRecord.EXERCISE_TYPE_BASKETBALL -> "basketball"
             ExerciseSessionRecord.EXERCISE_TYPE_BOXING -> "boxing"
             ExerciseSessionRecord.EXERCISE_TYPE_ROCK_CLIMBING -> "climbing"
-            ExerciseSessionRecord.EXERCISE_TYPE_STRETCHING -> "flexibility"
             ExerciseSessionRecord.EXERCISE_TYPE_CRICKET -> "cricket"
-            ExerciseSessionRecord.EXERCISE_TYPE_SKIING -> "downhillSkiing"
-            ExerciseSessionRecord.EXERCISE_TYPE_DANCING -> "dance"
-            ExerciseSessionRecord.EXERCISE_TYPE_FRISBEE_DISC -> "discSports"
+            ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING -> "crossTraining"
+            ExerciseSessionRecord.EXERCISE_TYPE_BIKING -> "cycling"
+            ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY -> "bikingStationary"
+            ExerciseSessionRecord.EXERCISE_TYPE_DANCING -> "dancing"
+            ExerciseSessionRecord.EXERCISE_TYPE_ELLIPTICAL -> "elliptical"
             ExerciseSessionRecord.EXERCISE_TYPE_FENCING -> "fencing"
             ExerciseSessionRecord.EXERCISE_TYPE_GOLF -> "golf"
             ExerciseSessionRecord.EXERCISE_TYPE_GYMNASTICS -> "gymnastics"
             ExerciseSessionRecord.EXERCISE_TYPE_HANDBALL -> "handball"
-            ExerciseSessionRecord.EXERCISE_TYPE_WHEELCHAIR -> "wheelchairWalkPace"
-            ExerciseSessionRecord.EXERCISE_TYPE_ICE_HOCKEY -> "hockey"
-            ExerciseSessionRecord.EXERCISE_TYPE_PADDLING -> "paddleSports"
+            ExerciseSessionRecord.EXERCISE_TYPE_HIKING -> "hiking"
+            ExerciseSessionRecord.EXERCISE_TYPE_ICE_HOCKEY -> "iceHockey"
+            ExerciseSessionRecord.EXERCISE_TYPE_ICE_SKATING -> "iceSkating"
+            ExerciseSessionRecord.EXERCISE_TYPE_MARTIAL_ARTS -> "martialArts"
+            ExerciseSessionRecord.EXERCISE_TYPE_PILATES -> "pilates"
             ExerciseSessionRecord.EXERCISE_TYPE_RACQUETBALL -> "racquetball"
+            ExerciseSessionRecord.EXERCISE_TYPE_ROWING -> "rowing"
+            ExerciseSessionRecord.EXERCISE_TYPE_ROWING_MACHINE -> "rowingMachine"
             ExerciseSessionRecord.EXERCISE_TYPE_RUGBY -> "rugby"
+            ExerciseSessionRecord.EXERCISE_TYPE_RUNNING -> "running"
+            ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL -> "runningTreadmill"
             ExerciseSessionRecord.EXERCISE_TYPE_SAILING -> "sailing"
-            ExerciseSessionRecord.EXERCISE_TYPE_SKATING -> "skatingSports"
+            ExerciseSessionRecord.EXERCISE_TYPE_SKATING -> "skating"
+            ExerciseSessionRecord.EXERCISE_TYPE_SKIING -> "skiing"
             ExerciseSessionRecord.EXERCISE_TYPE_SNOWBOARDING -> "snowboarding"
-            ExerciseSessionRecord.EXERCISE_TYPE_SNOWSHOEING -> "snowSports"
+            ExerciseSessionRecord.EXERCISE_TYPE_SNOWSHOEING -> "snowshoeing"
+            ExerciseSessionRecord.EXERCISE_TYPE_SOCCER -> "soccer"
             ExerciseSessionRecord.EXERCISE_TYPE_SOFTBALL -> "softball"
             ExerciseSessionRecord.EXERCISE_TYPE_SQUASH -> "squash"
-            ExerciseSessionRecord.EXERCISE_TYPE_SURFING -> "surfingSports"
+            ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING -> "stairClimbing"
+            ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING_MACHINE -> "stairClimbingMachine"
+            ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING -> "strengthTraining"
+            ExerciseSessionRecord.EXERCISE_TYPE_STRETCHING -> "stretching"
+            ExerciseSessionRecord.EXERCISE_TYPE_SURFING -> "surfing"
+            ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL -> "swimmingPool"
+            ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER -> "swimmingOpenWater"
             ExerciseSessionRecord.EXERCISE_TYPE_TABLE_TENNIS -> "tableTennis"
-            ExerciseSessionRecord.EXERCISE_TYPE_SCUBA_DIVING -> "underwaterDiving"
+            ExerciseSessionRecord.EXERCISE_TYPE_TENNIS -> "tennis"
             ExerciseSessionRecord.EXERCISE_TYPE_VOLLEYBALL -> "volleyball"
+            ExerciseSessionRecord.EXERCISE_TYPE_WALKING -> "walking"
+            ExerciseSessionRecord.EXERCISE_TYPE_WATER_POLO -> "waterPolo"
+            ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING -> "weightlifting"
+            ExerciseSessionRecord.EXERCISE_TYPE_WHEELCHAIR -> "wheelchair"
+            ExerciseSessionRecord.EXERCISE_TYPE_YOGA -> "yoga"
+            ExerciseSessionRecord.EXERCISE_TYPE_BOOT_CAMP -> "bootCamp"
+            ExerciseSessionRecord.EXERCISE_TYPE_CALISTHENICS -> "calisthenics"
+            ExerciseSessionRecord.EXERCISE_TYPE_EXERCISE_CLASS -> "exerciseClass"
+            ExerciseSessionRecord.EXERCISE_TYPE_FRISBEE_DISC -> "frisbeedisc"
+            ExerciseSessionRecord.EXERCISE_TYPE_GUIDED_BREATHING -> "guidedBreathing"
+            ExerciseSessionRecord.EXERCISE_TYPE_PADDLING -> "paddling"
+            ExerciseSessionRecord.EXERCISE_TYPE_ROLLER_HOCKEY -> "rollerHockey"
+            ExerciseSessionRecord.EXERCISE_TYPE_SCUBA_DIVING -> "scubaDiving"
             ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT -> "other"
             else -> "other"
         }
