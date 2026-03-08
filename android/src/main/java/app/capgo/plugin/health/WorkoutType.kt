@@ -16,6 +16,10 @@ import androidx.health.connect.client.records.ExerciseSessionRecord
  * - barre, pilates → reads as "pilates"
  * - cooldown, flexibility, preparationAndRecovery → reads as "flexibility"
  * - coreTraining, functionalStrengthTraining, strengthTraining, traditionalStrengthTraining → reads as "strengthTraining"
+ * - mindAndBody, taiChi, yoga → reads as "yoga"
+ * - trackAndField, running → reads as "running"
+ * - cardioDance, socialDance, dance → reads as "dance"
+ * - crossCountrySkiing, downhillSkiing → reads as "downhillSkiing"
  * 
  * This asymmetric mapping is intentional to support the full iOS workout type set while
  * maintaining compatibility with Android's more limited exercise type taxonomy.
