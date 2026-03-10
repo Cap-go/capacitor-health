@@ -772,7 +772,7 @@ struct AuthorizationStatusPayload {
 final class Health {
     private let healthStore = HKHealthStore()
     private let isoFormatter: ISO8601DateFormatter
-    
+
     /// Small time offset used to move the workout pagination cursor past the last item of a page.
     private let paginationOffsetSeconds: TimeInterval = 0.001
 
@@ -883,7 +883,7 @@ final class Health {
                 let results = categorySamples.map { sample -> [String: Any] in
                     let sleepValue = sample.value
                     let durationMinutes = sample.endDate.timeIntervalSince(sample.startDate) / 60.0
-                    
+
                     var payload: [String: Any] = [
                         "dataType": dataType.rawValue,
                         "value": durationMinutes,
@@ -891,7 +891,7 @@ final class Health {
                         "startDate": self.isoFormatter.string(from: sample.startDate),
                         "endDate": self.isoFormatter.string(from: sample.endDate)
                     ]
-                    
+
                     // Map HKCategoryValueSleepAnalysis to sleep state
                     let sleepState = self.sleepStateFromValue(sleepValue)
                     if let sleepState = sleepState {
@@ -910,7 +910,7 @@ final class Health {
             healthStore.execute(query)
             return
         }
-        
+
         // Handle mindfulness as a category sample
         if dataType == .mindfulness {
             let query = HKSampleQuery(sampleType: sampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
@@ -928,7 +928,7 @@ final class Health {
 
                 let results = categorySamples.map { sample -> [String: Any] in
                     let durationMinutes = sample.endDate.timeIntervalSince(sample.startDate) / 60.0
-                    
+
                     var payload: [String: Any] = [
                         "dataType": dataType.rawValue,
                         "value": durationMinutes,
@@ -949,7 +949,7 @@ final class Health {
             healthStore.execute(query)
             return
         }
-        
+
         // Handle blood pressure as a correlation sample
         if dataType == .bloodPressure {
             let query = HKSampleQuery(sampleType: sampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
@@ -972,10 +972,10 @@ final class Health {
                           let diastolicSample = correlation.objects(for: diastolicType).first as? HKQuantitySample else {
                         return nil
                     }
-                    
+
                     let systolicValue = systolicSample.quantity.doubleValue(for: HKUnit.millimeterOfMercury())
                     let diastolicValue = diastolicSample.quantity.doubleValue(for: HKUnit.millimeterOfMercury())
-                    
+
                     var payload: [String: Any] = [
                         "dataType": dataType.rawValue,
                         "value": systolicValue,
@@ -1035,7 +1035,7 @@ final class Health {
 
         healthStore.execute(query)
     }
-    
+
     private func sleepStateFromValue(_ value: Int) -> String? {
         switch value {
         case HKCategoryValueSleepAnalysis.inBed.rawValue:
@@ -1094,13 +1094,13 @@ final class Health {
             // If value is 0 or not specified, default to asleep (HKCategoryValueSleepAnalysis.asleep.rawValue)
             let sleepValue = Int(value) == 0 ? HKCategoryValueSleepAnalysis.asleep.rawValue : Int(value)
             let sample = HKCategorySample(type: categoryType, value: sleepValue, start: startDate, end: endDate, metadata: metadataDictionary)
-            
+
             healthStore.save(sample) { success, error in
                 if let error = error {
                     completion(.failure(error))
                     return
                 }
-                
+
                 if success {
                     completion(.success(()))
                 } else {
@@ -1109,20 +1109,20 @@ final class Health {
             }
             return
         }
-        
+
         // Handle mindfulness as a category sample
         if dataType == .mindfulness {
             guard let categoryType = HKObjectType.categoryType(forIdentifier: .mindfulSession) else {
                 throw HealthManagerError.dataTypeUnavailable(dataTypeIdentifier)
             }
             let sample = HKCategorySample(type: categoryType, value: 0, start: startDate, end: endDate, metadata: metadataDictionary)
-            
+
             healthStore.save(sample) { success, error in
                 if let error = error {
                     completion(.failure(error))
                     return
                 }
-                
+
                 if success {
                     completion(.success(()))
                 } else {
@@ -1131,33 +1131,33 @@ final class Health {
             }
             return
         }
-        
+
         // Handle blood pressure as a correlation sample
         if dataType == .bloodPressure {
             guard let systolicValue = systolic, let diastolicValue = diastolic else {
                 throw HealthManagerError.operationFailed("Blood pressure requires both systolic and diastolic values")
             }
-            
+
             guard let systolicType = HKObjectType.quantityType(forIdentifier: .bloodPressureSystolic),
                   let diastolicType = HKObjectType.quantityType(forIdentifier: .bloodPressureDiastolic),
                   let correlationType = HKObjectType.correlationType(forIdentifier: .bloodPressure) else {
                 throw HealthManagerError.dataTypeUnavailable(dataTypeIdentifier)
             }
-            
+
             let systolicQuantity = HKQuantity(unit: HKUnit.millimeterOfMercury(), doubleValue: systolicValue)
             let diastolicQuantity = HKQuantity(unit: HKUnit.millimeterOfMercury(), doubleValue: diastolicValue)
-            
+
             let systolicSample = HKQuantitySample(type: systolicType, quantity: systolicQuantity, start: startDate, end: endDate)
             let diastolicSample = HKQuantitySample(type: diastolicType, quantity: diastolicQuantity, start: startDate, end: endDate)
-            
+
             let correlation = HKCorrelation(type: correlationType, start: startDate, end: endDate, objects: [systolicSample, diastolicSample], metadata: metadataDictionary)
-            
+
             healthStore.save(correlation) { success, error in
                 if let error = error {
                     completion(.failure(error))
                     return
                 }
-                
+
                 if success {
                     completion(.success(()))
                 } else {
@@ -1277,7 +1277,7 @@ final class Health {
     private func parseTypesWithWorkouts(_ identifiers: [String]) throws -> ([HealthDataType], Bool) {
         var types: [HealthDataType] = []
         var includeWorkouts = false
-        
+
         for identifier in identifiers {
             if identifier == "workouts" {
                 includeWorkouts = true
@@ -1288,7 +1288,7 @@ final class Health {
                 types.append(type)
             }
         }
-        
+
         return (types, includeWorkouts)
     }
 
@@ -1352,38 +1352,38 @@ final class Health {
     func queryAggregated(dataTypeIdentifier: String, startDateString: String?, endDateString: String?, bucketString: String?, aggregationString: String?, completion: @escaping (Result<[String: Any], Error>) -> Void) {
         do {
             let dataType = try parseDataType(identifier: dataTypeIdentifier)
-            
+
             // Sleep aggregation is not supported as it's categorical data
             if dataType == .sleep {
                 completion(.failure(HealthManagerError.operationFailed("Aggregated queries are not supported for sleep data. Use readSamples instead.")))
                 return
             }
-            
+
             // Instantaneous measurement types don't support meaningful aggregation
             // These should use readSamples instead
             if dataType == .respiratoryRate || dataType == .oxygenSaturation || dataType == .heartRateVariability {
                 completion(.failure(HealthManagerError.operationFailed("Aggregated queries are not supported for \(dataType.rawValue). Use readSamples instead.")))
                 return
             }
-            
+
             let quantityType = try dataType.quantityType()
-            
+
             let startDate = try parseDate(startDateString, defaultValue: Date().addingTimeInterval(-86400))
             let endDate = try parseDate(endDateString, defaultValue: Date())
-            
+
             guard endDate >= startDate else {
                 completion(.failure(HealthManagerError.invalidDateRange))
                 return
             }
-            
+
             // Default bucket is "day" and default aggregation is "sum" (consistent with TypeScript defaults)
             let bucket = bucketString ?? "day"
             let aggregation = aggregationString ?? "sum"
-            
+
             // Determine the anchor date and interval based on bucket type
             var anchorComponents = Calendar.current.dateComponents([.year, .month, .day], from: startDate)
             var intervalComponents = DateComponents()
-            
+
             switch bucket {
             case "hour":
                 anchorComponents.hour = 0
@@ -1400,12 +1400,12 @@ final class Health {
             default:
                 intervalComponents.day = 1
             }
-            
+
             guard let anchor = Calendar.current.date(from: anchorComponents) else {
                 completion(.failure(HealthManagerError.operationFailed("Failed to create anchor date")))
                 return
             }
-            
+
             // Determine the statistics options based on aggregation type
             var options: HKStatisticsOptions = []
             switch aggregation {
@@ -1420,9 +1420,9 @@ final class Health {
             default:
                 options = .cumulativeSum
             }
-            
+
             let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
-            
+
             let query = HKStatisticsCollectionQuery(
                 quantityType: quantityType,
                 quantitySamplePredicate: predicate,
@@ -1430,25 +1430,25 @@ final class Health {
                 anchorDate: anchor,
                 intervalComponents: intervalComponents
             )
-            
+
             query.initialResultsHandler = { [weak self] _, collection, error in
                 guard let self = self else { return }
-                
+
                 if let error = error {
                     completion(.failure(error))
                     return
                 }
-                
+
                 guard let collection = collection else {
                     completion(.success(["samples": []]))
                     return
                 }
-                
+
                 var samples: [[String: Any]] = []
-                
+
                 collection.enumerateStatistics(from: startDate, to: endDate) { statistics, _ in
                     var value: Double?
-                    
+
                     switch aggregation {
                     case "sum":
                         value = statistics.sumQuantity()?.doubleValue(for: dataType.defaultUnit)
@@ -1461,7 +1461,7 @@ final class Health {
                     default:
                         value = statistics.sumQuantity()?.doubleValue(for: dataType.defaultUnit)
                     }
-                    
+
                     if let value = value {
                         let sample: [String: Any] = [
                             "startDate": self.isoFormatter.string(from: statistics.startDate),
@@ -1472,10 +1472,10 @@ final class Health {
                         samples.append(sample)
                     }
                 }
-                
+
                 completion(.success(["samples": samples]))
             }
-            
+
             healthStore.execute(query)
         } catch {
             completion(.failure(error))
@@ -1515,7 +1515,7 @@ final class Health {
             if workoutType == .wheelchair {
                 typePredicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
                     HKQuery.predicateForWorkouts(with: .wheelchairRunPace),
-                    HKQuery.predicateForWorkouts(with: .wheelchairWalkPace),
+                    HKQuery.predicateForWorkouts(with: .wheelchairWalkPace)
                 ])
             } else {
                 typePredicate = HKQuery.predicateForWorkouts(with: workoutType.hkWorkoutActivityType())
@@ -1563,7 +1563,7 @@ final class Health {
 
         healthStore.execute(query)
     }
-    
+
     private func workoutToPayload(_ workout: HKWorkout) -> [String: Any] {
         var payload: [String: Any] = [
             "workoutType": WorkoutType.fromHKWorkoutActivityType(workout.workoutActivityType).rawValue,

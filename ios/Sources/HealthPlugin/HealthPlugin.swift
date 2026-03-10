@@ -110,7 +110,7 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
                 result[entry.key] = stringValue
             }
         }
-        
+
         let systolic = call.getDouble("systolic")
         let diastolic = call.getDouble("diastolic")
 
