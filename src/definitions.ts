@@ -22,6 +22,8 @@ export type HealthDataType =
   | 'totalCalories'
   | 'mindfulness';
 
+export type AuthorizationDataType = HealthDataType | 'workouts';
+
 export type HealthUnit =
   | 'count'
   | 'meter'
@@ -39,14 +41,14 @@ export type HealthUnit =
 
 export interface AuthorizationOptions {
   /** Data types that should be readable after authorization. */
-  read?: HealthDataType[];
+  read?: AuthorizationDataType[];
   /** Data types that should be writable after authorization. */
   write?: HealthDataType[];
 }
 
 export interface AuthorizationStatus {
-  readAuthorized: HealthDataType[];
-  readDenied: HealthDataType[];
+  readAuthorized: AuthorizationDataType[];
+  readDenied: AuthorizationDataType[];
   writeAuthorized: HealthDataType[];
   writeDenied: HealthDataType[];
 }
