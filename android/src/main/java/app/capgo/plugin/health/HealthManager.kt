@@ -636,6 +636,8 @@ class HealthManager {
             }
         }
 
+        payload.put("platformId", metadata.id)
+
         return payload
     }
 
@@ -912,9 +914,11 @@ class HealthManager {
             }
         }
         
+        payload.put("platformId", session.metadata.id)
+
         // Note: customMetadata is not available on Metadata in Health Connect
         // Metadata only contains dataOrigin, device, and lastModifiedTime
-        
+
         return payload
     }
 
