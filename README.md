@@ -521,20 +521,20 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### AuthorizationStatus
 
-| Prop                  | Type                          |
-| --------------------- | ----------------------------- |
-| **`readAuthorized`**  | <code>HealthDataType[]</code> |
-| **`readDenied`**      | <code>HealthDataType[]</code> |
-| **`writeAuthorized`** | <code>HealthDataType[]</code> |
-| **`writeDenied`**     | <code>HealthDataType[]</code> |
+| Prop                  | Type                                 |
+| --------------------- | ------------------------------------ |
+| **`readAuthorized`**  | <code>AuthorizationDataType[]</code> |
+| **`readDenied`**      | <code>AuthorizationDataType[]</code> |
+| **`writeAuthorized`** | <code>HealthDataType[]</code>        |
+| **`writeDenied`**     | <code>HealthDataType[]</code>        |
 
 
 #### AuthorizationOptions
 
-| Prop        | Type                          | Description                                             |
-| ----------- | ----------------------------- | ------------------------------------------------------- |
-| **`read`**  | <code>HealthDataType[]</code> | Data types that should be readable after authorization. |
-| **`write`** | <code>HealthDataType[]</code> | Data types that should be writable after authorization. |
+| Prop        | Type                                 | Description                                             |
+| ----------- | ------------------------------------ | ------------------------------------------------------- |
+| **`read`**  | <code>AuthorizationDataType[]</code> | Data types that should be readable after authorization. |
+| **`write`** | <code>HealthDataType[]</code>        | Data types that should be writable after authorization. |
 
 
 #### ReadSamplesResult
@@ -651,6 +651,11 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 
 ### Type Aliases
+
+
+#### AuthorizationDataType
+
+<code><a href="#healthdatatype">HealthDataType</a> | 'workouts'</code>
 
 
 #### HealthDataType

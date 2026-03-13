@@ -809,7 +809,7 @@ final class Health {
             let (readTypes, includeWorkouts) = try parseTypesWithWorkouts(readIdentifiers)
             let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
 
-            var readObjectTypes = try objectTypes(for: readTypes)
+            var readObjectTypes = try readAuthorizationObjectTypes(for: readTypes)
             // Include workout type if explicitly requested
             if includeWorkouts {
                 readObjectTypes.insert(HKObjectType.workoutType())
@@ -1235,13 +1235,12 @@ final class Health {
         var denied: [HealthDataType] = []
 
         for type in types {
-            guard let objectType = try? type.sampleType() else {
+            guard let readSet = try? readAuthorizationObjectTypes(for: [type]) else {
                 denied.append(type)
                 continue
             }
 
             group.enter()
-            let readSet = Set<HKObjectType>([objectType])
             healthStore.getRequestStatusForAuthorization(toShare: Set<HKSampleType>(), read: readSet) { status, error in
                 defer { group.leave() }
 
@@ -1333,6 +1332,25 @@ final class Health {
     private func objectTypes(for dataTypes: [HealthDataType]) throws -> Set<HKObjectType> {
         var set = Set<HKObjectType>()
         for dataType in dataTypes {
+            let type = try dataType.sampleType()
+            set.insert(type)
+        }
+        return set
+    }
+
+    private func readAuthorizationObjectTypes(for dataTypes: [HealthDataType]) throws -> Set<HKObjectType> {
+        var set = Set<HKObjectType>()
+        for dataType in dataTypes {
+            if dataType == .bloodPressure {
+                guard let systolic = HKObjectType.quantityType(forIdentifier: .bloodPressureSystolic),
+                      let diastolic = HKObjectType.quantityType(forIdentifier: .bloodPressureDiastolic) else {
+                    throw HealthManagerError.dataTypeUnavailable(dataType.rawValue)
+                }
+                set.insert(systolic)
+                set.insert(diastolic)
+                continue
+            }
+
             let type = try dataType.sampleType()
             set.insert(type)
         }
