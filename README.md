@@ -546,18 +546,19 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### HealthSample
 
-| Prop             | Type                                                      | Description                                                                                  |
-| ---------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| **`dataType`**   | <code><a href="#healthdatatype">HealthDataType</a></code> |                                                                                              |
-| **`value`**      | <code>number</code>                                       |                                                                                              |
-| **`unit`**       | <code><a href="#healthunit">HealthUnit</a></code>         |                                                                                              |
-| **`startDate`**  | <code>string</code>                                       |                                                                                              |
-| **`endDate`**    | <code>string</code>                                       |                                                                                              |
-| **`sourceName`** | <code>string</code>                                       |                                                                                              |
-| **`sourceId`**   | <code>string</code>                                       |                                                                                              |
-| **`sleepState`** | <code><a href="#sleepstate">SleepState</a></code>         | For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light'). |
-| **`systolic`**   | <code>number</code>                                       | For blood pressure data, the systolic value in mmHg.                                         |
-| **`diastolic`**  | <code>number</code>                                       | For blood pressure data, the diastolic value in mmHg.                                        |
+| Prop             | Type                                                      | Description                                                                                         |
+| ---------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **`dataType`**   | <code><a href="#healthdatatype">HealthDataType</a></code> |                                                                                                     |
+| **`value`**      | <code>number</code>                                       |                                                                                                     |
+| **`unit`**       | <code><a href="#healthunit">HealthUnit</a></code>         |                                                                                                     |
+| **`startDate`**  | <code>string</code>                                       |                                                                                                     |
+| **`endDate`**    | <code>string</code>                                       |                                                                                                     |
+| **`sourceName`** | <code>string</code>                                       |                                                                                                     |
+| **`sourceId`**   | <code>string</code>                                       |                                                                                                     |
+| **`platformId`** | <code>string</code>                                       | Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android). |
+| **`sleepState`** | <code><a href="#sleepstate">SleepState</a></code>         | For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light').        |
+| **`systolic`**   | <code>number</code>                                       | For blood pressure data, the systolic value in mmHg.                                                |
+| **`diastolic`**  | <code>number</code>                                       | For blood pressure data, the diastolic value in mmHg.                                               |
 
 
 #### QueryOptions
@@ -595,17 +596,18 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### Workout
 
-| Prop                    | Type                                                            | Description                                         |
-| ----------------------- | --------------------------------------------------------------- | --------------------------------------------------- |
-| **`workoutType`**       | <code><a href="#workouttype">WorkoutType</a></code>             | The type of workout.                                |
-| **`duration`**          | <code>number</code>                                             | Duration of the workout in seconds.                 |
-| **`totalEnergyBurned`** | <code>number</code>                                             | Total energy burned in kilocalories (if available). |
-| **`totalDistance`**     | <code>number</code>                                             | Total distance in meters (if available).            |
-| **`startDate`**         | <code>string</code>                                             | ISO 8601 start date of the workout.                 |
-| **`endDate`**           | <code>string</code>                                             | ISO 8601 end date of the workout.                   |
-| **`sourceName`**        | <code>string</code>                                             | Source name that recorded the workout.              |
-| **`sourceId`**          | <code>string</code>                                             | Source bundle identifier.                           |
-| **`metadata`**          | <code><a href="#record">Record</a>&lt;string, string&gt;</code> | Additional metadata (if available).                 |
+| Prop                    | Type                                                            | Description                                                                                         |
+| ----------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **`workoutType`**       | <code><a href="#workouttype">WorkoutType</a></code>             | The type of workout.                                                                                |
+| **`duration`**          | <code>number</code>                                             | Duration of the workout in seconds.                                                                 |
+| **`totalEnergyBurned`** | <code>number</code>                                             | Total energy burned in kilocalories (if available).                                                 |
+| **`totalDistance`**     | <code>number</code>                                             | Total distance in meters (if available).                                                            |
+| **`startDate`**         | <code>string</code>                                             | ISO 8601 start date of the workout.                                                                 |
+| **`endDate`**           | <code>string</code>                                             | ISO 8601 end date of the workout.                                                                   |
+| **`sourceName`**        | <code>string</code>                                             | Source name that recorded the workout.                                                              |
+| **`sourceId`**          | <code>string</code>                                             | Source bundle identifier.                                                                           |
+| **`platformId`**        | <code>string</code>                                             | Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android). |
+| **`metadata`**          | <code><a href="#record">Record</a>&lt;string, string&gt;</code> | Additional metadata (if available).                                                                 |
 
 
 #### QueryWorkoutsOptions
