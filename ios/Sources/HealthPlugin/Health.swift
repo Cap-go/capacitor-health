@@ -898,9 +898,7 @@ final class Health {
                         payload["sleepState"] = sleepState
                     }
 
-                    let source = sample.sourceRevision.source
-                    payload["sourceName"] = source.name
-                    payload["sourceId"] = source.bundleIdentifier
+                    self.addSampleMetadata(sample, to: &payload)
 
                     return payload
                 }
@@ -910,7 +908,7 @@ final class Health {
             healthStore.execute(query)
             return
         }
-        
+
         // Handle mindfulness as a category sample
         if dataType == .mindfulness {
             let query = HKSampleQuery(sampleType: sampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
@@ -937,9 +935,7 @@ final class Health {
                         "endDate": self.isoFormatter.string(from: sample.endDate)
                     ]
 
-                    let source = sample.sourceRevision.source
-                    payload["sourceName"] = source.name
-                    payload["sourceId"] = source.bundleIdentifier
+                    self.addSampleMetadata(sample, to: &payload)
 
                     return payload
                 }
@@ -949,7 +945,7 @@ final class Health {
             healthStore.execute(query)
             return
         }
-        
+
         // Handle blood pressure as a correlation sample
         if dataType == .bloodPressure {
             let query = HKSampleQuery(sampleType: sampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
@@ -986,9 +982,7 @@ final class Health {
                         "diastolic": diastolicValue
                     ]
 
-                    let source = correlation.sourceRevision.source
-                    payload["sourceName"] = source.name
-                    payload["sourceId"] = source.bundleIdentifier
+                    self.addSampleMetadata(correlation, to: &payload)
 
                     return payload
                 }
@@ -1023,9 +1017,7 @@ final class Health {
                     "endDate": self.isoFormatter.string(from: sample.endDate)
                 ]
 
-                let source = sample.sourceRevision.source
-                payload["sourceName"] = source.name
-                payload["sourceId"] = source.bundleIdentifier
+                self.addSampleMetadata(sample, to: &payload)
 
                 return payload
             }
@@ -1036,6 +1028,13 @@ final class Health {
         healthStore.execute(query)
     }
     
+    private func addSampleMetadata(_ sample: HKSample, to payload: inout [String: Any]) {
+        let source = sample.sourceRevision.source
+        payload["sourceName"] = source.name
+        payload["sourceId"] = source.bundleIdentifier
+        payload["platformId"] = sample.uuid.uuidString
+    }
+
     private func sleepStateFromValue(_ value: Int) -> String? {
         switch value {
         case HKCategoryValueSleepAnalysis.inBed.rawValue:
@@ -1584,10 +1583,8 @@ final class Health {
             payload["totalDistance"] = distanceInMeters
         }
 
-        // Add source information
-        let source = workout.sourceRevision.source
-        payload["sourceName"] = source.name
-        payload["sourceId"] = source.bundleIdentifier
+        // Add source information and platform ID
+        addSampleMetadata(workout, to: &payload)
 
         // Add metadata if available
         if let metadata = workout.metadata, !metadata.isEmpty {
