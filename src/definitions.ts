@@ -83,6 +83,8 @@ export interface HealthSample {
   endDate: string;
   sourceName?: string;
   sourceId?: string;
+  /** Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android). */
+  platformId?: string;
   /** For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light'). */
   sleepState?: SleepState;
   /** For blood pressure data, the systolic value in mmHg. */
@@ -266,6 +268,8 @@ export interface Workout {
   sourceName?: string;
   /** Source bundle identifier. */
   sourceId?: string;
+  /** Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android). */
+  platformId?: string;
   /** Additional metadata (if available). */
   metadata?: Record<string, string>;
 }
