@@ -20,7 +20,8 @@ export type HealthDataType =
   | 'basalBodyTemperature'
   | 'basalCalories'
   | 'totalCalories'
-  | 'mindfulness';
+  | 'mindfulness'
+  | 'workouts';
 
 export type HealthUnit =
   | 'count'
