@@ -847,7 +847,8 @@ class HealthManager {
             val aggregateRequest = AggregateRequest(
                 metrics = setOf(
                     DistanceRecord.DISTANCE_TOTAL,
-                    ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL
+                    ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL,
+                    TotalCaloriesBurnedRecord.ENERGY_TOTAL
                 ),
                 timeRangeFilter = timeRange
                 // Removed dataOriginFilter to get data from all sources during workout time
@@ -855,6 +856,7 @@ class HealthManager {
             val result = client.aggregate(aggregateRequest)
             distanceAggregate = result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
             caloriesAggregate = result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+                ?: result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories
         } catch (e: CancellationException) {
             // Rethrow cancellation to allow coroutine cancellation to propagate
             throw e
