@@ -95,6 +95,46 @@ export interface ReadSamplesResult {
   samples: HealthSample[];
 }
 
+export interface BackgroundSyncApiRequestOptions {
+  /** URL used by the native background sync API request. */
+  url: string;
+  /** Optional HTTP headers persisted for native background sync requests. */
+  headers?: Record<string, string>;
+}
+
+export type BackgroundSyncInterval = '15min' | '30min' | '1hour' | '8hours' | '24hours';
+
+export interface BackgroundSyncOptions {
+  /** Subject identifier sent in request body to correlate sync records server-side. */
+  subjectId: string;
+  /**
+   * Backend endpoint used to fetch the last synced timestamp for each datatype.
+   * Expected response shape: `{ data: { lastSyncByDataType: Partial<Record<HealthDataType, string>> } }`.
+   */
+  getLastSync: BackgroundSyncApiRequestOptions;
+  /**
+   * Backend endpoint used to upload background-collected samples.
+   * Current Android upload body shape: `{ subjectId, data: HealthSample[] }`.
+   */
+  postSamples: BackgroundSyncApiRequestOptions;
+  /** Datatypes that should be read during background sync. */
+  dataTypes: HealthDataType[];
+  /** Requested Android periodic sync interval. Actual execution remains inexact per WorkManager rules. */
+  interval: BackgroundSyncInterval;
+}
+
+export interface BackgroundSyncStatus {
+  /** Whether background sync is supported on the current runtime platform. */
+  isBgSyncAvailable: boolean;
+  /** Whether the required native permissions are currently granted. */
+  isBgPermissionsGranted: boolean;
+  /**
+   * Android: true after `startBackgroundSync()` (persisted enabled), false after `stopBackgroundSync()`.
+   * Does not reflect WorkManager runtime state.
+   */
+  isBgSyncScheduled: boolean;
+}
+
 export type WorkoutType =
   // Common types (supported on both platforms)
   | 'americanFootball'
@@ -401,4 +441,26 @@ export interface HealthPlugin {
    * @throws An error if something went wrong
    */
   queryAggregated(options: QueryAggregatedOptions): Promise<QueryAggregatedResult>;
+
+  /**
+   * Configures the backend endpoints and datatypes used by native background sync.
+   * Uploads are performed natively when background work is triggered.
+   */
+  configureBackgroundSync(options: BackgroundSyncOptions): Promise<BackgroundSyncStatus>;
+
+  /**
+   * Enables native background health sync.
+   * On Android this schedules periodic work after required permissions are granted.
+   */
+  startBackgroundSync(): Promise<BackgroundSyncStatus>;
+
+  /**
+   * Disables native background health sync.
+   */
+  stopBackgroundSync(): Promise<BackgroundSyncStatus>;
+
+  /**
+   * Returns the current background sync configuration and runtime status.
+   */
+  getBackgroundSyncStatus(): Promise<BackgroundSyncStatus>;
 }

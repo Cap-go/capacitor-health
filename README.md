@@ -40,10 +40,10 @@ The most complete doc is available here: https://capgo.app/docs/plugins/health/
 
 | Plugin version | Capacitor compatibility | Maintained |
 | -------------- | ----------------------- | ---------- |
-| v8.\*.\*       | v8.\*.\*                | ✅          |
-| v7.\*.\*       | v7.\*.\*                | On demand   |
-| v6.\*.\*       | v6.\*.\*                | ❌          |
-| v5.\*.\*       | v5.\*.\*                | ❌          |
+| v8.\*.\*       | v8.\*.\*                | ✅         |
+| v7.\*.\*       | v7.\*.\*                | On demand  |
+| v6.\*.\*       | v6.\*.\*                | ❌         |
+| v5.\*.\*       | v5.\*.\*                | ❌         |
 
 > **Note:** The major version of this plugin follows the major version of Capacitor. Use the version that matches your Capacitor installation (e.g., plugin v8 for Capacitor 8). Only the latest major version is actively maintained.
 
@@ -128,6 +128,12 @@ await Health.showPrivacyPolicy();
 await Health.openHealthConnectSettings();
 ```
 
+### Android background sync: security and scheduling
+
+**Security:** On Android, background sync configuration (API URLs, optional HTTP headers such as `Authorization`, `subjectId`, and related options) is stored using **EncryptedSharedPreferences**. That raises the bar against casual inspection of app storage but is **not** a substitute for token hygiene: prefer short-lived access tokens, refresh strategies, and your own assumptions for rooted or compromised devices.
+
+**Changing `interval` or rescheduling:** `configureBackgroundSync()` updates persisted options only; it does **not** reschedule WorkManager. To apply a new `interval` or other schedule-related changes while using background sync, call **`stopBackgroundSync()`**, then **`configureBackgroundSync(...)`** with the new options, then **`startBackgroundSync()`** again.
+
 ## Usage
 
 ```ts
@@ -162,31 +168,31 @@ await Health.saveSample({
 
 ### Supported data types
 
-| Identifier              | Default unit  | Notes                                                    |
-| ----------------------- | ------------- | -------------------------------------------------------- |
-| `steps`                 | `count`       | Step count deltas                                        |
-| `distance`              | `meter`       | Walking / running distance                               |
-| `calories`              | `kilocalorie` | Active energy burned                                     |
-| `heartRate`             | `bpm`         | Beats per minute                                         |
-| `weight`                | `kilogram`    | Body mass                                                |
-| `sleep`                 | `minute`      | Sleep sessions with duration and states                  |
-| `respiratoryRate`       | `bpm`         | Breaths per minute                                       |
-| `oxygenSaturation`      | `percent`     | Blood oxygen saturation (SpO2)                           |
-| `restingHeartRate`      | `bpm`         | Resting heart rate                                       |
-| `heartRateVariability`  | `millisecond` | Heart rate variability (HRV)                             |
-| `bloodPressure`         | `mmHg`        | Blood pressure (requires systolic/diastolic values)      |
-| `bloodGlucose`          | `mg/dL`       | Blood glucose level                                      |
-| `bodyTemperature`       | `celsius`     | Body temperature                                         |
-| `height`                | `centimeter`  | Body height                                              |
-| `flightsClimbed`        | `count`       | Floors / flights of stairs climbed                       |
-| `exerciseTime`          | `minute`      | Apple Exercise Time (iOS only)                           |
-| `distanceCycling`       | `meter`       | Cycling distance                                         |
-| `bodyFat`               | `percent`     | Body fat percentage                                      |
-| `basalBodyTemperature`  | `celsius`     | Basal body temperature                                   |
-| `basalCalories`         | `kilocalorie` | Basal metabolic rate / resting energy                    |
-| `totalCalories`         | `kilocalorie` | Total energy burned (active + basal)                     |
-| `mindfulness`           | `minute`      | Mindfulness / meditation sessions                        |
-| `workouts`              | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
+| Identifier             | Default unit  | Notes                                                    |
+| ---------------------- | ------------- | -------------------------------------------------------- |
+| `steps`                | `count`       | Step count deltas                                        |
+| `distance`             | `meter`       | Walking / running distance                               |
+| `calories`             | `kilocalorie` | Active energy burned                                     |
+| `heartRate`            | `bpm`         | Beats per minute                                         |
+| `weight`               | `kilogram`    | Body mass                                                |
+| `sleep`                | `minute`      | Sleep sessions with duration and states                  |
+| `respiratoryRate`      | `bpm`         | Breaths per minute                                       |
+| `oxygenSaturation`     | `percent`     | Blood oxygen saturation (SpO2)                           |
+| `restingHeartRate`     | `bpm`         | Resting heart rate                                       |
+| `heartRateVariability` | `millisecond` | Heart rate variability (HRV)                             |
+| `bloodPressure`        | `mmHg`        | Blood pressure (requires systolic/diastolic values)      |
+| `bloodGlucose`         | `mg/dL`       | Blood glucose level                                      |
+| `bodyTemperature`      | `celsius`     | Body temperature                                         |
+| `height`               | `centimeter`  | Body height                                              |
+| `flightsClimbed`       | `count`       | Floors / flights of stairs climbed                       |
+| `exerciseTime`         | `minute`      | Apple Exercise Time (iOS only)                           |
+| `distanceCycling`      | `meter`       | Cycling distance                                         |
+| `bodyFat`              | `percent`     | Body fat percentage                                      |
+| `basalBodyTemperature` | `celsius`     | Basal body temperature                                   |
+| `basalCalories`        | `kilocalorie` | Basal metabolic rate / resting energy                    |
+| `totalCalories`        | `kilocalorie` | Total energy burned (active + basal)                     |
+| `mindfulness`          | `minute`      | Mindfulness / meditation sessions                        |
+| `workouts`             | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
 
 All write operations expect the default unit shown above. On Android the `metadata` option is currently ignored by Health Connect.
 
@@ -250,6 +256,7 @@ while (result.anchor) {
 ### New Data Types Examples
 
 **Sleep data:**
+
 ```ts
 // Request permission for sleep data
 await Health.requestAuthorization({
@@ -263,12 +270,13 @@ const { samples } = await Health.readSamples({
   endDate: new Date().toISOString(),
 });
 
-samples.forEach(sample => {
+samples.forEach((sample) => {
   console.log(`Sleep: ${sample.value} minutes, state: ${sample.sleepState}`);
 });
 ```
 
 **Respiratory rate, oxygen saturation, and HRV:**
+
 ```ts
 // Request permission
 await Health.requestAuthorization({
@@ -300,11 +308,11 @@ const { samples } = await Health.queryAggregated({
   dataType: 'steps',
   startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
   endDate: new Date().toISOString(),
-  bucket: 'day',        // Options: 'hour', 'day', 'week', 'month'
-  aggregation: 'sum',   // Options: 'sum', 'average', 'min', 'max'
+  bucket: 'day', // Options: 'hour', 'day', 'week', 'month'
+  aggregation: 'sum', // Options: 'sum', 'average', 'min', 'max'
 });
 
-samples.forEach(sample => {
+samples.forEach((sample) => {
   console.log(`${sample.startDate}: ${sample.value} ${sample.unit}`);
 });
 
@@ -324,18 +332,22 @@ const { samples: avgHR } = await Health.queryAggregated({
 
 <docgen-index>
 
-* [`isAvailable()`](#isavailable)
-* [`requestAuthorization(...)`](#requestauthorization)
-* [`checkAuthorization(...)`](#checkauthorization)
-* [`readSamples(...)`](#readsamples)
-* [`saveSample(...)`](#savesample)
-* [`getPluginVersion()`](#getpluginversion)
-* [`openHealthConnectSettings()`](#openhealthconnectsettings)
-* [`showPrivacyPolicy()`](#showprivacypolicy)
-* [`queryWorkouts(...)`](#queryworkouts)
-* [`queryAggregated(...)`](#queryaggregated)
-* [Interfaces](#interfaces)
-* [Type Aliases](#type-aliases)
+- [`isAvailable()`](#isavailable)
+- [`requestAuthorization(...)`](#requestauthorization)
+- [`checkAuthorization(...)`](#checkauthorization)
+- [`readSamples(...)`](#readsamples)
+- [`saveSample(...)`](#savesample)
+- [`getPluginVersion()`](#getpluginversion)
+- [`openHealthConnectSettings()`](#openhealthconnectsettings)
+- [`showPrivacyPolicy()`](#showprivacypolicy)
+- [`queryWorkouts(...)`](#queryworkouts)
+- [`queryAggregated(...)`](#queryaggregated)
+- [`configureBackgroundSync(...)`](#configurebackgroundsync)
+- [`startBackgroundSync()`](#startbackgroundsync)
+- [`stopBackgroundSync()`](#stopbackgroundsync)
+- [`getBackgroundSyncStatus()`](#getbackgroundsyncstatus)
+- [Interfaces](#interfaces)
+- [Type Aliases](#type-aliases)
 
 </docgen-index>
 
@@ -352,8 +364,7 @@ Returns whether the current platform supports the native health SDK.
 
 **Returns:** <code>Promise&lt;<a href="#availabilityresult">AvailabilityResult</a>&gt;</code>
 
---------------------
-
+---
 
 ### requestAuthorization(...)
 
@@ -369,8 +380,7 @@ Requests read/write access to the provided data types.
 
 **Returns:** <code>Promise&lt;<a href="#authorizationstatus">AuthorizationStatus</a>&gt;</code>
 
---------------------
-
+---
 
 ### checkAuthorization(...)
 
@@ -386,8 +396,7 @@ Checks authorization status for the provided data types without prompting the us
 
 **Returns:** <code>Promise&lt;<a href="#authorizationstatus">AuthorizationStatus</a>&gt;</code>
 
---------------------
-
+---
 
 ### readSamples(...)
 
@@ -403,8 +412,7 @@ Reads samples for the given data type within the specified time frame.
 
 **Returns:** <code>Promise&lt;<a href="#readsamplesresult">ReadSamplesResult</a>&gt;</code>
 
---------------------
-
+---
 
 ### saveSample(...)
 
@@ -418,8 +426,7 @@ Writes a single sample to the native health store.
 | ------------- | ----------------------------------------------------------------- |
 | **`options`** | <code><a href="#writesampleoptions">WriteSampleOptions</a></code> |
 
---------------------
-
+---
 
 ### getPluginVersion()
 
@@ -431,8 +438,7 @@ Get the native Capacitor plugin version
 
 **Returns:** <code>Promise&lt;{ version: string; }&gt;</code>
 
---------------------
-
+---
 
 ### openHealthConnectSettings()
 
@@ -446,8 +452,7 @@ On iOS, this method does nothing.
 Use this to direct users to manage their Health Connect permissions
 or to install Health Connect if not available.
 
---------------------
-
+---
 
 ### showPrivacyPolicy()
 
@@ -465,8 +470,7 @@ The privacy policy URL can be configured by adding a string resource
 named "health_connect_privacy_policy_url" in your app's strings.xml,
 or by placing an HTML file at www/privacypolicy.html in your assets.
 
---------------------
-
+---
 
 ### queryWorkouts(...)
 
@@ -483,8 +487,7 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 **Returns:** <code>Promise&lt;<a href="#queryworkoutsresult">QueryWorkoutsResult</a>&gt;</code>
 
---------------------
-
+---
 
 ### queryAggregated(...)
 
@@ -504,11 +507,63 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 **Returns:** <code>Promise&lt;<a href="#queryaggregatedresult">QueryAggregatedResult</a>&gt;</code>
 
---------------------
+---
 
+### configureBackgroundSync(...)
+
+```typescript
+configureBackgroundSync(options: BackgroundSyncOptions) => Promise<BackgroundSyncStatus>
+```
+
+Configures the backend endpoints and datatypes used by native background sync.
+Uploads are performed natively when background work is triggered.
+
+| Param         | Type                                                                    |
+| ------------- | ----------------------------------------------------------------------- |
+| **`options`** | <code><a href="#backgroundsyncoptions">BackgroundSyncOptions</a></code> |
+
+**Returns:** <code>Promise&lt;<a href="#backgroundsyncstatus">BackgroundSyncStatus</a>&gt;</code>
+
+---
+
+### startBackgroundSync()
+
+```typescript
+startBackgroundSync() => Promise<BackgroundSyncStatus>
+```
+
+Enables native background health sync.
+On Android this schedules periodic work after required permissions are granted.
+
+**Returns:** <code>Promise&lt;<a href="#backgroundsyncstatus">BackgroundSyncStatus</a>&gt;</code>
+
+---
+
+### stopBackgroundSync()
+
+```typescript
+stopBackgroundSync() => Promise<BackgroundSyncStatus>
+```
+
+Disables native background health sync.
+
+**Returns:** <code>Promise&lt;<a href="#backgroundsyncstatus">BackgroundSyncStatus</a>&gt;</code>
+
+---
+
+### getBackgroundSyncStatus()
+
+```typescript
+getBackgroundSyncStatus() => Promise<BackgroundSyncStatus>
+```
+
+Returns the current background sync configuration and runtime status.
+
+**Returns:** <code>Promise&lt;<a href="#backgroundsyncstatus">BackgroundSyncStatus</a>&gt;</code>
+
+---
 
 ### Interfaces
-
 
 #### AvailabilityResult
 
@@ -517,7 +572,6 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`available`** | <code>boolean</code>                     |                                                        |
 | **`platform`**  | <code>'ios' \| 'android' \| 'web'</code> | Platform specific details (for debugging/diagnostics). |
 | **`reason`**    | <code>string</code>                      |                                                        |
-
 
 #### AuthorizationStatus
 
@@ -528,7 +582,6 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`writeAuthorized`** | <code>HealthDataType[]</code> |
 | **`writeDenied`**     | <code>HealthDataType[]</code> |
 
-
 #### AuthorizationOptions
 
 | Prop        | Type                          | Description                                             |
@@ -536,13 +589,11 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`read`**  | <code>HealthDataType[]</code> | Data types that should be readable after authorization. |
 | **`write`** | <code>HealthDataType[]</code> | Data types that should be writable after authorization. |
 
-
 #### ReadSamplesResult
 
 | Prop          | Type                        |
 | ------------- | --------------------------- |
 | **`samples`** | <code>HealthSample[]</code> |
-
 
 #### HealthSample
 
@@ -560,7 +611,6 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`systolic`**   | <code>number</code>                                       | For blood pressure data, the systolic value in mmHg.                                                |
 | **`diastolic`**  | <code>number</code>                                       | For blood pressure data, the diastolic value in mmHg.                                               |
 
-
 #### QueryOptions
 
 | Prop            | Type                                                      | Description                                                        |
@@ -570,7 +620,6 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`endDate`**   | <code>string</code>                                       | Exclusive ISO 8601 end date (defaults to now).                     |
 | **`limit`**     | <code>number</code>                                       | Maximum number of samples to return (defaults to 100).             |
 | **`ascending`** | <code>boolean</code>                                      | Return results sorted ascending by start date (defaults to false). |
-
 
 #### WriteSampleOptions
 
@@ -585,14 +634,12 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`systolic`**  | <code>number</code>                                             | For blood pressure data, the systolic value in mmHg. Required when dataType is 'bloodPressure'.                                                                                                   |
 | **`diastolic`** | <code>number</code>                                             | For blood pressure data, the diastolic value in mmHg. Required when dataType is 'bloodPressure'.                                                                                                  |
 
-
 #### QueryWorkoutsResult
 
 | Prop           | Type                   | Description                                                                                                                                                             |
 | -------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`workouts`** | <code>Workout[]</code> |                                                                                                                                                                         |
 | **`anchor`**   | <code>string</code>    | Anchor for the next page of results. Pass this value as the anchor parameter in the next query to continue pagination. If undefined or null, there are no more results. |
-
 
 #### Workout
 
@@ -609,7 +656,6 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`platformId`**        | <code>string</code>                                             | Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android). |
 | **`metadata`**          | <code><a href="#record">Record</a>&lt;string, string&gt;</code> | Additional metadata (if available).                                                                 |
 
-
 #### QueryWorkoutsOptions
 
 | Prop              | Type                                                | Description                                                                                                                                                                                                                                                              |
@@ -621,13 +667,11 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`ascending`**   | <code>boolean</code>                                | Return results sorted ascending by start date (defaults to false).                                                                                                                                                                                                       |
 | **`anchor`**      | <code>string</code>                                 | Anchor for pagination. Use the anchor returned from a previous query to continue from that point. On iOS, this is the ISO 8601 cursor returned by the previous query. On Android, this uses Health Connect's pageToken. Omit this parameter to start from the beginning. |
 
-
 #### QueryAggregatedResult
 
 | Prop          | Type                            |
 | ------------- | ------------------------------- |
 | **`samples`** | <code>AggregatedSample[]</code> |
-
 
 #### AggregatedSample
 
@@ -637,7 +681,6 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`endDate`**   | <code>string</code>                               | ISO 8601 end date of the bucket.   |
 | **`value`**     | <code>number</code>                               | Aggregated value for the bucket.   |
 | **`unit`**      | <code><a href="#healthunit">HealthUnit</a></code> | Unit of the aggregated value.      |
-
 
 #### QueryAggregatedOptions
 
@@ -649,45 +692,96 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`bucket`**      | <code><a href="#buckettype">BucketType</a></code>           | Time bucket for aggregation (defaults to 'day').         |
 | **`aggregation`** | <code><a href="#aggregationtype">AggregationType</a></code> | Aggregation operation to perform (defaults to 'sum').    |
 
+#### BackgroundSyncStatus
+
+| Prop                         | Type                 | Description                                                                                                                                      |
+| ---------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`isBgSyncAvailable`**      | <code>boolean</code> | Whether background sync is supported on the current runtime platform.                                                                            |
+| **`isBgPermissionsGranted`** | <code>boolean</code> | Whether the required native permissions are currently granted.                                                                                   |
+| **`isBgSyncScheduled`**      | <code>boolean</code> | Android: true after `startBackgroundSync()` (persisted enabled), false after `stopBackgroundSync()`. Does not reflect WorkManager runtime state. |
+
+#### BackgroundSyncOptions
+
+| Prop              | Type                                                                                        | Description                                                                                                                                                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`subjectId`**   | <code>string</code>                                                                         | Subject identifier sent in request body to correlate sync records server-side.                                                                                                                                                                    |
+| **`getLastSync`** | <code><a href="#backgroundsyncapirequestoptions">BackgroundSyncApiRequestOptions</a></code> | Backend endpoint used to fetch the last synced timestamp for each datatype. Expected response shape: `{ data: { lastSyncByDataType: Partial&lt;<a href="#record">Record</a>&lt;<a href="#healthdatatype">HealthDataType</a>, string&gt;&gt; } }`. |
+| **`postSamples`** | <code><a href="#backgroundsyncapirequestoptions">BackgroundSyncApiRequestOptions</a></code> | Backend endpoint used to upload background-collected samples. Current Android upload body shape: `{ subjectId, data: HealthSample[] }`.                                                                                                           |
+| **`dataTypes`**   | <code>HealthDataType[]</code>                                                               | Datatypes that should be read during background sync.                                                                                                                                                                                             |
+| **`interval`**    | <code><a href="#backgroundsyncinterval">BackgroundSyncInterval</a></code>                   | Requested Android periodic sync interval. Actual execution remains inexact per WorkManager rules.                                                                                                                                                 |
+
+#### BackgroundSyncApiRequestOptions
+
+| Prop          | Type                                                            | Description                                                          |
+| ------------- | --------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **`url`**     | <code>string</code>                                             | URL used by the native background sync API request.                  |
+| **`headers`** | <code><a href="#record">Record</a>&lt;string, string&gt;</code> | Optional HTTP headers persisted for native background sync requests. |
 
 ### Type Aliases
 
-
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness'</code>
-
+<code>
+  'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' |
+  'restingHeartRate' | 'heartRateVariability' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' |
+  'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'basalCalories' |
+  'totalCalories' | 'mindfulness'
+</code>
 
 #### HealthUnit
 
-<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter'</code>
-
+<code>
+  'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond' | 'mmHg' | 'mg/dL' |
+  'celsius' | 'fahrenheit' | 'centimeter'
+</code>
 
 #### SleepState
 
 <code>'inBed' | 'asleep' | 'awake' | 'rem' | 'deep' | 'light'</code>
 
-
 #### Record
 
 Construct a type with a set of properties K of type T
 
-<code>{ [P in K]: T; }</code>
-
+<code>{
+ [P in K]: T;
+ }</code>
 
 #### WorkoutType
 
-<code>'americanFootball' | 'australianFootball' | 'badminton' | 'baseball' | 'basketball' | 'bowling' | 'boxing' | 'climbing' | 'cricket' | 'crossTraining' | 'curling' | 'cycling' | 'dance' | 'elliptical' | 'fencing' | 'functionalStrengthTraining' | 'golf' | 'gymnastics' | 'handball' | 'hiking' | 'hockey' | 'jumpRope' | 'kickboxing' | 'lacrosse' | 'martialArts' | 'pilates' | 'racquetball' | 'rowing' | 'rugby' | 'running' | 'sailing' | 'skatingSports' | 'skiing' | 'snowboarding' | 'soccer' | 'softball' | 'squash' | 'stairClimbing' | 'strengthTraining' | 'surfing' | 'swimming' | 'swimmingPool' | 'swimmingOpenWater' | 'tableTennis' | 'tennis' | 'trackAndField' | 'traditionalStrengthTraining' | 'volleyball' | 'walking' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'weightlifting' | 'wheelchair' | 'yoga' | 'archery' | 'barre' | 'cooldown' | 'coreTraining' | 'crossCountrySkiing' | 'discSports' | 'downhillSkiing' | 'equestrianSports' | 'fishing' | 'fitnessGaming' | 'flexibility' | 'handCycling' | 'highIntensityIntervalTraining' | 'hunting' | 'mindAndBody' | 'mixedCardio' | 'paddleSports' | 'pickleball' | 'play' | 'preparationAndRecovery' | 'snowSports' | 'stairs' | 'stepTraining' | 'surfingSports' | 'taiChi' | 'transition' | 'underwaterDiving' | 'wheelchairRunPace' | 'wheelchairWalkPace' | 'wrestling' | 'cardioDance' | 'socialDance' | 'backExtension' | 'barbellShoulderPress' | 'benchPress' | 'benchSitUp' | 'bikingStationary' | 'bootCamp' | 'burpee' | 'calisthenics' | 'crunch' | 'dancing' | 'deadlift' | 'dumbbellCurlLeftArm' | 'dumbbellCurlRightArm' | 'dumbbellFrontRaise' | 'dumbbellLateralRaise' | 'dumbbellTricepsExtensionLeftArm' | 'dumbbellTricepsExtensionRightArm' | 'dumbbellTricepsExtensionTwoArm' | 'exerciseClass' | 'forwardTwist' | 'frisbeedisc' | 'guidedBreathing' | 'iceHockey' | 'iceSkating' | 'jumpingJack' | 'latPullDown' | 'lunge' | 'meditation' | 'paddling' | 'paraGliding' | 'plank' | 'rockClimbing' | 'rollerHockey' | 'rowingMachine' | 'runningTreadmill' | 'scubaDiving' | 'skating' | 'snowshoeing' | 'stairClimbingMachine' | 'stretching' | 'upperTwist' | 'other'</code>
-
+<code>
+  'americanFootball' | 'australianFootball' | 'badminton' | 'baseball' | 'basketball' | 'bowling' | 'boxing' |
+  'climbing' | 'cricket' | 'crossTraining' | 'curling' | 'cycling' | 'dance' | 'elliptical' | 'fencing' |
+  'functionalStrengthTraining' | 'golf' | 'gymnastics' | 'handball' | 'hiking' | 'hockey' | 'jumpRope' | 'kickboxing' |
+  'lacrosse' | 'martialArts' | 'pilates' | 'racquetball' | 'rowing' | 'rugby' | 'running' | 'sailing' | 'skatingSports'
+  | 'skiing' | 'snowboarding' | 'soccer' | 'softball' | 'squash' | 'stairClimbing' | 'strengthTraining' | 'surfing' |
+  'swimming' | 'swimmingPool' | 'swimmingOpenWater' | 'tableTennis' | 'tennis' | 'trackAndField' |
+  'traditionalStrengthTraining' | 'volleyball' | 'walking' | 'waterFitness' | 'waterPolo' | 'waterSports' |
+  'weightlifting' | 'wheelchair' | 'yoga' | 'archery' | 'barre' | 'cooldown' | 'coreTraining' | 'crossCountrySkiing' |
+  'discSports' | 'downhillSkiing' | 'equestrianSports' | 'fishing' | 'fitnessGaming' | 'flexibility' | 'handCycling' |
+  'highIntensityIntervalTraining' | 'hunting' | 'mindAndBody' | 'mixedCardio' | 'paddleSports' | 'pickleball' | 'play' |
+  'preparationAndRecovery' | 'snowSports' | 'stairs' | 'stepTraining' | 'surfingSports' | 'taiChi' | 'transition' |
+  'underwaterDiving' | 'wheelchairRunPace' | 'wheelchairWalkPace' | 'wrestling' | 'cardioDance' | 'socialDance' |
+  'backExtension' | 'barbellShoulderPress' | 'benchPress' | 'benchSitUp' | 'bikingStationary' | 'bootCamp' | 'burpee' |
+  'calisthenics' | 'crunch' | 'dancing' | 'deadlift' | 'dumbbellCurlLeftArm' | 'dumbbellCurlRightArm' |
+  'dumbbellFrontRaise' | 'dumbbellLateralRaise' | 'dumbbellTricepsExtensionLeftArm' | 'dumbbellTricepsExtensionRightArm'
+  | 'dumbbellTricepsExtensionTwoArm' | 'exerciseClass' | 'forwardTwist' | 'frisbeedisc' | 'guidedBreathing' |
+  'iceHockey' | 'iceSkating' | 'jumpingJack' | 'latPullDown' | 'lunge' | 'meditation' | 'paddling' | 'paraGliding' |
+  'plank' | 'rockClimbing' | 'rollerHockey' | 'rowingMachine' | 'runningTreadmill' | 'scubaDiving' | 'skating' |
+  'snowshoeing' | 'stairClimbingMachine' | 'stretching' | 'upperTwist' | 'other'
+</code>
 
 #### BucketType
 
 <code>'hour' | 'day' | 'week' | 'month'</code>
 
-
 #### AggregationType
 
 <code>'sum' | 'average' | 'min' | 'max'</code>
+
+#### BackgroundSyncInterval
+
+<code>'15min' | '30min' | '1hour' | '8hours' | '24hours'</code>
 
 </docgen-api>
 

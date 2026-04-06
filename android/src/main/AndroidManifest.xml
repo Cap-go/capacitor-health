@@ -40,6 +40,7 @@
     <uses-permission android:name="android.permission.health.READ_MINDFULNESS" />
     <uses-permission android:name="android.permission.health.WRITE_MINDFULNESS" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
 
     <!-- Query for Health Connect availability -->
     <queries>
@@ -68,5 +69,6 @@
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
+
     </application>
 </manifest>

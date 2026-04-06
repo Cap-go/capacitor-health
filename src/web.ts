@@ -3,6 +3,8 @@ import { WebPlugin } from '@capacitor/core';
 import type {
   AuthorizationOptions,
   AuthorizationStatus,
+  BackgroundSyncOptions,
+  BackgroundSyncStatus,
   AvailabilityResult,
   HealthPlugin,
   QueryAggregatedOptions,
@@ -57,5 +59,21 @@ export class HealthWeb extends WebPlugin implements HealthPlugin {
 
   async queryAggregated(_options: QueryAggregatedOptions): Promise<QueryAggregatedResult> {
     throw this.unimplemented('Querying aggregated data is only available on native platforms.');
+  }
+
+  async configureBackgroundSync(_options: BackgroundSyncOptions): Promise<BackgroundSyncStatus> {
+    throw this.unimplemented('Background health sync is only available on native platforms.');
+  }
+
+  async startBackgroundSync(): Promise<BackgroundSyncStatus> {
+    throw this.unimplemented('Background health sync is only available on native platforms.');
+  }
+
+  async stopBackgroundSync(): Promise<BackgroundSyncStatus> {
+    throw this.unimplemented('Background health sync is only available on native platforms.');
+  }
+
+  async getBackgroundSyncStatus(): Promise<BackgroundSyncStatus> {
+    throw this.unimplemented('Background health sync is only available on native platforms.');
   }
 }
