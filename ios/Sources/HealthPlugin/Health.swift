@@ -1229,6 +1229,7 @@ final class Health {
             return
         }
 
+        let emptyShareTypes = Set<HKSampleType>()
         let group = DispatchGroup()
         let lock = NSLock()
         var authorized: [String] = []
@@ -1241,7 +1242,7 @@ final class Health {
             }
 
             group.enter()
-            healthStore.getRequestStatusForAuthorization(toShare: Set<HKSampleType>(), read: readSet) { status, error in
+            healthStore.getRequestStatusForAuthorization(toShare: emptyShareTypes, read: readSet) { status, error in
                 defer { group.leave() }
 
                 if error != nil {
@@ -1262,7 +1263,7 @@ final class Health {
 
         if includeWorkouts {
             group.enter()
-            healthStore.getRequestStatusForAuthorization(toShare: Set<HKSampleType>(), read: [HKObjectType.workoutType()]) { status, error in
+            healthStore.getRequestStatusForAuthorization(toShare: emptyShareTypes, read: [HKObjectType.workoutType()]) { status, error in
                 defer { group.leave() }
 
                 if error != nil {
