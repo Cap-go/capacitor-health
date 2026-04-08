@@ -847,8 +847,7 @@ class HealthManager {
             val aggregateRequest = AggregateRequest(
                 metrics = setOf(
                     DistanceRecord.DISTANCE_TOTAL,
-                    ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL,
-                    TotalCaloriesBurnedRecord.ENERGY_TOTAL
+                    ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL
                 ),
                 timeRangeFilter = timeRange
                 // Removed dataOriginFilter to get data from all sources during workout time
@@ -856,7 +855,6 @@ class HealthManager {
             val result = client.aggregate(aggregateRequest)
             distanceAggregate = result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
             caloriesAggregate = result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
-                ?: result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories
         } catch (e: CancellationException) {
             // Rethrow cancellation to allow coroutine cancellation to propagate
             throw e
@@ -866,6 +864,23 @@ class HealthManager {
         } catch (e: Exception) {
             // Other errors (e.g., no data available)
             android.util.Log.d("HealthManager", "Workout data aggregation failed: ${e.message}", e)
+        }
+
+        if (caloriesAggregate == null) {
+            try {
+                val fallbackRequest = AggregateRequest(
+                    metrics = setOf(TotalCaloriesBurnedRecord.ENERGY_TOTAL),
+                    timeRangeFilter = timeRange
+                )
+                val fallbackResult = client.aggregate(fallbackRequest)
+                caloriesAggregate = fallbackResult[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SecurityException) {
+                android.util.Log.d("HealthManager", "Permission denied for workout total calories aggregation: ${e.message}", e)
+            } catch (e: Exception) {
+                android.util.Log.d("HealthManager", "Workout total calories aggregation failed: ${e.message}", e)
+            }
         }
         
         return WorkoutAggregatedData(
