@@ -865,6 +865,23 @@ class HealthManager {
             // Other errors (e.g., no data available)
             android.util.Log.d("HealthManager", "Workout data aggregation failed: ${e.message}", e)
         }
+
+        if (caloriesAggregate == null) {
+            try {
+                val fallbackRequest = AggregateRequest(
+                    metrics = setOf(TotalCaloriesBurnedRecord.ENERGY_TOTAL),
+                    timeRangeFilter = timeRange
+                )
+                val fallbackResult = client.aggregate(fallbackRequest)
+                caloriesAggregate = fallbackResult[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SecurityException) {
+                android.util.Log.d("HealthManager", "Permission denied for workout total calories aggregation: ${e.message}", e)
+            } catch (e: Exception) {
+                android.util.Log.d("HealthManager", "Workout total calories aggregation failed: ${e.message}", e)
+            }
+        }
         
         return WorkoutAggregatedData(
             totalDistance = distanceAggregate,
