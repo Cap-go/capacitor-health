@@ -118,6 +118,10 @@ class HealthPlugin : Plugin() {
     @ActivityCallback
     private fun handlePermissionResult(call: PluginCall?, result: ActivityResult) {
         if (call == null) {
+            pendingConfigureBackgroundSync = false
+            pendingReadTypes = emptyList()
+            pendingWriteTypes = emptyList()
+            pendingIncludeWorkouts = false
             return
         }
 
@@ -520,6 +524,12 @@ class HealthPlugin : Plugin() {
             return
         }
 
+        val hasHc = backgroundPermissionChecker.hasHealthConnectPermissions(client, config)
+        if (!hasHc) {
+            call.reject("Background sync requires Health Connect read permissions for all configured dataTypes.")
+            return
+        }
+
         val hasRuntime = backgroundPermissionChecker.hasBackgroundHealthRuntimePermissions()
 
         if (!hasRuntime) {
@@ -531,13 +541,6 @@ class HealthPlugin : Plugin() {
                 )
                 return
             }
-        }
-
-        val hasHc = backgroundPermissionChecker.hasHealthConnectPermissions(client, config)
-
-        if (!hasHc) {
-            call.reject("Background sync requires Health Connect read permissions for all configured dataTypes.")
-            return
         }
 
         if (!backgroundPermissionChecker.hasBackgroundHealthRuntimePermissions()) {
@@ -552,6 +555,16 @@ class HealthPlugin : Plugin() {
     private fun handleBackgroundRuntimePermissionResult(call: PluginCall) {
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
+            if (!backgroundPermissionChecker.hasBackgroundHealthRuntimePermissions()) {
+                val config = try {
+                    backgroundPreferences.requireConfig()
+                } catch (e: Exception) {
+                    call.reject(e.message ?: "Background sync is not configured.", null, e)
+                    return@launch
+                }
+                call.resolve(buildBackgroundSyncStatus(config, client, isPermissionsGranted = false))
+                return@launch
+            }
             continueConfigureBackgroundSync(call, client)
         }
     }
