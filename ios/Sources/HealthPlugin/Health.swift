@@ -772,7 +772,7 @@ struct AuthorizationStatusPayload {
 final class Health {
     private let healthStore = HKHealthStore()
     private let isoFormatter: ISO8601DateFormatter
-    private let emptyShareTypes = Set<HKSampleType>()
+    private let emptyWriteTypes = Set<HKSampleType>()
     
     /// Small time offset used to move the workout pagination cursor past the last item of a page.
     private let paginationOffsetSeconds: TimeInterval = 0.001
@@ -1225,7 +1225,7 @@ final class Health {
     }
 
     private func readAuthorizationStatus(for types: [HealthDataType], includeWorkouts: Bool, completion: @escaping ([String], [String]) -> Void) {
-        guard !types.isEmpty || includeWorkouts else {
+        if types.isEmpty && !includeWorkouts {
             completion([], [])
             return
         }
@@ -1242,7 +1242,7 @@ final class Health {
             }
 
             group.enter()
-            healthStore.getRequestStatusForAuthorization(toShare: emptyShareTypes, read: readSet) { status, error in
+            healthStore.getRequestStatusForAuthorization(toShare: emptyWriteTypes, read: readSet) { status, error in
                 defer { group.leave() }
 
                 if error != nil {
@@ -1263,7 +1263,7 @@ final class Health {
 
         if includeWorkouts {
             group.enter()
-            healthStore.getRequestStatusForAuthorization(toShare: emptyShareTypes, read: [HKObjectType.workoutType()]) { status, error in
+            healthStore.getRequestStatusForAuthorization(toShare: emptyWriteTypes, read: [HKObjectType.workoutType()]) { status, error in
                 defer { group.leave() }
 
                 if error != nil {
