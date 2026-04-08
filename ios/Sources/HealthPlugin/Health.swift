@@ -772,6 +772,7 @@ struct AuthorizationStatusPayload {
 final class Health {
     private let healthStore = HKHealthStore()
     private let isoFormatter: ISO8601DateFormatter
+    private let emptyShareTypes = Set<HKSampleType>()
     
     /// Small time offset used to move the workout pagination cursor past the last item of a page.
     private let paginationOffsetSeconds: TimeInterval = 0.001
@@ -1229,7 +1230,6 @@ final class Health {
             return
         }
 
-        let emptyShareTypes = Set<HKSampleType>()
         let group = DispatchGroup()
         let lock = NSLock()
         var authorized: [String] = []
