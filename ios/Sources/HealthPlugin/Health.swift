@@ -754,17 +754,17 @@ enum HealthDataType: String, CaseIterable {
 }
 
 struct AuthorizationStatusPayload {
-    let readAuthorized: [HealthDataType]
-    let readDenied: [HealthDataType]
-    let writeAuthorized: [HealthDataType]
-    let writeDenied: [HealthDataType]
+    let readAuthorized: [String]
+    let readDenied: [String]
+    let writeAuthorized: [String]
+    let writeDenied: [String]
 
     func toDictionary() -> [String: Any] {
         return [
-            "readAuthorized": readAuthorized.map { $0.rawValue },
-            "readDenied": readDenied.map { $0.rawValue },
-            "writeAuthorized": writeAuthorized.map { $0.rawValue },
-            "writeDenied": writeDenied.map { $0.rawValue }
+            "readAuthorized": readAuthorized,
+            "readDenied": readDenied,
+            "writeAuthorized": writeAuthorized,
+            "writeDenied": writeDenied
         ]
     }
 }
@@ -772,6 +772,7 @@ struct AuthorizationStatusPayload {
 final class Health {
     private let healthStore = HKHealthStore()
     private let isoFormatter: ISO8601DateFormatter
+    private let emptyWriteTypesSet = Set<HKSampleType>()
     
     /// Small time offset used to move the workout pagination cursor past the last item of a page.
     private let paginationOffsetSeconds: TimeInterval = 0.001
@@ -809,7 +810,7 @@ final class Health {
             let (readTypes, includeWorkouts) = try parseTypesWithWorkouts(readIdentifiers)
             let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
 
-            var readObjectTypes = try objectTypes(for: readTypes)
+            var readObjectTypes = try readAuthorizationObjectTypes(for: readTypes)
             // Include workout type if explicitly requested
             if includeWorkouts {
                 readObjectTypes.insert(HKObjectType.workoutType())
@@ -825,7 +826,7 @@ final class Health {
                 }
 
                 if success {
-                    self.evaluateAuthorizationStatus(readTypes: readTypes, writeTypes: writeTypes) { result in
+                    self.evaluateAuthorizationStatus(readTypes: readTypes, includeWorkouts: includeWorkouts, writeTypes: writeTypes) { result in
                         completion(.success(result))
                     }
                 } else {
@@ -839,10 +840,10 @@ final class Health {
 
     func checkAuthorization(readIdentifiers: [String], writeIdentifiers: [String], completion: @escaping (Result<AuthorizationStatusPayload, Error>) -> Void) {
         do {
-            let (readTypes, _) = try parseTypesWithWorkouts(readIdentifiers)
+            let (readTypes, includeWorkouts) = try parseTypesWithWorkouts(readIdentifiers)
             let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
 
-            evaluateAuthorizationStatus(readTypes: readTypes, writeTypes: writeTypes) { payload in
+            evaluateAuthorizationStatus(readTypes: readTypes, includeWorkouts: includeWorkouts, writeTypes: writeTypes) { payload in
                 completion(.success(payload))
             }
         } catch {
@@ -1186,15 +1187,15 @@ final class Health {
         }
     }
 
-    private func evaluateAuthorizationStatus(readTypes: [HealthDataType], writeTypes: [HealthDataType], completion: @escaping (AuthorizationStatusPayload) -> Void) {
+    private func evaluateAuthorizationStatus(readTypes: [HealthDataType], includeWorkouts: Bool, writeTypes: [HealthDataType], completion: @escaping (AuthorizationStatusPayload) -> Void) {
         let writeStatus = writeAuthorizationStatus(for: writeTypes)
 
-        readAuthorizationStatus(for: readTypes) { readAuthorized, readDenied in
+        readAuthorizationStatus(for: readTypes, includeWorkouts: includeWorkouts) { readAuthorized, readDenied in
             let payload = AuthorizationStatusPayload(
                 readAuthorized: readAuthorized,
                 readDenied: readDenied,
-                writeAuthorized: writeStatus.authorized,
-                writeDenied: writeStatus.denied
+                writeAuthorized: writeStatus.authorized.map { $0.rawValue },
+                writeDenied: writeStatus.denied.map { $0.rawValue }
             )
             completion(payload)
         }
@@ -1223,40 +1224,60 @@ final class Health {
         return (authorized, denied)
     }
 
-    private func readAuthorizationStatus(for types: [HealthDataType], completion: @escaping ([HealthDataType], [HealthDataType]) -> Void) {
-        guard !types.isEmpty else {
+    private func readAuthorizationStatus(for types: [HealthDataType], includeWorkouts: Bool, completion: @escaping ([String], [String]) -> Void) {
+        guard !types.isEmpty || includeWorkouts else {
             completion([], [])
             return
         }
 
         let group = DispatchGroup()
         let lock = NSLock()
-        var authorized: [HealthDataType] = []
-        var denied: [HealthDataType] = []
+        var authorized: [String] = []
+        var denied: [String] = []
 
         for type in types {
-            guard let objectType = try? type.sampleType() else {
-                denied.append(type)
+            guard let readSet = try? readAuthorizationObjectTypes(for: type) else {
+                denied.append(type.rawValue)
                 continue
             }
 
             group.enter()
-            let readSet = Set<HKObjectType>([objectType])
-            healthStore.getRequestStatusForAuthorization(toShare: Set<HKSampleType>(), read: readSet) { status, error in
+            healthStore.getRequestStatusForAuthorization(toShare: emptyWriteTypesSet, read: readSet) { status, error in
                 defer { group.leave() }
 
                 if error != nil {
-                    lock.lock(); denied.append(type); lock.unlock()
+                    lock.lock(); denied.append(type.rawValue); lock.unlock()
                     return
                 }
 
                 switch status {
                 case .unnecessary:
-                    lock.lock(); authorized.append(type); lock.unlock()
+                    lock.lock(); authorized.append(type.rawValue); lock.unlock()
                 case .shouldRequest, .unknown:
-                    lock.lock(); denied.append(type); lock.unlock()
+                    lock.lock(); denied.append(type.rawValue); lock.unlock()
                 @unknown default:
-                    lock.lock(); denied.append(type); lock.unlock()
+                    lock.lock(); denied.append(type.rawValue); lock.unlock()
+                }
+            }
+        }
+
+        if includeWorkouts {
+            group.enter()
+            healthStore.getRequestStatusForAuthorization(toShare: emptyWriteTypesSet, read: [HKObjectType.workoutType()]) { status, error in
+                defer { group.leave() }
+
+                if error != nil {
+                    lock.lock(); denied.append("workouts"); lock.unlock()
+                    return
+                }
+
+                switch status {
+                case .unnecessary:
+                    lock.lock(); authorized.append("workouts"); lock.unlock()
+                case .shouldRequest, .unknown:
+                    lock.lock(); denied.append("workouts"); lock.unlock()
+                @unknown default:
+                    lock.lock(); denied.append("workouts"); lock.unlock()
                 }
             }
         }
@@ -1330,11 +1351,23 @@ final class Health {
         }
     }
 
-    private func objectTypes(for dataTypes: [HealthDataType]) throws -> Set<HKObjectType> {
+    private func readAuthorizationObjectTypes(for dataType: HealthDataType) throws -> Set<HKObjectType> {
+        if dataType == .bloodPressure {
+            guard let systolicType = HKObjectType.quantityType(forIdentifier: .bloodPressureSystolic),
+                  let diastolicType = HKObjectType.quantityType(forIdentifier: .bloodPressureDiastolic) else {
+                throw HealthManagerError.dataTypeUnavailable(dataType.rawValue)
+            }
+            return [systolicType, diastolicType]
+        }
+
+        return [try dataType.sampleType()]
+    }
+
+    private func readAuthorizationObjectTypes(for dataTypes: [HealthDataType]) throws -> Set<HKObjectType> {
         var set = Set<HKObjectType>()
         for dataType in dataTypes {
-            let type = try dataType.sampleType()
-            set.insert(type)
+            let types = try readAuthorizationObjectTypes(for: dataType)
+            set.formUnion(types)
         }
         return set
     }
