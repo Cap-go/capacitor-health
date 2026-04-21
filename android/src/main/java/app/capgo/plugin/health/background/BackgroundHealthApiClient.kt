@@ -15,7 +15,7 @@ import org.json.JSONObject
 
 class BackgroundHealthApiClient {
     fun fetchLastSyncMap(config: BackgroundSyncApiRequestConfig, subjectId: String): Map<HealthDataType, String> {
-        val url = urlWithSubjectQuery(config.url, subjectId)
+        val url = urlWithSubjectPath(config.url, subjectId)
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = CONNECT_TIMEOUT_MS
@@ -73,8 +73,8 @@ class BackgroundHealthApiClient {
         connection.useJsonConnection { }
     }
 
-    /** MindMend zone-health: `{base}/{subjectId}` (not `?subjectId=`). */
-    private fun urlWithSubjectQuery(baseUrl: String, subjectId: String): String {
+    /** MindMend zone-health: `{base}/{subjectId}` (path subject; not `?subjectId=`). */
+    private fun urlWithSubjectPath(baseUrl: String, subjectId: String): String {
         val encoded = URLEncoder.encode(subjectId, StandardCharsets.UTF_8)
         return "${baseUrl.trimEnd('/')}/$encoded"
     }

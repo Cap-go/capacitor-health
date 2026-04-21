@@ -71,7 +71,7 @@ class BackgroundHealthCoordinator(
         }
 
         if (uploadedSamples.length() == 0) {
-            // POST /api/health/signals requires non-empty `data`; nothing new from Health Connect this run.
+            // POST /api/raw-health-payloads requires non-empty `samples`; nothing new from Health Connect this run.
             return ListenableWorker.Result.success()
         }
 

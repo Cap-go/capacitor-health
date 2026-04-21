@@ -117,7 +117,7 @@ export interface BackgroundSyncOptions {
   getLastSync: BackgroundSyncApiRequestOptions;
   /**
    * Backend endpoint used to upload background-collected samples.
-   * MindMend / AD-028 body: `{ data: { healthSubjectId, sourcePlatform?, samples: HealthSample[] } }` (server also accepts legacy inner `data` for the batch).
+   * MindMend / AD-028 body: `{ data: { healthSubjectId, sourcePlatform?, samples: HealthSample[] } }`.
    */
   postSamples: BackgroundSyncApiRequestOptions;
   /** Datatypes that should be read during background sync. */
