@@ -734,8 +734,8 @@ Returns the current background sync configuration and runtime status.
 | Prop              | Type                                                                                        | Description                                                                                                                                                                                                                                       |
 | ----------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`subjectId`**   | <code>string</code>                                                                         | Subject identifier sent in request body to correlate sync records server-side.                                                                                                                                                                    |
-| **`getLastSync`** | <code><a href="#backgroundsyncapirequestoptions">BackgroundSyncApiRequestOptions</a></code> | Backend endpoint used to fetch the last synced timestamp for each datatype. Expected response shape: `{ data: { lastSyncByDataType: Partial&lt;<a href="#record">Record</a>&lt;<a href="#healthdatatype">HealthDataType</a>, string&gt;&gt; } }`. |
-| **`postSamples`** | <code><a href="#backgroundsyncapirequestoptions">BackgroundSyncApiRequestOptions</a></code> | Backend endpoint used to upload background-collected samples. Current Android upload body shape: `{ subjectId, data: HealthSample[] }`.                                                                                                           |
+| **`getLastSync`** | <code><a href="#backgroundsyncapirequestoptions">BackgroundSyncApiRequestOptions</a></code> | Backend base URL (e.g. `/api/health-signal-last-sync`); native worker calls `GET {base}/{urlEncodedSubjectId}`. MindMend / AD-027 response: `{ data: { items: { dataType, lastSyncAt }[], meta } }`. |
+| **`postSamples`** | <code><a href="#backgroundsyncapirequestoptions">BackgroundSyncApiRequestOptions</a></code> | MindMend / AD-028 upload body: `{ data: { healthSubjectId, sourcePlatform?, samples: HealthSample[] } }` (legacy inner `data` batch still accepted server-side).                                                                                                           |
 | **`dataTypes`**   | <code>HealthDataType[]</code>                                                               | Datatypes that should be read during background sync.                                                                                                                                                                                             |
 | **`interval`**    | <code><a href="#backgroundsyncinterval">BackgroundSyncInterval</a></code>                   | Requested Android periodic sync interval. Actual execution remains inexact per WorkManager rules.                                                                                                                                                 |
 
@@ -770,7 +770,9 @@ Returns the current background sync configuration and runtime status.
 
 Construct a type with a set of properties K of type T
 
-<code>{ [P in K]: T; }</code>
+<code>{
+ [P in K]: T;
+ }</code>
 
 
 #### WorkoutType

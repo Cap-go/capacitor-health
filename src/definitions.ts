@@ -110,12 +110,14 @@ export interface BackgroundSyncOptions {
   subjectId: string;
   /**
    * Backend endpoint used to fetch the last synced timestamp for each datatype.
-   * Expected response shape: `{ data: { lastSyncByDataType: Partial<Record<HealthDataType, string>> } }`.
+   * Configure URL to the collection base (e.g. `/api/health-signal-last-sync`); the native worker appends
+   * `/{urlEncodedSubjectId}`. Expected MindMend / AD-027 list shape:
+   * `{ data: { items: { dataType: HealthDataType; lastSyncAt: string }[], meta: … } }`.
    */
   getLastSync: BackgroundSyncApiRequestOptions;
   /**
    * Backend endpoint used to upload background-collected samples.
-   * Current Android upload body shape: `{ subjectId, data: HealthSample[] }`.
+   * MindMend / AD-028 body: `{ data: { healthSubjectId, sourcePlatform?, samples: HealthSample[] } }` (server also accepts legacy inner `data` for the batch).
    */
   postSamples: BackgroundSyncApiRequestOptions;
   /** Datatypes that should be read during background sync. */

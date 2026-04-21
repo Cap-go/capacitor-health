@@ -29,21 +29,23 @@ class BackgroundHealthApiClient {
             val json = JSONObject(response)
             val data = json.optJSONObject("data")
                 ?: throw IllegalArgumentException("Missing data object in last sync response.")
-            val lastSyncJson = data.optJSONObject("lastSyncByDataType")
-                ?: throw IllegalArgumentException("Missing data.lastSyncByDataType in last sync response.")
+            val items = data.optJSONArray("items")
+                ?: throw IllegalArgumentException("Missing data.items in last sync response.")
             buildMap {
-                val keys = lastSyncJson.keys()
-                while (keys.hasNext()) {
-                    val key = keys.next()
+                for (i in 0 until items.length()) {
+                    val row = items.optJSONObject(i) ?: continue
+                    val key = row.optString("dataType", "")
+                    if (key.isBlank()) {
+                        continue
+                    }
                     val dataType = HealthDataType.from(key)
                     if (dataType == null) {
-                        // Backend may return types we do not sync from Health Connect (e.g. exerciseTime); ignore.
                         Log.w(TAG, "Skipping unknown last-sync key (not in HealthDataType): $key")
                         continue
                     }
-                    val timestamp = lastSyncJson.optString(key)
+                    val timestamp = row.optString("lastSyncAt", "")
                     if (timestamp.isBlank()) {
-                        throw IllegalArgumentException("Missing timestamp for health data type: $key")
+                        throw IllegalArgumentException("Missing lastSyncAt for health data type: $key")
                     }
                     put(dataType, timestamp)
                 }
@@ -53,8 +55,14 @@ class BackgroundHealthApiClient {
 
     fun uploadSamples(config: BackgroundSyncApiRequestConfig, subjectId: String, samples: JSArray) {
         val body = JSONObject().apply {
-            put("subjectId", subjectId)
-            put("data", samples)
+            put(
+                "data",
+                JSONObject().apply {
+                    put("healthSubjectId", subjectId)
+                    put("sourcePlatform", "HEALTH_CONNECT")
+                    put("samples", samples)
+                }
+            )
         }
         val connection = openConnection(config, "POST")
         connection.doOutput = true
@@ -65,10 +73,10 @@ class BackgroundHealthApiClient {
         connection.useJsonConnection { }
     }
 
+    /** MindMend zone-health: `{base}/{subjectId}` (not `?subjectId=`). */
     private fun urlWithSubjectQuery(baseUrl: String, subjectId: String): String {
         val encoded = URLEncoder.encode(subjectId, StandardCharsets.UTF_8)
-        val sep = if (baseUrl.contains('?')) "&" else "?"
-        return "$baseUrl${sep}subjectId=$encoded"
+        return "${baseUrl.trimEnd('/')}/$encoded"
     }
 
     private fun openConnection(config: BackgroundSyncApiRequestConfig, method: String): HttpURLConnection {
