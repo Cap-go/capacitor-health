@@ -110,7 +110,7 @@ export interface BackgroundSyncOptions {
   subjectId: string;
   /**
    * Backend endpoint used to fetch the last synced timestamp for each datatype.
-   * Configure URL to the collection base (e.g. `/api/health-signal-last-sync`); the native worker appends
+   * Configure URL to the collection base (e.g. `/api/health/signal-last-sync`); the native worker appends
    * `/{urlEncodedSubjectId}`. Expected MindMend / AD-027 list shape:
    * `{ data: { items: { dataType: HealthDataType; lastSyncAt: string }[], meta: … } }`.
    */
