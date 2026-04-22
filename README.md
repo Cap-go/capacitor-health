@@ -731,13 +731,13 @@ Returns the current background sync configuration and runtime status.
 
 #### BackgroundSyncOptions
 
-| Prop              | Type                                                                                        | Description                                                                                                                                                                                                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`subjectId`**   | <code>string</code>                                                                         | Subject identifier sent in request body to correlate sync records server-side.                                                                                                                                                                    |
-| **`getLastSync`** | <code><a href="#backgroundsyncapirequestoptions">BackgroundSyncApiRequestOptions</a></code> | Backend base URL (e.g. `/api/health/signal-last-sync`); native worker calls `GET {base}/{urlEncodedSubjectId}`. MindMend / AD-027 response: `{ data: { items: { dataType, lastSyncAt }[], meta } }`. |
-| **`postSamples`** | <code><a href="#backgroundsyncapirequestoptions">BackgroundSyncApiRequestOptions</a></code> | MindMend / AD-028 upload body: `{ data: { healthSubjectId, sourcePlatform?, samples: HealthSample[] } }`.                                                                                                           |
-| **`dataTypes`**   | <code>HealthDataType[]</code>                                                               | Datatypes that should be read during background sync.                                                                                                                                                                                             |
-| **`interval`**    | <code><a href="#backgroundsyncinterval">BackgroundSyncInterval</a></code>                   | Requested Android periodic sync interval. Actual execution remains inexact per WorkManager rules.                                                                                                                                                 |
+| Prop              | Type                                                                                        | Description                                                                                                                                                                                                                                                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`subjectId`**   | <code>string</code>                                                                         | Subject identifier sent in request body to correlate sync records server-side.                                                                                                                                                                                                                                                                                       |
+| **`getLastSync`** | <code><a href="#backgroundsyncapirequestoptions">BackgroundSyncApiRequestOptions</a></code> | Backend endpoint used to fetch the last synced timestamp for each datatype. Configure URL to the collection base (e.g. `/api/health/signal-last-sync`); the native worker appends `/{urlEncodedSubjectId}`. Expected MindMend / AD-027 list shape: `{ data: { items: { dataType: <a href="#healthdatatype">HealthDataType</a>; lastSyncAt: string }[], meta: … } }`. |
+| **`postSamples`** | <code><a href="#backgroundsyncapirequestoptions">BackgroundSyncApiRequestOptions</a></code> | Backend endpoint used to upload background-collected samples. MindMend / AD-028 body: `{ data: { healthSubjectId, sourcePlatform?, samples: HealthSample[] } }`.                                                                                                                                                                                                     |
+| **`dataTypes`**   | <code>HealthDataType[]</code>                                                               | Datatypes that should be read during background sync.                                                                                                                                                                                                                                                                                                                |
+| **`interval`**    | <code><a href="#backgroundsyncinterval">BackgroundSyncInterval</a></code>                   | Requested Android periodic sync interval. Actual execution remains inexact per WorkManager rules.                                                                                                                                                                                                                                                                    |
 
 
 #### BackgroundSyncApiRequestOptions
@@ -770,9 +770,7 @@ Returns the current background sync configuration and runtime status.
 
 Construct a type with a set of properties K of type T
 
-<code>{
- [P in K]: T;
- }</code>
+<code>{ [P in K]: T; }</code>
 
 
 #### WorkoutType

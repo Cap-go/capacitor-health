@@ -13,7 +13,11 @@
     "ios/Sources",
     "ios/Tests",
     "Package.swift",
-    "CapgoCapacitorHealth.podspec"
+    "CapgoCapacitorHealth.podspec",
+    "scripts/run-docgen.cjs",
+    "scripts/resolve-workspace-module.cjs",
+    "scripts/run-tsc.cjs",
+    "scripts/run-rollup.cjs"
   ],
   "author": "Martin Donadieu <martin@capgo.app>",
   "license": "MPL-2.0",
@@ -40,10 +44,12 @@
     "eslint": "eslint . --ext ts",
     "prettier": "prettier-pretty-check \"**/*.{css,html,ts,js,java}\" --plugin=prettier-plugin-java",
     "swiftlint": "node-swiftlint",
-    "docgen": "docgen --api HealthPlugin --output-readme README.md --output-json dist/docs.json",
-    "build": "npm run clean && npm run docgen && tsc && rollup -c rollup.config.mjs",
+    "docgen": "node scripts/run-docgen.cjs",
+    "compile:ts": "node scripts/run-tsc.cjs",
+    "bundle": "node scripts/run-rollup.cjs",
+    "build": "npm run clean && npm run docgen && npm run compile:ts && npm run bundle",
     "clean": "rimraf ./dist",
-    "watch": "tsc --watch",
+    "watch": "node scripts/run-tsc.cjs --watch",
     "prepublishOnly": "npm run build",
     "check:wiring": "node scripts/check-capacitor-plugin-wiring.mjs"
   },
