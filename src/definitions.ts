@@ -1,27 +1,35 @@
-export type HealthDataType =
-  | 'steps'
-  | 'distance'
-  | 'calories'
-  | 'heartRate'
-  | 'weight'
-  | 'sleep'
-  | 'respiratoryRate'
-  | 'oxygenSaturation'
-  | 'restingHeartRate'
-  | 'heartRateVariability'
-  | 'bloodPressure'
-  | 'bloodGlucose'
-  | 'bodyTemperature'
-  | 'height'
-  | 'flightsClimbed'
-  | 'exerciseTime'
-  | 'distanceCycling'
-  | 'bodyFat'
-  | 'basalBodyTemperature'
-  | 'basalCalories'
-  | 'totalCalories'
-  | 'mindfulness'
-  | 'workouts';
+/** Canonical identifiers used as runtime allow-list and type source. */
+export const HEALTH_DATA_TYPES = [
+  'steps',
+  'distance',
+  'calories',
+  'heartRate',
+  'weight',
+  'sleep',
+  'respiratoryRate',
+  'oxygenSaturation',
+  'restingHeartRate',
+  'heartRateVariability',
+  'bloodPressure',
+  'bloodGlucose',
+  'bodyTemperature',
+  'height',
+  'flightsClimbed',
+  'exerciseTime',
+  'distanceCycling',
+  'bodyFat',
+  'basalBodyTemperature',
+  'basalCalories',
+  'totalCalories',
+  'mindfulness',
+  'workouts',
+] as const;
+
+export type HealthDataType = (typeof HEALTH_DATA_TYPES)[number];
+
+export function isHealthDataType(value: string): value is HealthDataType {
+  return (HEALTH_DATA_TYPES as readonly string[]).includes(value);
+}
 
 export type HealthUnit =
   | 'count'
