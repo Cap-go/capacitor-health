@@ -34,6 +34,7 @@ import androidx.health.connect.client.units.Length
 import androidx.health.connect.client.units.Mass
 import androidx.health.connect.client.units.Percentage
 import androidx.health.connect.client.units.Power
+import android.util.Log
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import java.time.Duration
@@ -50,6 +51,19 @@ class HealthManager {
 
     private val formatter: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT
 
+    /**
+     * [PermissionController.getGrantedPermissions] talks to the Health Connect provider over IPC.
+     * Rare protobuf/decode failures surface as e.g. InvalidProtocolBufferException; treat as nothing granted.
+     */
+    suspend fun getGrantedPermissionsSafe(client: HealthConnectClient): Set<String> {
+        return try {
+            client.permissionController.getGrantedPermissions()
+        } catch (e: Exception) {
+            Log.w(TAG, "Health Connect getGrantedPermissions failed; assuming none granted.", e)
+            emptySet()
+        }
+    }
+
     fun permissionsFor(readTypes: Collection<HealthDataType>, writeTypes: Collection<HealthDataType>, includeWorkouts: Boolean = false): Set<String> = buildSet {
         readTypes.forEach { add(it.readPermission) }
         writeTypes.forEach { add(it.writePermission) }
@@ -65,7 +79,7 @@ class HealthManager {
         writeTypes: Collection<HealthDataType>,
         includeWorkouts: Boolean = false
     ): JSObject {
-        val granted = client.permissionController.getGrantedPermissions()
+        val granted = getGrantedPermissionsSafe(client)
 
         val readAuthorized = JSArray()
         val readDenied = JSArray()
@@ -940,6 +954,7 @@ class HealthManager {
     }
 
     companion object {
+        private const val TAG = "HealthManager"
         private const val DEFAULT_PAGE_SIZE = 100
         private const val MAX_PAGE_SIZE = 500
     }

@@ -27,7 +27,7 @@ class BackgroundHealthPermissionChecker(
         client: HealthConnectClient,
         config: BackgroundSyncConfig
     ): Boolean {
-        val grantedHealthPermissions = client.permissionController.getGrantedPermissions()
+        val grantedHealthPermissions = healthManager.getGrantedPermissionsSafe(client)
         val requiredHealthPermissions = healthManager.permissionsFor(config.dataTypes, emptyList())
         return grantedHealthPermissions.containsAll(requiredHealthPermissions)
     }
