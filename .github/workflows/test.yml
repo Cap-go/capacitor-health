@@ -12,6 +12,10 @@ jobs:
   guard_swiftpm_version:
     runs-on: ubuntu-latest
     steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
       - name: Check out
         uses: actions/checkout@v6
       - name: Enforce capacitor-swift-pm version
@@ -24,6 +28,10 @@ jobs:
   build_android:
     runs-on: ubuntu-latest
     steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
       - name: Check out
         uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
@@ -46,6 +54,10 @@ jobs:
   build_ios:
     runs-on: macOS-latest
     steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
       - name: Check out
         uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
@@ -64,6 +76,10 @@ jobs:
     runs-on: ubuntu-latest
     name: 'Build code and test'
     steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
       - name: Check out
         uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
