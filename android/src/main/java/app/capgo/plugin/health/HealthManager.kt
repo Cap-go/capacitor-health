@@ -169,7 +169,6 @@ class HealthManager {
                 }
             }
             HealthDataType.SLEEP -> readRecords(client, SleepSessionRecord::class, startTime, endTime, limit) { record ->
-                // For sleep sessions, calculate duration in minutes
                 val durationMinutes = Duration.between(record.startTime, record.endTime).toMinutes().toDouble()
                 val payload = createSamplePayload(
                     dataType,
@@ -178,10 +177,21 @@ class HealthManager {
                     durationMinutes,
                     record.metadata
                 )
-                // Add sleep stage if available (map from sleep session stages)
-                // Note: SleepSessionRecord doesn't have individual stages in the main record
-                // Individual sleep stages would be in SleepStageRecord, but for simplicity
-                // we'll just return the session duration
+                // Expose individual sleep stages when present (Samsung Health, Mi Health,
+                // Apple Health, and other writers typically populate SleepSessionRecord.stages).
+                val stagesArray = JSArray()
+                record.stages.forEach { stage ->
+                    val stageString = mapSleepStageToString(stage.stage) ?: return@forEach
+                    val stageObj = JSObject()
+                    stageObj.put("startDate", formatter.format(stage.startTime))
+                    stageObj.put("endDate", formatter.format(stage.endTime))
+                    stageObj.put("stage", stageString)
+                    stageObj.put("durationMinutes", Duration.between(stage.startTime, stage.endTime).toMinutes().toDouble())
+                    stagesArray.put(stageObj)
+                }
+                payload.put("stages", stagesArray)
+                payload.put("hasStageData", record.stages.isNotEmpty())
+
                 samples.add(record.startTime to payload)
             }
             HealthDataType.RESPIRATORY_RATE -> readRecords(client, RespiratoryRateRecord::class, startTime, endTime, limit) { record ->
@@ -630,8 +640,18 @@ class HealthManager {
         }
         return Instant.parse(value)
     }
-
-    private fun createSamplePayload(
+private fun mapSleepStageToString(stage: Int): String? {
+        return when (stage) {
+            SleepSessionRecord.STAGE_TYPE_AWAKE -> "awake"
+            SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED -> "awake"
+            SleepSessionRecord.STAGE_TYPE_SLEEPING -> "asleep"
+            SleepSessionRecord.STAGE_TYPE_LIGHT -> "light"
+            SleepSessionRecord.STAGE_TYPE_DEEP -> "deep"
+            SleepSessionRecord.STAGE_TYPE_REM -> "rem"
+            else -> null  // OUT_OF_BED, UNKNOWN: filtered out by caller
+        }
+    }
+private fun createSamplePayload(
         dataType: HealthDataType,
         startTime: Instant,
         endTime: Instant,
