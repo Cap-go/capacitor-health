@@ -314,7 +314,7 @@ const { samples: avgHR } = await Health.queryAggregated({
 });
 ```
 
-**Note:** Aggregated queries are not supported for sleep, respiratory rate, oxygen saturation, and heart rate variability data types. These are instantaneous measurements and should use `readSamples()` instead. Aggregation is supported for: steps, distance, calories, heart rate, weight, and resting heart rate.
+**Note:** Aggregated queries are not supported for sleep, respiratory rate, oxygen saturation, heart rate variability, and VO2 max data types. These measurements should use `readSamples()`, not `queryAggregated()`. Aggregation is supported for: steps, distance, calories, heart rate, weight, and resting heart rate.
 
 ## API
 
