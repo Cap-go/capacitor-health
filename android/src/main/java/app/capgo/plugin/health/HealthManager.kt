@@ -25,6 +25,7 @@ import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
@@ -221,6 +222,17 @@ class HealthManager {
                     record.heartRateVariabilityMillis,
                     record.metadata
                 )
+                samples.add(record.time to payload)
+            }
+            HealthDataType.VO2_MAX -> readRecords(client, Vo2MaxRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.time,
+                    record.time,
+                    record.vo2MillilitersPerMinuteKilogram,
+                    record.metadata
+                )
+                payload.put("measurementMethod", record.measurementMethod)
                 samples.add(record.time to payload)
             }
             HealthDataType.BLOOD_PRESSURE -> readRecords(client, BloodPressureRecord::class, startTime, endTime, limit) { record ->
@@ -489,6 +501,15 @@ class HealthManager {
                 )
                 client.insertRecords(listOf(record))
             }
+            HealthDataType.VO2_MAX -> {
+                val record = Vo2MaxRecord(
+                    time = startTime,
+                    zoneOffset = zoneOffset(startTime),
+                    metadata = recordMetadata,
+                    vo2MillilitersPerMinuteKilogram = value
+                )
+                client.insertRecords(listOf(record))
+            }
             HealthDataType.BLOOD_PRESSURE -> {
                 if (systolic == null || diastolic == null) {
                     throw IllegalArgumentException("Blood pressure requires both systolic and diastolic values")
@@ -666,7 +687,8 @@ class HealthManager {
         // These data types should use readSamples instead
         if (dataType == HealthDataType.RESPIRATORY_RATE || 
             dataType == HealthDataType.OXYGEN_SATURATION || 
-            dataType == HealthDataType.HEART_RATE_VARIABILITY) {
+            dataType == HealthDataType.HEART_RATE_VARIABILITY ||
+            dataType == HealthDataType.VO2_MAX) {
             throw IllegalArgumentException("Aggregated queries are not supported for ${dataType.identifier}. Use readSamples instead.")
         }
 
