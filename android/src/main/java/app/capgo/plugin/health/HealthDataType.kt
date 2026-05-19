@@ -22,6 +22,7 @@ import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
 import kotlin.reflect.KClass
 
@@ -41,6 +42,7 @@ enum class HealthDataType(
     OXYGEN_SATURATION("oxygenSaturation", OxygenSaturationRecord::class, "percent"),
     RESTING_HEART_RATE("restingHeartRate", RestingHeartRateRecord::class, "bpm"),
     HEART_RATE_VARIABILITY("heartRateVariability", HeartRateVariabilityRmssdRecord::class, "millisecond"),
+    VO2_MAX("vo2Max", Vo2MaxRecord::class, "mL/min/kg"),
     BLOOD_PRESSURE("bloodPressure", BloodPressureRecord::class, "mmHg"),
     BLOOD_GLUCOSE("bloodGlucose", BloodGlucoseRecord::class, "mg/dL"),
     BODY_TEMPERATURE("bodyTemperature", BodyTemperatureRecord::class, "celsius"),

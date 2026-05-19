@@ -9,6 +9,7 @@ export type HealthDataType =
   | 'oxygenSaturation'
   | 'restingHeartRate'
   | 'heartRateVariability'
+  | 'vo2Max'
   | 'bloodPressure'
   | 'bloodGlucose'
   | 'bodyTemperature'
@@ -32,6 +33,7 @@ export type HealthUnit =
   | 'minute'
   | 'percent'
   | 'millisecond'
+  | 'mL/min/kg'
   | 'mmHg'
   | 'mg/dL'
   | 'celsius'
@@ -90,6 +92,8 @@ export interface HealthSample {
   systolic?: number;
   /** For blood pressure data, the diastolic value in mmHg. */
   diastolic?: number;
+  /** For VO2 max data on Android, Health Connect's measurement method enum value. */
+  measurementMethod?: number;
 }
 
 export interface ReadSamplesResult {

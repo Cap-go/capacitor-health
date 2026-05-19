@@ -169,6 +169,7 @@ await Health.saveSample({
 | `oxygenSaturation`      | `percent`     | Blood oxygen saturation (SpO2)                           |
 | `restingHeartRate`      | `bpm`         | Resting heart rate                                       |
 | `heartRateVariability`  | `millisecond` | Heart rate variability (HRV)                             |
+| `vo2Max`                | `mL/min/kg`   | VO2 max (Android Health Connect)                         |
 | `bloodPressure`         | `mmHg`        | Blood pressure (requires systolic/diastolic values)      |
 | `bloodGlucose`          | `mg/dL`       | Blood glucose level                                      |
 | `bodyTemperature`       | `celsius`     | Body temperature                                         |
@@ -313,7 +314,7 @@ const { samples: avgHR } = await Health.queryAggregated({
 });
 ```
 
-**Note:** Aggregated queries are not supported for sleep, respiratory rate, oxygen saturation, and heart rate variability data types. These are instantaneous measurements and should use `readSamples()` instead. Aggregation is supported for: steps, distance, calories, heart rate, weight, and resting heart rate.
+**Note:** Aggregated queries are not supported for sleep, respiratory rate, oxygen saturation, heart rate variability, and VO2 max data types. These measurements should use `readSamples()`, not `queryAggregated()`. Aggregation is supported for: steps, distance, calories, heart rate, weight, and resting heart rate.
 
 ## API
 
@@ -541,19 +542,20 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### HealthSample
 
-| Prop             | Type                                                      | Description                                                                                         |
-| ---------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| **`dataType`**   | <code><a href="#healthdatatype">HealthDataType</a></code> |                                                                                                     |
-| **`value`**      | <code>number</code>                                       |                                                                                                     |
-| **`unit`**       | <code><a href="#healthunit">HealthUnit</a></code>         |                                                                                                     |
-| **`startDate`**  | <code>string</code>                                       |                                                                                                     |
-| **`endDate`**    | <code>string</code>                                       |                                                                                                     |
-| **`sourceName`** | <code>string</code>                                       |                                                                                                     |
-| **`sourceId`**   | <code>string</code>                                       |                                                                                                     |
-| **`platformId`** | <code>string</code>                                       | Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android). |
-| **`sleepState`** | <code><a href="#sleepstate">SleepState</a></code>         | For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light').        |
-| **`systolic`**   | <code>number</code>                                       | For blood pressure data, the systolic value in mmHg.                                                |
-| **`diastolic`**  | <code>number</code>                                       | For blood pressure data, the diastolic value in mmHg.                                               |
+| Prop                    | Type                                                      | Description                                                                                         |
+| ----------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **`dataType`**          | <code><a href="#healthdatatype">HealthDataType</a></code> |                                                                                                     |
+| **`value`**             | <code>number</code>                                       |                                                                                                     |
+| **`unit`**              | <code><a href="#healthunit">HealthUnit</a></code>         |                                                                                                     |
+| **`startDate`**         | <code>string</code>                                       |                                                                                                     |
+| **`endDate`**           | <code>string</code>                                       |                                                                                                     |
+| **`sourceName`**        | <code>string</code>                                       |                                                                                                     |
+| **`sourceId`**          | <code>string</code>                                       |                                                                                                     |
+| **`platformId`**        | <code>string</code>                                       | Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android). |
+| **`sleepState`**        | <code><a href="#sleepstate">SleepState</a></code>         | For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light').        |
+| **`systolic`**          | <code>number</code>                                       | For blood pressure data, the systolic value in mmHg.                                                |
+| **`diastolic`**         | <code>number</code>                                       | For blood pressure data, the diastolic value in mmHg.                                               |
+| **`measurementMethod`** | <code>number</code>                                       | For VO2 max data on Android, Health Connect's measurement method enum value.                        |
 
 
 #### QueryOptions
@@ -650,12 +652,12 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'workouts'</code>
+<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'workouts'</code>
 
 
 #### HealthUnit
 
-<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter'</code>
+<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond' | 'mL/min/kg' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter'</code>
 
 
 #### SleepState
