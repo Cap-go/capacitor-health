@@ -330,7 +330,7 @@ class HealthPlugin : Plugin() {
     @PluginMethod
     fun openHealthConnectSettings(call: PluginCall) {
         try {
-            val intent = Intent(HEALTH_CONNECT_SETTINGS_ACTION)
+            val intent = Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             context.startActivity(intent)
             call.resolve()
@@ -440,6 +440,5 @@ class HealthPlugin : Plugin() {
     companion object {
         private const val DEFAULT_LIMIT = 100
         private val DEFAULT_PAST_DURATION: Duration = Duration.ofDays(1)
-        private const val HEALTH_CONNECT_SETTINGS_ACTION = "androidx.health.ACTION_HEALTH_CONNECT_SETTINGS"
     }
 }
