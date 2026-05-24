@@ -2,14 +2,48 @@ import XCTest
 @testable import HealthPlugin
 
 class HealthTests: XCTestCase {
-    func testEcho() {
-        // This is an example of a functional test case for a plugin.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-
+    func testReadSamplePayloadIncludesFiniteValue() {
         let implementation = Health()
-        let value = "Hello, World!"
-        let result = implementation.echo(value)
+        let startDate = Date(timeIntervalSince1970: 0)
+        let endDate = Date(timeIntervalSince1970: 60)
 
-        XCTAssertEqual(value, result)
+        let payload = implementation.readSamplePayload(
+            dataType: .oxygenSaturation,
+            value: 0.96,
+            startDate: startDate,
+            endDate: endDate
+        )
+
+        XCTAssertEqual(payload?["dataType"] as? String, "oxygenSaturation")
+        XCTAssertEqual(payload?["value"] as? Double, 0.96)
+        XCTAssertEqual(payload?["unit"] as? String, "percent")
+    }
+
+    func testReadSamplePayloadRejectsNaNValue() {
+        let implementation = Health()
+        let startDate = Date(timeIntervalSince1970: 0)
+
+        let payload = implementation.readSamplePayload(
+            dataType: .oxygenSaturation,
+            value: .nan,
+            startDate: startDate,
+            endDate: startDate
+        )
+
+        XCTAssertNil(payload)
+    }
+
+    func testReadSamplePayloadRejectsInfiniteValue() {
+        let implementation = Health()
+        let startDate = Date(timeIntervalSince1970: 0)
+
+        let payload = implementation.readSamplePayload(
+            dataType: .bloodGlucose,
+            value: .infinity,
+            startDate: startDate,
+            endDate: startDate
+        )
+
+        XCTAssertNil(payload)
     }
 }
