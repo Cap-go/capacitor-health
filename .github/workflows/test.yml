@@ -11,11 +11,8 @@ on:
 jobs:
   guard_swiftpm_version:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24.x
       - name: Check out
         uses: actions/checkout@v6
       - name: Enforce capacitor-swift-pm version
@@ -27,14 +24,15 @@ jobs:
           fi
   build_android:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
+      - name: Check out
+        uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
-      - name: Check out
-        uses: actions/checkout@v6
-      - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         id: install_code
         run: bun i
@@ -47,20 +45,21 @@ jobs:
           java-version: '21'
       - name: Build
         id: build_code
-        run: npm run verify:android
+        run: bun run verify:android
       - name: Verify packed package in example app (Android)
         shell: bash
         run: bash ./.github/scripts/verify-packed-example.sh android
   build_ios:
     runs-on: macOS-latest
+    timeout-minutes: 30
     steps:
+      - name: Check out
+        uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
-      - name: Check out
-        uses: actions/checkout@v6
-      - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         id: install_code
         run: bun i
@@ -74,12 +73,9 @@ jobs:
         run: bash ./.github/scripts/verify-packed-example.sh ios
   web:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     name: 'Build code and test'
     steps:
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24.x
       - name: Check out
         uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
@@ -91,10 +87,6 @@ jobs:
       - name: Lint
         id: lint_code
         run: bun run lint
-      - name: Build
-        id: build_code
-        run: bun run build
-
       - name: Verify packed package in example app (Web)
         shell: bash
         run: bash ./.github/scripts/verify-packed-example.sh web
