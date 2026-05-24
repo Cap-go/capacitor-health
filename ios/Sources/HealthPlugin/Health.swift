@@ -881,17 +881,17 @@ final class Health {
                     return
                 }
 
-                let results = categorySamples.map { sample -> [String: Any] in
+                let results = categorySamples.compactMap { sample -> [String: Any]? in
                     let sleepValue = sample.value
                     let durationMinutes = sample.endDate.timeIntervalSince(sample.startDate) / 60.0
-                    
-                    var payload: [String: Any] = [
-                        "dataType": dataType.rawValue,
-                        "value": durationMinutes,
-                        "unit": dataType.unitIdentifier,
-                        "startDate": self.isoFormatter.string(from: sample.startDate),
-                        "endDate": self.isoFormatter.string(from: sample.endDate)
-                    ]
+                    guard var payload = self.readSamplePayload(
+                        dataType: dataType,
+                        value: durationMinutes,
+                        startDate: sample.startDate,
+                        endDate: sample.endDate
+                    ) else {
+                        return nil
+                    }
                     
                     // Map HKCategoryValueSleepAnalysis to sleep state
                     let sleepState = self.sleepStateFromValue(sleepValue)
@@ -925,16 +925,16 @@ final class Health {
                     return
                 }
 
-                let results = categorySamples.map { sample -> [String: Any] in
+                let results = categorySamples.compactMap { sample -> [String: Any]? in
                     let durationMinutes = sample.endDate.timeIntervalSince(sample.startDate) / 60.0
-                    
-                    var payload: [String: Any] = [
-                        "dataType": dataType.rawValue,
-                        "value": durationMinutes,
-                        "unit": dataType.unitIdentifier,
-                        "startDate": self.isoFormatter.string(from: sample.startDate),
-                        "endDate": self.isoFormatter.string(from: sample.endDate)
-                    ]
+                    guard var payload = self.readSamplePayload(
+                        dataType: dataType,
+                        value: durationMinutes,
+                        startDate: sample.startDate,
+                        endDate: sample.endDate
+                    ) else {
+                        return nil
+                    }
 
                     self.addSampleMetadata(sample, to: &payload)
 
@@ -972,16 +972,19 @@ final class Health {
                     
                     let systolicValue = systolicSample.quantity.doubleValue(for: HKUnit.millimeterOfMercury())
                     let diastolicValue = diastolicSample.quantity.doubleValue(for: HKUnit.millimeterOfMercury())
-                    
-                    var payload: [String: Any] = [
-                        "dataType": dataType.rawValue,
-                        "value": systolicValue,
-                        "unit": dataType.unitIdentifier,
-                        "startDate": self.isoFormatter.string(from: correlation.startDate),
-                        "endDate": self.isoFormatter.string(from: correlation.endDate),
-                        "systolic": systolicValue,
-                        "diastolic": diastolicValue
-                    ]
+                    guard systolicValue.isFinite,
+                          diastolicValue.isFinite,
+                          var payload = self.readSamplePayload(
+                              dataType: dataType,
+                              value: systolicValue,
+                              startDate: correlation.startDate,
+                              endDate: correlation.endDate
+                          ) else {
+                        return nil
+                    }
+
+                    payload["systolic"] = systolicValue
+                    payload["diastolic"] = diastolicValue
 
                     self.addSampleMetadata(correlation, to: &payload)
 
@@ -1008,15 +1011,16 @@ final class Health {
                 return
             }
 
-            let results = quantitySamples.map { sample -> [String: Any] in
+            let results = quantitySamples.compactMap { sample -> [String: Any]? in
                 let value = sample.quantity.doubleValue(for: dataType.defaultUnit)
-                var payload: [String: Any] = [
-                    "dataType": dataType.rawValue,
-                    "value": value,
-                    "unit": dataType.unitIdentifier,
-                    "startDate": self.isoFormatter.string(from: sample.startDate),
-                    "endDate": self.isoFormatter.string(from: sample.endDate)
-                ]
+                guard var payload = self.readSamplePayload(
+                    dataType: dataType,
+                    value: value,
+                    startDate: sample.startDate,
+                    endDate: sample.endDate
+                ) else {
+                    return nil
+                }
 
                 self.addSampleMetadata(sample, to: &payload)
 
@@ -1027,6 +1031,20 @@ final class Health {
         }
 
         healthStore.execute(query)
+    }
+
+    func readSamplePayload(dataType: HealthDataType, value: Double, startDate: Date, endDate: Date) -> [String: Any]? {
+        guard value.isFinite else {
+            return nil
+        }
+
+        return [
+            "dataType": dataType.rawValue,
+            "value": value,
+            "unit": dataType.unitIdentifier,
+            "startDate": isoFormatter.string(from: startDate),
+            "endDate": isoFormatter.string(from: endDate)
+        ]
     }
     
     private func addSampleMetadata(_ sample: HKSample, to payload: inout [String: Any]) {
