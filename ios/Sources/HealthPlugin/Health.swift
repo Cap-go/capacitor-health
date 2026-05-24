@@ -972,7 +972,8 @@ final class Health {
                     
                     let systolicValue = systolicSample.quantity.doubleValue(for: HKUnit.millimeterOfMercury())
                     let diastolicValue = diastolicSample.quantity.doubleValue(for: HKUnit.millimeterOfMercury())
-                    guard diastolicValue.isFinite,
+                    guard systolicValue.isFinite,
+                          diastolicValue.isFinite,
                           var payload = self.readSamplePayload(
                               dataType: dataType,
                               value: systolicValue,
