@@ -76,6 +76,18 @@ export interface QueryOptions {
 
 export type SleepState = 'inBed' | 'asleep' | 'awake' | 'rem' | 'deep' | 'light';
 
+/** Stage-level sleep segment emitted for sleep samples when platform data is available. */
+export interface SleepStage {
+  /** Stage segment start date in ISO 8601 format. */
+  startDate: string;
+  /** Stage segment end date in ISO 8601 format. */
+  endDate: string;
+  /** Sleep stage label for this segment. */
+  stage: SleepState;
+  /** Duration of this stage segment in minutes. */
+  durationMinutes: number;
+}
+
 export interface HealthSample {
   dataType: HealthDataType;
   value: number;
@@ -88,6 +100,10 @@ export interface HealthSample {
   platformId?: string;
   /** For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light'). */
   sleepState?: SleepState;
+  /** For sleep data, individual sleep stages when the platform exposes stage-level data. */
+  stages?: SleepStage[];
+  /** For sleep data, indicates whether stage-level data was emitted. */
+  hasStageData?: boolean;
   /** For blood pressure data, the systolic value in mmHg. */
   systolic?: number;
   /** For blood pressure data, the diastolic value in mmHg. */

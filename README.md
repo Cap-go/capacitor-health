@@ -553,9 +553,23 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`sourceId`**          | <code>string</code>                                       |                                                                                                     |
 | **`platformId`**        | <code>string</code>                                       | Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android). |
 | **`sleepState`**        | <code><a href="#sleepstate">SleepState</a></code>         | For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light').        |
+| **`stages`**            | <code>SleepStage[]</code>                                 | For sleep data, individual sleep stages when the platform exposes stage-level data.                 |
+| **`hasStageData`**      | <code>boolean</code>                                      | For sleep data, indicates whether stage-level data was emitted.                                     |
 | **`systolic`**          | <code>number</code>                                       | For blood pressure data, the systolic value in mmHg.                                                |
 | **`diastolic`**         | <code>number</code>                                       | For blood pressure data, the diastolic value in mmHg.                                               |
 | **`measurementMethod`** | <code>number</code>                                       | For VO2 max data on Android, Health Connect's measurement method enum value.                        |
+
+
+#### SleepStage
+
+Stage-level sleep segment emitted for sleep samples when platform data is available.
+
+| Prop                  | Type                                              | Description                                  |
+| --------------------- | ------------------------------------------------- | -------------------------------------------- |
+| **`startDate`**       | <code>string</code>                               | Stage segment start date in ISO 8601 format. |
+| **`endDate`**         | <code>string</code>                               | Stage segment end date in ISO 8601 format.   |
+| **`stage`**           | <code><a href="#sleepstate">SleepState</a></code> | Sleep stage label for this segment.          |
+| **`durationMinutes`** | <code>number</code>                               | Duration of this stage segment in minutes.   |
 
 
 #### QueryOptions
