@@ -76,10 +76,15 @@ export interface QueryOptions {
 
 export type SleepState = 'inBed' | 'asleep' | 'awake' | 'rem' | 'deep' | 'light';
 
+/** Stage-level sleep segment emitted for sleep samples when platform data is available. */
 export interface SleepStage {
+  /** Stage segment start date in ISO 8601 format. */
   startDate: string;
+  /** Stage segment end date in ISO 8601 format. */
   endDate: string;
+  /** Sleep stage label for this segment. */
   stage: SleepState;
+  /** Duration of this stage segment in minutes. */
   durationMinutes: number;
 }
 

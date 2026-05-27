@@ -562,12 +562,14 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### SleepStage
 
-| Prop                  | Type                                              |
-| --------------------- | ------------------------------------------------- |
-| **`startDate`**       | <code>string</code>                               |
-| **`endDate`**         | <code>string</code>                               |
-| **`stage`**           | <code><a href="#sleepstate">SleepState</a></code> |
-| **`durationMinutes`** | <code>number</code>                               |
+Stage-level sleep segment emitted for sleep samples when platform data is available.
+
+| Prop                  | Type                                              | Description                                  |
+| --------------------- | ------------------------------------------------- | -------------------------------------------- |
+| **`startDate`**       | <code>string</code>                               | Stage segment start date in ISO 8601 format. |
+| **`endDate`**         | <code>string</code>                               | Stage segment end date in ISO 8601 format.   |
+| **`stage`**           | <code><a href="#sleepstate">SleepState</a></code> | Sleep stage label for this segment.          |
+| **`durationMinutes`** | <code>number</code>                               | Duration of this stage segment in minutes.   |
 
 
 #### QueryOptions
