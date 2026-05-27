@@ -553,9 +553,21 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`sourceId`**          | <code>string</code>                                       |                                                                                                     |
 | **`platformId`**        | <code>string</code>                                       | Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android). |
 | **`sleepState`**        | <code><a href="#sleepstate">SleepState</a></code>         | For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light').        |
+| **`stages`**            | <code>SleepStage[]</code>                                 | For sleep data, individual sleep stages when the platform exposes stage-level data.                 |
+| **`hasStageData`**      | <code>boolean</code>                                      | For sleep data, indicates whether stage-level data was emitted.                                     |
 | **`systolic`**          | <code>number</code>                                       | For blood pressure data, the systolic value in mmHg.                                                |
 | **`diastolic`**         | <code>number</code>                                       | For blood pressure data, the diastolic value in mmHg.                                               |
 | **`measurementMethod`** | <code>number</code>                                       | For VO2 max data on Android, Health Connect's measurement method enum value.                        |
+
+
+#### SleepStage
+
+| Prop                  | Type                                              |
+| --------------------- | ------------------------------------------------- |
+| **`startDate`**       | <code>string</code>                               |
+| **`endDate`**         | <code>string</code>                               |
+| **`stage`**           | <code><a href="#sleepstate">SleepState</a></code> |
+| **`durationMinutes`** | <code>number</code>                               |
 
 
 #### QueryOptions

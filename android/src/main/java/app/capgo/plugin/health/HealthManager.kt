@@ -189,8 +189,11 @@ class HealthManager {
                     stageObj.put("durationMinutes", Duration.between(stage.startTime, stage.endTime).toMinutes().toDouble())
                     stagesArray.put(stageObj)
                 }
-                payload.put("stages", stagesArray)
-                payload.put("hasStageData", record.stages.isNotEmpty())
+                val hasNormalizedStages = stagesArray.length() > 0
+                if (hasNormalizedStages) {
+                    payload.put("stages", stagesArray)
+                }
+                payload.put("hasStageData", hasNormalizedStages)
 
                 samples.add(record.startTime to payload)
             }

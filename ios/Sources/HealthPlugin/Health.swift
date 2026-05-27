@@ -892,11 +892,19 @@ final class Health {
                     ) else {
                         return nil
                     }
-                    
-                    // Map HKCategoryValueSleepAnalysis to sleep state
+
                     let sleepState = self.sleepStateFromValue(sleepValue)
                     if let sleepState = sleepState {
                         payload["sleepState"] = sleepState
+                        payload["stages"] = [[
+                            "startDate": self.isoFormatter.string(from: sample.startDate),
+                            "endDate": self.isoFormatter.string(from: sample.endDate),
+                            "stage": sleepState,
+                            "durationMinutes": durationMinutes
+                        ]]
+                        payload["hasStageData"] = true
+                    } else {
+                        payload["hasStageData"] = false
                     }
 
                     self.addSampleMetadata(sample, to: &payload)
