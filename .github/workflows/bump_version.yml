@@ -1,6 +1,7 @@
 name: Bump version
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -12,13 +13,13 @@ on:
 jobs:
   # Run all tests first before creating any tags
   test:
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore(release):') }}
     uses: ./.github/workflows/test.yml
 
   # Only bump version and create tag if all tests pass
   bump-version:
     needs: [test]
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore(release):') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     name: "Bump version and create tag"
