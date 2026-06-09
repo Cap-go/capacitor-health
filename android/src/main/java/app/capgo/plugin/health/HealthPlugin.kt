@@ -3,6 +3,7 @@ package app.capgo.plugin.health
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.activity.result.ActivityResult
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
@@ -16,6 +17,7 @@ import androidx.health.connect.client.PermissionController
 import java.time.Instant
 import java.time.Duration
 import java.time.format.DateTimeParseException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -403,7 +405,15 @@ class HealthPlugin : Plugin() {
         }
 
         val bucket = call.getString("bucket") ?: "day"
-        val aggregation = call.getString("aggregation") ?: "sum"
+        val aggregation = call.getString("aggregation") ?: when (dataType) {
+            HealthDataType.STEPS,
+            HealthDataType.DISTANCE,
+            HealthDataType.CALORIES -> "sum"
+            HealthDataType.HEART_RATE,
+            HealthDataType.WEIGHT,
+            HealthDataType.RESTING_HEART_RATE -> "average"
+            else -> "sum"
+        }
 
         val startInstant = try {
             manager.parseInstant(call.getString("startDate"), Instant.now().minus(DEFAULT_PAST_DURATION))
@@ -429,10 +439,16 @@ class HealthPlugin : Plugin() {
             try {
                 val result = manager.queryAggregated(client, dataType, startInstant, endInstant, bucket, aggregation)
                 call.resolve(result)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SecurityException) {
+                Log.w("HealthPlugin", "Permission denied for aggregation: ${e.message}", e)
+                call.reject(e.message ?: "Permission denied for aggregated data.", "permission-denied", e)
             } catch (e: IllegalArgumentException) {
                 call.reject(e.message ?: "Unsupported aggregation.", null, e)
             } catch (e: Exception) {
-                call.reject(e.message ?: "Failed to query aggregated data.", null, e)
+                Log.w("HealthPlugin", "Aggregation failed: ${e.message}", e)
+                call.reject(e.message ?: "Failed to query aggregated data.", "query-aggregated-failed", e)
             }
         }
     }
