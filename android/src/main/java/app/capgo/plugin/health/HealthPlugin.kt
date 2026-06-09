@@ -3,6 +3,7 @@ package app.capgo.plugin.health
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.activity.result.ActivityResult
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
@@ -429,10 +430,14 @@ class HealthPlugin : Plugin() {
             try {
                 val result = manager.queryAggregated(client, dataType, startInstant, endInstant, bucket, aggregation)
                 call.resolve(result)
+            } catch (e: SecurityException) {
+                Log.w("HealthPlugin", "Permission denied for aggregation: ${e.message}", e)
+                call.reject(e.message ?: "Permission denied for aggregated data.", "permission-denied", e)
             } catch (e: IllegalArgumentException) {
                 call.reject(e.message ?: "Unsupported aggregation.", null, e)
             } catch (e: Exception) {
-                call.reject(e.message ?: "Failed to query aggregated data.", null, e)
+                Log.w("HealthPlugin", "Aggregation failed: ${e.message}", e)
+                call.reject(e.message ?: "Failed to query aggregated data.", "query-aggregated-failed", e)
             }
         }
     }

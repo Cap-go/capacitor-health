@@ -3,6 +3,7 @@ package app.capgo.plugin.health
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.feature.ExperimentalMindfulnessSessionApi
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BasalBodyTemperatureRecord
@@ -715,8 +716,6 @@ private fun createSamplePayload(
             throw IllegalArgumentException("Aggregated queries are not supported for ${dataType.identifier}. Use readSamples instead.")
         }
 
-        val samples = JSArray()
-        
         // Determine bucket size
         // Note: Monthly buckets use 30 days as an approximation, which may not align exactly
         // with calendar months. This provides consistent bucket sizes but users should be aware
@@ -728,31 +727,37 @@ private fun createSamplePayload(
             "month" -> Duration.ofDays(30) // Approximation: not calendar months
             else -> Duration.ofDays(1)
         }
+
+        val metrics = when (dataType) {
+            HealthDataType.STEPS -> setOf(StepsRecord.COUNT_TOTAL)
+            HealthDataType.DISTANCE -> setOf(DistanceRecord.DISTANCE_TOTAL)
+            HealthDataType.CALORIES -> setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+            HealthDataType.HEART_RATE -> setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN)
+            HealthDataType.WEIGHT -> setOf(WeightRecord.WEIGHT_AVG, WeightRecord.WEIGHT_MAX, WeightRecord.WEIGHT_MIN)
+            HealthDataType.RESTING_HEART_RATE -> setOf(RestingHeartRateRecord.BPM_AVG, RestingHeartRateRecord.BPM_MAX, RestingHeartRateRecord.BPM_MIN)
+            else -> throw IllegalArgumentException("Unsupported data type for aggregation: ${dataType.identifier}")
+        }
+
+        val samples = JSArray()
+        // Health Connect rejects grouped aggregation requests with more than 5000 buckets.
+        val maxChunkDuration = bucketDuration.multipliedBy(MAX_AGGREGATE_GROUP_BUCKETS.toLong())
         
-        // Create time buckets
         var currentStart = startTime
         while (currentStart.isBefore(endTime)) {
-            val currentEnd = currentStart.plus(bucketDuration).let {
+            val currentEnd = currentStart.plus(maxChunkDuration).let {
                 if (it.isAfter(endTime)) endTime else it
             }
-            
-            try {
-                val metrics = when (dataType) {
-                    HealthDataType.STEPS -> setOf(StepsRecord.COUNT_TOTAL)
-                    HealthDataType.DISTANCE -> setOf(DistanceRecord.DISTANCE_TOTAL)
-                    HealthDataType.CALORIES -> setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
-                    HealthDataType.HEART_RATE -> setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN)
-                    HealthDataType.WEIGHT -> setOf(WeightRecord.WEIGHT_AVG, WeightRecord.WEIGHT_MAX, WeightRecord.WEIGHT_MIN)
-                    HealthDataType.RESTING_HEART_RATE -> setOf(RestingHeartRateRecord.BPM_AVG, RestingHeartRateRecord.BPM_MAX, RestingHeartRateRecord.BPM_MIN)
-                    else -> throw IllegalArgumentException("Unsupported data type for aggregation: ${dataType.identifier}")
-                }
-                
-                val aggregateRequest = AggregateRequest(
-                    metrics = metrics,
-                    timeRangeFilter = TimeRangeFilter.between(currentStart, currentEnd)
-                )
-                
-                val result = client.aggregate(aggregateRequest)
+
+            val aggregateRequest = AggregateGroupByDurationRequest(
+                metrics = metrics,
+                timeRangeFilter = TimeRangeFilter.between(currentStart, currentEnd),
+                timeRangeSlicer = bucketDuration
+            )
+
+            val groupedResults = client.aggregateGroupByDuration(aggregateRequest)
+
+            for (groupedResult in groupedResults) {
+                val result = groupedResult.result
                 
                 // Extract the appropriate aggregated value based on the aggregation type and data type
                 val value: Double? = when (dataType) {
@@ -792,19 +797,13 @@ private fun createSamplePayload(
                 // Only add the sample if we have a value
                 if (value != null) {
                     val sample = JSObject().apply {
-                        put("startDate", formatter.format(currentStart))
-                        put("endDate", formatter.format(currentEnd))
+                        put("startDate", formatter.format(groupedResult.startTime))
+                        put("endDate", formatter.format(groupedResult.endTime))
                         put("value", value)
                         put("unit", dataType.unit)
                     }
                     samples.put(sample)
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: SecurityException) {
-                android.util.Log.d("HealthManager", "Permission denied for aggregation: ${e.message}", e)
-            } catch (e: Exception) {
-                android.util.Log.d("HealthManager", "Aggregation failed for bucket: ${e.message}", e)
             }
             
             currentStart = currentEnd
@@ -987,5 +986,6 @@ private fun createSamplePayload(
     companion object {
         private const val DEFAULT_PAGE_SIZE = 100
         private const val MAX_PAGE_SIZE = 500
+        private const val MAX_AGGREGATE_GROUP_BUCKETS = 5000
     }
 }
