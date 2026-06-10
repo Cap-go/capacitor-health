@@ -56,12 +56,23 @@ class HealthManager {
 
     private val formatter: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT
 
-    fun permissionsFor(readTypes: Collection<HealthDataType>, writeTypes: Collection<HealthDataType>, includeWorkouts: Boolean = false): Set<String> = buildSet {
+    fun permissionsFor(
+        readTypes: Collection<HealthDataType>,
+        writeTypes: Collection<HealthDataType>,
+        includeWorkouts: Boolean = false,
+        includeHistoryAccess: Boolean = false
+    ): Set<String> = buildSet {
         readTypes.forEach { add(it.readPermission) }
         writeTypes.forEach { add(it.writePermission) }
         // Include workout read permission if explicitly requested
         if (includeWorkouts) {
             add(HealthPermission.getReadPermission(ExerciseSessionRecord::class))
+        }
+        // Include history-access permission if explicitly requested so reads can
+        // exceed Health Connect's default 30-day window. Requires the consumer to
+        // declare READ_HEALTH_DATA_HISTORY in their AndroidManifest.
+        if (includeHistoryAccess) {
+            add(READ_HEALTH_DATA_HISTORY_PERMISSION)
         }
     }
 
@@ -69,7 +80,8 @@ class HealthManager {
         client: HealthConnectClient,
         readTypes: Collection<HealthDataType>,
         writeTypes: Collection<HealthDataType>,
-        includeWorkouts: Boolean = false
+        includeWorkouts: Boolean = false,
+        includeHistoryAccess: Boolean = false
     ): JSObject {
         val granted = client.permissionController.getGrantedPermissions()
 
@@ -108,6 +120,10 @@ class HealthManager {
             put("readDenied", readDenied)
             put("writeAuthorized", writeAuthorized)
             put("writeDenied", writeDenied)
+            // Report history-access grant as a top-level flag, only when it was requested.
+            if (includeHistoryAccess) {
+                put("historyAccessAuthorized", granted.contains(READ_HEALTH_DATA_HISTORY_PERMISSION))
+            }
         }
     }
 
@@ -1035,5 +1051,7 @@ private fun createSamplePayload(
         private const val DEFAULT_PAGE_SIZE = 100
         private const val MAX_PAGE_SIZE = 500
         private const val MAX_AGGREGATE_GROUP_BUCKETS = 5000
+        // Permission that lifts Health Connect's default 30-day read window.
+        private const val READ_HEALTH_DATA_HISTORY_PERMISSION = "android.permission.health.READ_HEALTH_DATA_HISTORY"
     }
 }

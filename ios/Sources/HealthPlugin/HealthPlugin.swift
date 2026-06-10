@@ -28,6 +28,9 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func requestAuthorization(_ call: CAPPluginCall) {
         let read = (call.getArray("read") as? [String]) ?? []
         let write = (call.getArray("write") as? [String]) ?? []
+        // `requestHistoryAccess` is Android-only (READ_HEALTH_DATA_HISTORY). HealthKit has no
+        // equivalent permission and no 30-day read cap, so we intentionally ignore it here and
+        // leave `historyAccessAuthorized` out of the returned status.
 
         implementation.requestAuthorization(readIdentifiers: read, writeIdentifiers: write) { result in
             DispatchQueue.main.async {
@@ -44,6 +47,7 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func checkAuthorization(_ call: CAPPluginCall) {
         let read = (call.getArray("read") as? [String]) ?? []
         let write = (call.getArray("write") as? [String]) ?? []
+        // `requestHistoryAccess` is Android-only; intentionally ignored on iOS (see requestAuthorization).
 
         implementation.checkAuthorization(readIdentifiers: read, writeIdentifiers: write) { result in
             DispatchQueue.main.async {

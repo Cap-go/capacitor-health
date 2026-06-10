@@ -45,6 +45,17 @@ export interface AuthorizationOptions {
   read?: HealthDataType[];
   /** Data types that should be writable after authorization. */
   write?: HealthDataType[];
+  /**
+   * Android only: also request the `READ_HEALTH_DATA_HISTORY` permission in the same
+   * Health Connect permission sheet. Without it, Health Connect caps reads to roughly
+   * the last 30 days; granting it lets you read older data.
+   *
+   * The consuming app must also declare the permission in its `AndroidManifest.xml`:
+   * `<uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />`
+   *
+   * Ignored on iOS (HealthKit has no equivalent permission and no 30-day read cap).
+   */
+  requestHistoryAccess?: boolean;
 }
 
 export interface AuthorizationStatus {
@@ -52,6 +63,12 @@ export interface AuthorizationStatus {
   readDenied: HealthDataType[];
   writeAuthorized: HealthDataType[];
   writeDenied: HealthDataType[];
+  /**
+   * Android only: whether the `READ_HEALTH_DATA_HISTORY` permission is granted. Only
+   * present when `requestHistoryAccess` was set on the request; omitted otherwise and
+   * always omitted on iOS.
+   */
+  historyAccessAuthorized?: boolean;
 }
 
 export interface AvailabilityResult {
@@ -357,7 +374,14 @@ export interface QueryAggregatedResult {
 export interface HealthPlugin {
   /** Returns whether the current platform supports the native health SDK. */
   isAvailable(): Promise<AvailabilityResult>;
-  /** Requests read/write access to the provided data types. */
+  /**
+   * Requests read/write access to the provided data types.
+   *
+   * Set `requestHistoryAccess: true` to additionally request Android's
+   * `READ_HEALTH_DATA_HISTORY` permission in the same Health Connect permission sheet
+   * (see {@link AuthorizationOptions.requestHistoryAccess}). The granted/denied status is
+   * reported back as `historyAccessAuthorized` on the result.
+   */
   requestAuthorization(options: AuthorizationOptions): Promise<AuthorizationStatus>;
   /** Checks authorization status for the provided data types without prompting the user. */
   checkAuthorization(options: AuthorizationOptions): Promise<AuthorizationStatus>;
