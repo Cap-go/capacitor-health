@@ -53,6 +53,11 @@ export interface AuthorizationOptions {
    * The consuming app must also declare the permission in its `AndroidManifest.xml`:
    * `<uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />`
    *
+   * The permission only exists on sufficiently new Health Connect providers (Android 14
+   * extension 13+ or Health Connect APK 171302+). On older but otherwise supported
+   * providers it is silently skipped — the normal read/write scopes are still requested —
+   * and the returned status reports `historyAccessAvailable: false`.
+   *
    * Ignored on iOS (HealthKit has no equivalent permission and no 30-day read cap).
    */
   requestHistoryAccess?: boolean;
@@ -66,9 +71,21 @@ export interface AuthorizationStatus {
   /**
    * Android only: whether the `READ_HEALTH_DATA_HISTORY` permission is granted. Only
    * present when `requestHistoryAccess` was set on the request; omitted otherwise and
-   * always omitted on iOS.
+   * always omitted on iOS. Always `false` when `historyAccessAvailable` is `false`,
+   * since an unsupported provider can never grant the permission.
    */
   historyAccessAuthorized?: boolean;
+  /**
+   * Android only: whether the connected Health Connect provider supports the
+   * `READ_HEALTH_DATA_HISTORY` permission at all. Only present when `requestHistoryAccess`
+   * was set on the request; omitted otherwise and always omitted on iOS.
+   *
+   * `false` means the provider is too old (pre Android 14 extension 13 / Health Connect APK
+   * 171302) to ever grant history access — distinct from the user simply denying it. Use it
+   * to avoid re-prompting and to message the user that history access is unavailable on their
+   * device.
+   */
+  historyAccessAvailable?: boolean;
 }
 
 export interface AvailabilityResult {

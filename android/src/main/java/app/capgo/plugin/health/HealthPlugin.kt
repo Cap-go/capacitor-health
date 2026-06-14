@@ -68,7 +68,13 @@ class HealthPlugin : Plugin() {
 
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
-            val permissions = manager.permissionsFor(readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
+            // Only request the history permission when the provider actually supports it.
+            // On an older-but-supported provider it can never be granted, which would leave
+            // granted.containsAll(permissions) permanently false and reopen the permission
+            // sheet on every call. The normal data scopes are still requested either way;
+            // authorizationStatus reports historyAccessAvailable so callers can react.
+            val requestHistoryAccess = includeHistoryAccess && manager.isHistoryAccessAvailable(client)
+            val permissions = manager.permissionsFor(readTypes, writeTypes, includeWorkouts, requestHistoryAccess)
 
             if (permissions.isEmpty()) {
                 val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)

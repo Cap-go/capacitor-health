@@ -1,6 +1,7 @@
 package app.capgo.plugin.health
 
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.HealthConnectFeatures
 import androidx.health.connect.client.aggregate.AggregationResult
 import androidx.health.connect.client.feature.ExperimentalMindfulnessSessionApi
 import androidx.health.connect.client.permission.HealthPermission
@@ -56,6 +57,21 @@ class HealthManager {
 
     private val formatter: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT
 
+    /**
+     * Whether the connected Health Connect provider supports the
+     * READ_HEALTH_DATA_HISTORY permission. The permission only exists on sufficiently
+     * new providers (Android 14 extension 13+ or Health Connect APK 171302+); on older
+     * but otherwise supported providers it can never be granted, so it must not be added
+     * to a permission request (it would never appear in getGrantedPermissions() and would
+     * leave the request flow permanently unsatisfiable).
+     *
+     * See https://developer.android.com/health-and-fitness/health-connect/features/availability
+     */
+    fun isHistoryAccessAvailable(client: HealthConnectClient): Boolean =
+        client.features.getFeatureStatus(
+            HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY
+        ) == HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
+
     fun permissionsFor(
         readTypes: Collection<HealthDataType>,
         writeTypes: Collection<HealthDataType>,
@@ -70,7 +86,9 @@ class HealthManager {
         }
         // Include history-access permission if explicitly requested so reads can
         // exceed Health Connect's default 30-day window. Requires the consumer to
-        // declare READ_HEALTH_DATA_HISTORY in their AndroidManifest.
+        // declare READ_HEALTH_DATA_HISTORY in their AndroidManifest. Callers must
+        // gate this on isHistoryAccessAvailable(): adding the permission on a provider
+        // that does not support it makes the request flow permanently unsatisfiable.
         if (includeHistoryAccess) {
             add(READ_HEALTH_DATA_HISTORY_PERMISSION)
         }
@@ -120,9 +138,17 @@ class HealthManager {
             put("readDenied", readDenied)
             put("writeAuthorized", writeAuthorized)
             put("writeDenied", writeDenied)
-            // Report history-access grant as a top-level flag, only when it was requested.
+            // Report history-access status as top-level flags, only when it was requested.
+            // historyAccessAvailable distinguishes "the provider is too old to ever grant
+            // this" from "the user denied it"; historyAccessAuthorized is necessarily false
+            // when the feature is unavailable.
             if (includeHistoryAccess) {
-                put("historyAccessAuthorized", granted.contains(READ_HEALTH_DATA_HISTORY_PERMISSION))
+                val historyAccessAvailable = isHistoryAccessAvailable(client)
+                put("historyAccessAvailable", historyAccessAvailable)
+                put(
+                    "historyAccessAuthorized",
+                    historyAccessAvailable && granted.contains(READ_HEALTH_DATA_HISTORY_PERMISSION)
+                )
             }
         }
     }
