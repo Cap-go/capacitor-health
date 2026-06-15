@@ -1,3 +1,5 @@
+import { CapacitorUpdater } from '@capgo/capacitor-updater';
+import { Capacitor } from '@capacitor/core';
 import { Health } from '@capgo/capacitor-health';
 
 const availabilityButton = document.getElementById('availabilityButton');
@@ -194,3 +196,9 @@ saveSampleButton?.addEventListener('click', async () => {
 });
 
 setDefaultDateRanges();
+
+if (Capacitor.isNativePlatform()) {
+  CapacitorUpdater.notifyAppReady().catch((error) => {
+    console.error('Capgo notifyAppReady failed', error);
+  });
+}
