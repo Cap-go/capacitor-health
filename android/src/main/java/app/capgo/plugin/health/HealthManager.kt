@@ -1,8 +1,11 @@
 package app.capgo.plugin.health
 
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.aggregate.AggregationResult
 import androidx.health.connect.client.feature.ExperimentalMindfulnessSessionApi
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.request.AggregateGroupByDurationRequest
+import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BasalBodyTemperatureRecord
@@ -39,6 +42,8 @@ import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.Period
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -693,6 +698,59 @@ private fun createSamplePayload(
         return java.lang.Math.round(this.coerceAtLeast(0.0))
     }
 
+    private fun validateAggregation(dataType: HealthDataType, aggregation: String) {
+        val supportedAggregations = when (dataType) {
+            HealthDataType.STEPS,
+            HealthDataType.DISTANCE,
+            HealthDataType.CALORIES -> setOf("sum")
+            HealthDataType.HEART_RATE,
+            HealthDataType.WEIGHT,
+            HealthDataType.RESTING_HEART_RATE -> setOf("average", "min", "max")
+            else -> emptySet()
+        }
+
+        if (aggregation !in supportedAggregations) {
+            throw IllegalArgumentException("Unsupported aggregation '$aggregation' for ${dataType.identifier}")
+        }
+    }
+
+    private fun aggregateMetrics(dataType: HealthDataType) = when (dataType) {
+        HealthDataType.STEPS -> setOf(StepsRecord.COUNT_TOTAL)
+        HealthDataType.DISTANCE -> setOf(DistanceRecord.DISTANCE_TOTAL)
+        HealthDataType.CALORIES -> setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+        HealthDataType.HEART_RATE -> setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN)
+        HealthDataType.WEIGHT -> setOf(WeightRecord.WEIGHT_AVG, WeightRecord.WEIGHT_MAX, WeightRecord.WEIGHT_MIN)
+        HealthDataType.RESTING_HEART_RATE -> setOf(RestingHeartRateRecord.BPM_AVG, RestingHeartRateRecord.BPM_MAX, RestingHeartRateRecord.BPM_MIN)
+        else -> throw IllegalArgumentException("Unsupported data type for aggregation: ${dataType.identifier}")
+    }
+
+    private fun aggregateValue(dataType: HealthDataType, aggregation: String, result: AggregationResult): Double? {
+        return when (dataType) {
+            HealthDataType.STEPS -> result[StepsRecord.COUNT_TOTAL]?.toDouble()
+            HealthDataType.DISTANCE -> result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
+            HealthDataType.CALORIES -> result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+            HealthDataType.HEART_RATE -> when (aggregation) {
+                "average" -> result[HeartRateRecord.BPM_AVG]?.toDouble()
+                "max" -> result[HeartRateRecord.BPM_MAX]?.toDouble()
+                "min" -> result[HeartRateRecord.BPM_MIN]?.toDouble()
+                else -> null
+            }
+            HealthDataType.WEIGHT -> when (aggregation) {
+                "average" -> result[WeightRecord.WEIGHT_AVG]?.inKilograms
+                "max" -> result[WeightRecord.WEIGHT_MAX]?.inKilograms
+                "min" -> result[WeightRecord.WEIGHT_MIN]?.inKilograms
+                else -> null
+            }
+            HealthDataType.RESTING_HEART_RATE -> when (aggregation) {
+                "average" -> result[RestingHeartRateRecord.BPM_AVG]?.toDouble()
+                "max" -> result[RestingHeartRateRecord.BPM_MAX]?.toDouble()
+                "min" -> result[RestingHeartRateRecord.BPM_MIN]?.toDouble()
+                else -> null
+            }
+            else -> null
+        }
+    }
+
     suspend fun queryAggregated(
         client: HealthConnectClient,
         dataType: HealthDataType,
@@ -715,96 +773,85 @@ private fun createSamplePayload(
             throw IllegalArgumentException("Aggregated queries are not supported for ${dataType.identifier}. Use readSamples instead.")
         }
 
+        validateAggregation(dataType, aggregation)
+
+        val metrics = aggregateMetrics(dataType)
         val samples = JSArray()
-        
-        // Determine bucket size
-        // Note: Monthly buckets use 30 days as an approximation, which may not align exactly
-        // with calendar months. This provides consistent bucket sizes but users should be aware
-        // that "month" buckets don't correspond to actual calendar months (Jan, Feb, etc.).
+
+        if (bucket == "month") {
+            val zoneId = ZoneId.systemDefault()
+            val endDateTime = LocalDateTime.ofInstant(endTime, zoneId)
+            var currentStart = LocalDateTime.ofInstant(startTime, zoneId)
+
+            while (currentStart.isBefore(endDateTime)) {
+                val currentEnd = currentStart.plusMonths(MAX_AGGREGATE_GROUP_BUCKETS.toLong()).let {
+                    if (it.isAfter(endDateTime)) endDateTime else it
+                }
+
+                val aggregateRequest = AggregateGroupByPeriodRequest(
+                    metrics = metrics,
+                    timeRangeFilter = TimeRangeFilter.between(currentStart, currentEnd),
+                    timeRangeSlicer = Period.ofMonths(1)
+                )
+
+                val groupedResults = client.aggregateGroupByPeriod(aggregateRequest)
+
+                for (groupedResult in groupedResults) {
+                    val value = aggregateValue(dataType, aggregation, groupedResult.result)
+                    if (value != null) {
+                        samples.put(JSObject().apply {
+                            put("startDate", formatter.format(groupedResult.startTime.atZone(zoneId).toInstant()))
+                            put("endDate", formatter.format(groupedResult.endTime.atZone(zoneId).toInstant()))
+                            put("value", value)
+                            put("unit", dataType.unit)
+                        })
+                    }
+                }
+
+                currentStart = currentEnd
+            }
+
+            return JSObject().apply {
+                put("samples", samples)
+            }
+        }
+
         val bucketDuration = when (bucket) {
             "hour" -> Duration.ofHours(1)
             "day" -> Duration.ofDays(1)
             "week" -> Duration.ofDays(7)
-            "month" -> Duration.ofDays(30) // Approximation: not calendar months
-            else -> Duration.ofDays(1)
+            else -> throw IllegalArgumentException("Unsupported bucket: $bucket")
         }
+
+        // Health Connect rejects grouped aggregation requests with more than 5000 buckets.
+        val maxChunkDuration = bucketDuration.multipliedBy(MAX_AGGREGATE_GROUP_BUCKETS.toLong())
         
-        // Create time buckets
         var currentStart = startTime
         while (currentStart.isBefore(endTime)) {
-            val currentEnd = currentStart.plus(bucketDuration).let {
+            val currentEnd = currentStart.plus(maxChunkDuration).let {
                 if (it.isAfter(endTime)) endTime else it
             }
-            
-            try {
-                val metrics = when (dataType) {
-                    HealthDataType.STEPS -> setOf(StepsRecord.COUNT_TOTAL)
-                    HealthDataType.DISTANCE -> setOf(DistanceRecord.DISTANCE_TOTAL)
-                    HealthDataType.CALORIES -> setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
-                    HealthDataType.HEART_RATE -> setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN)
-                    HealthDataType.WEIGHT -> setOf(WeightRecord.WEIGHT_AVG, WeightRecord.WEIGHT_MAX, WeightRecord.WEIGHT_MIN)
-                    HealthDataType.RESTING_HEART_RATE -> setOf(RestingHeartRateRecord.BPM_AVG, RestingHeartRateRecord.BPM_MAX, RestingHeartRateRecord.BPM_MIN)
-                    else -> throw IllegalArgumentException("Unsupported data type for aggregation: ${dataType.identifier}")
-                }
-                
-                val aggregateRequest = AggregateRequest(
-                    metrics = metrics,
-                    timeRangeFilter = TimeRangeFilter.between(currentStart, currentEnd)
-                )
-                
-                val result = client.aggregate(aggregateRequest)
-                
-                // Extract the appropriate aggregated value based on the aggregation type and data type
-                val value: Double? = when (dataType) {
-                    HealthDataType.STEPS -> when (aggregation) {
-                        "sum" -> result[StepsRecord.COUNT_TOTAL]?.toDouble()
-                        else -> result[StepsRecord.COUNT_TOTAL]?.toDouble()
-                    }
-                    HealthDataType.DISTANCE -> when (aggregation) {
-                        "sum" -> result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
-                        else -> result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
-                    }
-                    HealthDataType.CALORIES -> when (aggregation) {
-                        "sum" -> result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
-                        else -> result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
-                    }
-                    HealthDataType.HEART_RATE -> when (aggregation) {
-                        "average" -> result[HeartRateRecord.BPM_AVG]?.toDouble()
-                        "max" -> result[HeartRateRecord.BPM_MAX]?.toDouble()
-                        "min" -> result[HeartRateRecord.BPM_MIN]?.toDouble()
-                        else -> result[HeartRateRecord.BPM_AVG]?.toDouble()
-                    }
-                    HealthDataType.WEIGHT -> when (aggregation) {
-                        "average" -> result[WeightRecord.WEIGHT_AVG]?.inKilograms
-                        "max" -> result[WeightRecord.WEIGHT_MAX]?.inKilograms
-                        "min" -> result[WeightRecord.WEIGHT_MIN]?.inKilograms
-                        else -> result[WeightRecord.WEIGHT_AVG]?.inKilograms
-                    }
-                    HealthDataType.RESTING_HEART_RATE -> when (aggregation) {
-                        "average" -> result[RestingHeartRateRecord.BPM_AVG]?.toDouble()
-                        "max" -> result[RestingHeartRateRecord.BPM_MAX]?.toDouble()
-                        "min" -> result[RestingHeartRateRecord.BPM_MIN]?.toDouble()
-                        else -> result[RestingHeartRateRecord.BPM_AVG]?.toDouble()
-                    }
-                    else -> null
-                }
-                
+
+            val aggregateRequest = AggregateGroupByDurationRequest(
+                metrics = metrics,
+                timeRangeFilter = TimeRangeFilter.between(currentStart, currentEnd),
+                timeRangeSlicer = bucketDuration
+            )
+
+            val groupedResults = client.aggregateGroupByDuration(aggregateRequest)
+
+            for (groupedResult in groupedResults) {
+                val value = aggregateValue(dataType, aggregation, groupedResult.result)
                 // Only add the sample if we have a value
                 if (value != null) {
                     val sample = JSObject().apply {
-                        put("startDate", formatter.format(currentStart))
-                        put("endDate", formatter.format(currentEnd))
+                        put("startDate", formatter.format(groupedResult.startTime))
+                        put("endDate", formatter.format(groupedResult.endTime))
                         put("value", value)
                         put("unit", dataType.unit)
                     }
                     samples.put(sample)
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: SecurityException) {
-                android.util.Log.d("HealthManager", "Permission denied for aggregation: ${e.message}", e)
-            } catch (e: Exception) {
-                android.util.Log.d("HealthManager", "Aggregation failed for bucket: ${e.message}", e)
             }
             
             currentStart = currentEnd
@@ -987,5 +1034,6 @@ private fun createSamplePayload(
     companion object {
         private const val DEFAULT_PAGE_SIZE = 100
         private const val MAX_PAGE_SIZE = 500
+        private const val MAX_AGGREGATE_GROUP_BUCKETS = 5000
     }
 }
