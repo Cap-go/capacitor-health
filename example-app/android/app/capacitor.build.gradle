@@ -10,6 +10,8 @@ android {
 apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"
 dependencies {
     implementation project(':capgo-capacitor-health')
+    implementation project(':capgo-capacitor-updater')
+    implementation project(':capacitor-splash-screen')
 
 }
 
