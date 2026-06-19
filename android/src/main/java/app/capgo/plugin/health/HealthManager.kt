@@ -414,7 +414,8 @@ class HealthManager {
         endTime: Instant,
         metadata: Map<String, String>?,
         systolic: Double?,
-        diastolic: Double?
+        diastolic: Double?,
+        mindfulnessSessionType: String?
     ) {
         val recordMetadata = Metadata.manualEntry()
 
@@ -635,7 +636,7 @@ class HealthManager {
                     endTime = endTime,
                     endZoneOffset = zoneOffset(endTime),
                     metadata = recordMetadata,
-                    mindfulnessSessionType = MindfulnessSessionRecord.MINDFULNESS_SESSION_TYPE_UNKNOWN
+                    mindfulnessSessionType = mindfulnessSessionType.toMindfulnessSessionType()
                 )
                 client.insertRecords(listOf(record))
             }
@@ -647,6 +648,14 @@ class HealthManager {
             return defaultInstant
         }
         return Instant.parse(value)
+    }
+private fun String?.toMindfulnessSessionType(): Int {
+        val normalized = this?.trim()
+        if (normalized.isNullOrEmpty()) {
+            return MindfulnessSessionRecord.MINDFULNESS_SESSION_TYPE_MEDITATION
+        }
+        return MindfulnessSessionRecord.MINDFULNESS_SESSION_TYPE_STRING_TO_INT_MAP[normalized]
+            ?: throw IllegalArgumentException("Unsupported mindfulnessSessionType: $normalized")
     }
 private fun mapSleepStageToString(stage: Int): String? {
         return when (stage) {

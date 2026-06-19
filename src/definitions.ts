@@ -316,6 +316,8 @@ export interface WriteSampleOptions {
   endDate?: string;
   /** Metadata key-value pairs forwarded to the native APIs where supported. */
   metadata?: Record<string, string>;
+  /** Android mindfulness session type. Defaults to 'meditation' when dataType is 'mindfulness'. */
+  mindfulnessSessionType?: 'unknown' | 'meditation' | 'breathing' | 'music' | 'movement' | 'unguided';
   /** For blood pressure data, the systolic value in mmHg. Required when dataType is 'bloodPressure'. */
   systolic?: number;
   /** For blood pressure data, the diastolic value in mmHg. Required when dataType is 'bloodPressure'. */

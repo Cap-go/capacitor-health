@@ -250,11 +250,12 @@ class HealthPlugin : Plugin() {
         
         val systolic = call.getDouble("systolic")
         val diastolic = call.getDouble("diastolic")
+        val mindfulnessSessionType = call.getString("mindfulnessSessionType")
 
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
             try {
-                manager.saveSample(client, dataType, value, startInstant, endInstant, metadata, systolic, diastolic)
+                manager.saveSample(client, dataType, value, startInstant, endInstant, metadata, systolic, diastolic, mindfulnessSessionType)
                 call.resolve()
             } catch (e: Exception) {
                 call.reject(e.message ?: "Failed to save sample.", null, e)
