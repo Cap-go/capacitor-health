@@ -35,6 +35,7 @@ class HealthPlugin : Plugin() {
     private var pendingReadTypes: List<HealthDataType> = emptyList()
     private var pendingWriteTypes: List<HealthDataType> = emptyList()
     private var pendingIncludeWorkouts: Boolean = false
+    private var pendingIncludeHistoryAccess: Boolean = false
 
     override fun handleOnDestroy() {
         super.handleOnDestroy()
@@ -63,19 +64,27 @@ class HealthPlugin : Plugin() {
             return
         }
 
+        val includeHistoryAccess = call.getBoolean("requestHistoryAccess") ?: false
+
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
-            val permissions = manager.permissionsFor(readTypes, writeTypes, includeWorkouts)
+            // Only request the history permission when the provider actually supports it.
+            // On an older-but-supported provider it can never be granted, which would leave
+            // granted.containsAll(permissions) permanently false and reopen the permission
+            // sheet on every call. The normal data scopes are still requested either way;
+            // authorizationStatus reports historyAccessAvailable so callers can react.
+            val requestHistoryAccess = includeHistoryAccess && manager.isHistoryAccessAvailable(client)
+            val permissions = manager.permissionsFor(readTypes, writeTypes, includeWorkouts, requestHistoryAccess)
 
             if (permissions.isEmpty()) {
-                val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts)
+                val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
                 call.resolve(status)
                 return@launch
             }
 
             val granted = client.permissionController.getGrantedPermissions()
             if (granted.containsAll(permissions)) {
-                val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts)
+                val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
                 call.resolve(status)
                 return@launch
             }
@@ -84,6 +93,7 @@ class HealthPlugin : Plugin() {
             pendingReadTypes = readTypes
             pendingWriteTypes = writeTypes
             pendingIncludeWorkouts = includeWorkouts
+            pendingIncludeHistoryAccess = includeHistoryAccess
 
             // Create intent using the Health Connect permission contract
             val intent = permissionContract.createIntent(context, permissions)
@@ -107,13 +117,15 @@ class HealthPlugin : Plugin() {
         val readTypes = pendingReadTypes
         val writeTypes = pendingWriteTypes
         val includeWorkouts = pendingIncludeWorkouts
+        val includeHistoryAccess = pendingIncludeHistoryAccess
         pendingReadTypes = emptyList()
         pendingWriteTypes = emptyList()
         pendingIncludeWorkouts = false
+        pendingIncludeHistoryAccess = false
 
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
-            val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts)
+            val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
             call.resolve(status)
         }
     }
@@ -134,9 +146,11 @@ class HealthPlugin : Plugin() {
             return
         }
 
+        val includeHistoryAccess = call.getBoolean("requestHistoryAccess") ?: false
+
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
-            val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts)
+            val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
             call.resolve(status)
         }
     }

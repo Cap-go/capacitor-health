@@ -1,6 +1,7 @@
 package app.capgo.plugin.health
 
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.HealthConnectFeatures
 import androidx.health.connect.client.aggregate.AggregationResult
 import androidx.health.connect.client.feature.ExperimentalMindfulnessSessionApi
 import androidx.health.connect.client.permission.HealthPermission
@@ -56,12 +57,40 @@ class HealthManager {
 
     private val formatter: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT
 
-    fun permissionsFor(readTypes: Collection<HealthDataType>, writeTypes: Collection<HealthDataType>, includeWorkouts: Boolean = false): Set<String> = buildSet {
+    /**
+     * Whether the connected Health Connect provider supports the
+     * READ_HEALTH_DATA_HISTORY permission. The permission only exists on sufficiently
+     * new providers (Android 14 extension 13+ or Health Connect APK 171302+); on older
+     * but otherwise supported providers it can never be granted, so it must not be added
+     * to a permission request (it would never appear in getGrantedPermissions() and would
+     * leave the request flow permanently unsatisfiable).
+     *
+     * See https://developer.android.com/health-and-fitness/health-connect/features/availability
+     */
+    fun isHistoryAccessAvailable(client: HealthConnectClient): Boolean =
+        client.features.getFeatureStatus(
+            HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY
+        ) == HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
+
+    fun permissionsFor(
+        readTypes: Collection<HealthDataType>,
+        writeTypes: Collection<HealthDataType>,
+        includeWorkouts: Boolean = false,
+        includeHistoryAccess: Boolean = false
+    ): Set<String> = buildSet {
         readTypes.forEach { add(it.readPermission) }
         writeTypes.forEach { add(it.writePermission) }
         // Include workout read permission if explicitly requested
         if (includeWorkouts) {
             add(HealthPermission.getReadPermission(ExerciseSessionRecord::class))
+        }
+        // Include history-access permission if explicitly requested so reads can
+        // exceed Health Connect's default 30-day window. Requires the consumer to
+        // declare READ_HEALTH_DATA_HISTORY in their AndroidManifest. Callers must
+        // gate this on isHistoryAccessAvailable(): adding the permission on a provider
+        // that does not support it makes the request flow permanently unsatisfiable.
+        if (includeHistoryAccess) {
+            add(READ_HEALTH_DATA_HISTORY_PERMISSION)
         }
     }
 
@@ -69,7 +98,8 @@ class HealthManager {
         client: HealthConnectClient,
         readTypes: Collection<HealthDataType>,
         writeTypes: Collection<HealthDataType>,
-        includeWorkouts: Boolean = false
+        includeWorkouts: Boolean = false,
+        includeHistoryAccess: Boolean = false
     ): JSObject {
         val granted = client.permissionController.getGrantedPermissions()
 
@@ -108,6 +138,18 @@ class HealthManager {
             put("readDenied", readDenied)
             put("writeAuthorized", writeAuthorized)
             put("writeDenied", writeDenied)
+            // Report history-access status as top-level flags, only when it was requested.
+            // historyAccessAvailable distinguishes "the provider is too old to ever grant
+            // this" from "the user denied it"; historyAccessAuthorized is necessarily false
+            // when the feature is unavailable.
+            if (includeHistoryAccess) {
+                val historyAccessAvailable = isHistoryAccessAvailable(client)
+                put("historyAccessAvailable", historyAccessAvailable)
+                put(
+                    "historyAccessAuthorized",
+                    historyAccessAvailable && granted.contains(READ_HEALTH_DATA_HISTORY_PERMISSION)
+                )
+            }
         }
     }
 
@@ -1044,5 +1086,7 @@ private fun createSamplePayload(
         private const val DEFAULT_PAGE_SIZE = 100
         private const val MAX_PAGE_SIZE = 500
         private const val MAX_AGGREGATE_GROUP_BUCKETS = 5000
+        // Permission that lifts Health Connect's default 30-day read window.
+        private const val READ_HEALTH_DATA_HISTORY_PERMISSION = "android.permission.health.READ_HEALTH_DATA_HISTORY"
     }
 }

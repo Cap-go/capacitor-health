@@ -231,6 +231,55 @@ await Health.requestAuthorization({
 });
 ```
 
+### Reading data older than 30 days (Android)
+
+On Android, Health Connect caps reads to roughly the **last 30 days** unless your app holds the
+`android.permission.health.READ_HEALTH_DATA_HISTORY` permission. To read older history, set
+`requestHistoryAccess: true` on your normal `requestAuthorization()` call. The permission then
+appears in the first-time Health Connect permission sheet alongside your data-type permissions,
+instead of forcing users to grant it manually in Health Connect settings.
+
+```ts
+const status = await Health.requestAuthorization({
+  read: ['steps', 'heartRate'],
+  write: [],
+  requestHistoryAccess: true,
+});
+
+// On Android, whether the history permission was granted:
+console.log(status.historyAccessAuthorized); // true | false
+// And whether the provider supports it at all:
+console.log(status.historyAccessAvailable); // true | false
+```
+
+The result is reported back as the top-level `historyAccessAuthorized` boolean (present only when
+`requestHistoryAccess` was set). The same option works with `checkAuthorization()`.
+
+The `READ_HEALTH_DATA_HISTORY` permission only exists on sufficiently new Health Connect providers
+(Android 14 extension 13+ or Health Connect APK 171302+). On an older but otherwise supported
+provider the permission can never be granted, so the plugin checks
+[feature availability](https://developer.android.com/health-and-fitness/health-connect/features/availability)
+and **silently skips** the history permission when it is unavailable — your normal read/write scopes
+are still requested as usual. In that case the status reports `historyAccessAvailable: false` (and
+`historyAccessAuthorized: false`), which lets you distinguish "the device can't do this" from "the
+user denied it" and avoid re-prompting. `historyAccessAvailable` is omitted unless
+`requestHistoryAccess` was set, and always omitted on iOS.
+
+You must **also** declare the permission in your app's `AndroidManifest.xml`:
+
+```xml
+<uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
+```
+
+Health Connect only shows permissions that are both declared in the manifest and passed to the
+permission request, so this declaration is required for `requestHistoryAccess` to take effect. On
+iOS, HealthKit has no equivalent permission and no 30-day read cap, so `requestHistoryAccess` is
+ignored and `historyAccessAuthorized` is omitted from the returned status.
+
+See Google's documentation on
+[reading historical Health Connect data](https://developer.android.com/health-and-fitness/guides/health-connect/develop/read-data#read-restriction)
+for more details.
+
 **Pagination example:** Use the `anchor` parameter to paginate through workout results:
 
 ```ts
@@ -372,6 +421,11 @@ requestAuthorization(options: AuthorizationOptions) => Promise<AuthorizationStat
 ```
 
 Requests read/write access to the provided data types.
+
+Set `requestHistoryAccess: true` to additionally request Android's
+`READ_HEALTH_DATA_HISTORY` permission in the same Health Connect permission sheet
+(see {@link <a href="#authorizationoptions">AuthorizationOptions.requestHistoryAccess</a>}). The granted/denied status is
+reported back as `historyAccessAuthorized` on the result.
 
 | Param         | Type                                                                  |
 | ------------- | --------------------------------------------------------------------- |
@@ -531,20 +585,23 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 
 #### AuthorizationStatus
 
-| Prop                  | Type                          |
-| --------------------- | ----------------------------- |
-| **`readAuthorized`**  | <code>HealthDataType[]</code> |
-| **`readDenied`**      | <code>HealthDataType[]</code> |
-| **`writeAuthorized`** | <code>HealthDataType[]</code> |
-| **`writeDenied`**     | <code>HealthDataType[]</code> |
+| Prop                          | Type                          | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`readAuthorized`**          | <code>HealthDataType[]</code> |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **`readDenied`**              | <code>HealthDataType[]</code> |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **`writeAuthorized`**         | <code>HealthDataType[]</code> |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **`writeDenied`**             | <code>HealthDataType[]</code> |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **`historyAccessAuthorized`** | <code>boolean</code>          | Android only: whether the `READ_HEALTH_DATA_HISTORY` permission is granted. Only present when `requestHistoryAccess` was set on the request; omitted otherwise and always omitted on iOS. Always `false` when `historyAccessAvailable` is `false`, since an unsupported provider can never grant the permission.                                                                                                                                                                                                       |
+| **`historyAccessAvailable`**  | <code>boolean</code>          | Android only: whether the connected Health Connect provider supports the `READ_HEALTH_DATA_HISTORY` permission at all. Only present when `requestHistoryAccess` was set on the request; omitted otherwise and always omitted on iOS. `false` means the provider is too old (pre Android 14 extension 13 / Health Connect APK 171302) to ever grant history access — distinct from the user simply denying it. Use it to avoid re-prompting and to message the user that history access is unavailable on their device. |
 
 
 #### AuthorizationOptions
 
-| Prop        | Type                          | Description                                             |
-| ----------- | ----------------------------- | ------------------------------------------------------- |
-| **`read`**  | <code>HealthDataType[]</code> | Data types that should be readable after authorization. |
-| **`write`** | <code>HealthDataType[]</code> | Data types that should be writable after authorization. |
+| Prop                       | Type                          | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`read`**                 | <code>HealthDataType[]</code> | Data types that should be readable after authorization.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **`write`**                | <code>HealthDataType[]</code> | Data types that should be writable after authorization.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **`requestHistoryAccess`** | <code>boolean</code>          | Android only: also request the `READ_HEALTH_DATA_HISTORY` permission in the same Health Connect permission sheet. Without it, Health Connect caps reads to roughly the last 30 days; granting it lets you read older data. The consuming app must also declare the permission in its `AndroidManifest.xml`: `&lt;uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" /&gt;` The permission only exists on sufficiently new Health Connect providers (Android 14 extension 13+ or Health Connect APK 171302+). On older but otherwise supported providers it is silently skipped — the normal read/write scopes are still requested — and the returned status reports `historyAccessAvailable: false`. Ignored on iOS (HealthKit has no equivalent permission and no 30-day read cap). |
 
 
 #### ReadSamplesResult
