@@ -679,18 +679,29 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 
 #### Workout
 
-| Prop                    | Type                                                            | Description                                                                                         |
-| ----------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| **`workoutType`**       | <code><a href="#workouttype">WorkoutType</a></code>             | The type of workout.                                                                                |
-| **`duration`**          | <code>number</code>                                             | Duration of the workout in seconds.                                                                 |
-| **`totalEnergyBurned`** | <code>number</code>                                             | Total energy burned in kilocalories (if available).                                                 |
-| **`totalDistance`**     | <code>number</code>                                             | Total distance in meters (if available).                                                            |
-| **`startDate`**         | <code>string</code>                                             | ISO 8601 start date of the workout.                                                                 |
-| **`endDate`**           | <code>string</code>                                             | ISO 8601 end date of the workout.                                                                   |
-| **`sourceName`**        | <code>string</code>                                             | Source name that recorded the workout.                                                              |
-| **`sourceId`**          | <code>string</code>                                             | Source bundle identifier.                                                                           |
-| **`platformId`**        | <code>string</code>                                             | Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android). |
-| **`metadata`**          | <code><a href="#record">Record</a>&lt;string, string&gt;</code> | Additional metadata (if available).                                                                 |
+| Prop                    | Type                                                            | Description                                                                                                            |
+| ----------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **`workoutType`**       | <code><a href="#workouttype">WorkoutType</a></code>             | The type of workout.                                                                                                   |
+| **`duration`**          | <code>number</code>                                             | Duration of the workout in seconds.                                                                                    |
+| **`totalEnergyBurned`** | <code>number</code>                                             | Total energy burned in kilocalories (if available).                                                                    |
+| **`totalDistance`**     | <code>number</code>                                             | Total distance in meters (if available).                                                                               |
+| **`startDate`**         | <code>string</code>                                             | ISO 8601 start date of the workout.                                                                                    |
+| **`endDate`**           | <code>string</code>                                             | ISO 8601 end date of the workout.                                                                                      |
+| **`sourceName`**        | <code>string</code>                                             | Source name that recorded the workout.                                                                                 |
+| **`sourceId`**          | <code>string</code>                                             | Source bundle identifier.                                                                                              |
+| **`platformId`**        | <code>string</code>                                             | Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android).                    |
+| **`metadata`**          | <code><a href="#record">Record</a>&lt;string, string&gt;</code> | Additional metadata (if available).                                                                                    |
+| **`workoutEvents`**     | <code>WorkoutEvent[]</code>                                     | Lap workout events when available. On iOS, includes HealthKit lap markers with per-lap duration and optional distance. |
+
+
+#### WorkoutEvent
+
+| Prop                  | Type                | Description                                                                                                                  |
+| --------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **`type`**            | <code>string</code> | <a href="#workout">Workout</a> event type. iOS returns lap events from HealthKit (`HKWorkoutEventType.lap`).                 |
+| **`date`**            | <code>string</code> | ISO 8601 timestamp of the event.                                                                                             |
+| **`durationSeconds`** | <code>number</code> | Duration of the lap interval in seconds until the next lap event or the workout end. Present for lap events returned on iOS. |
+| **`distanceMeters`**  | <code>number</code> | Lap distance in meters when HealthKit provides it on the workout event metadata (for example `HKMetadataKeyLapLength`).      |
 
 
 #### QueryWorkoutsOptions
@@ -761,6 +772,11 @@ Construct a type with a set of properties K of type T
 #### WorkoutType
 
 <code>'americanFootball' | 'australianFootball' | 'badminton' | 'baseball' | 'basketball' | 'bowling' | 'boxing' | 'climbing' | 'cricket' | 'crossTraining' | 'curling' | 'cycling' | 'dance' | 'elliptical' | 'fencing' | 'functionalStrengthTraining' | 'golf' | 'gymnastics' | 'handball' | 'hiking' | 'hockey' | 'jumpRope' | 'kickboxing' | 'lacrosse' | 'martialArts' | 'pilates' | 'racquetball' | 'rowing' | 'rugby' | 'running' | 'sailing' | 'skatingSports' | 'skiing' | 'snowboarding' | 'soccer' | 'softball' | 'squash' | 'stairClimbing' | 'strengthTraining' | 'surfing' | 'swimming' | 'swimmingPool' | 'swimmingOpenWater' | 'tableTennis' | 'tennis' | 'trackAndField' | 'traditionalStrengthTraining' | 'volleyball' | 'walking' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'weightlifting' | 'wheelchair' | 'yoga' | 'archery' | 'barre' | 'cooldown' | 'coreTraining' | 'crossCountrySkiing' | 'discSports' | 'downhillSkiing' | 'equestrianSports' | 'fishing' | 'fitnessGaming' | 'flexibility' | 'handCycling' | 'highIntensityIntervalTraining' | 'hunting' | 'mindAndBody' | 'mixedCardio' | 'paddleSports' | 'pickleball' | 'play' | 'preparationAndRecovery' | 'snowSports' | 'stairs' | 'stepTraining' | 'surfingSports' | 'taiChi' | 'transition' | 'underwaterDiving' | 'wheelchairRunPace' | 'wheelchairWalkPace' | 'wrestling' | 'cardioDance' | 'socialDance' | 'backExtension' | 'barbellShoulderPress' | 'benchPress' | 'benchSitUp' | 'bikingStationary' | 'bootCamp' | 'burpee' | 'calisthenics' | 'crunch' | 'dancing' | 'deadlift' | 'dumbbellCurlLeftArm' | 'dumbbellCurlRightArm' | 'dumbbellFrontRaise' | 'dumbbellLateralRaise' | 'dumbbellTricepsExtensionLeftArm' | 'dumbbellTricepsExtensionRightArm' | 'dumbbellTricepsExtensionTwoArm' | 'exerciseClass' | 'forwardTwist' | 'frisbeedisc' | 'guidedBreathing' | 'iceHockey' | 'iceSkating' | 'jumpingJack' | 'latPullDown' | 'lunge' | 'meditation' | 'paddling' | 'paraGliding' | 'plank' | 'rockClimbing' | 'rollerHockey' | 'rowingMachine' | 'runningTreadmill' | 'scubaDiving' | 'skating' | 'snowshoeing' | 'stairClimbingMachine' | 'stretching' | 'upperTwist' | 'other'</code>
+
+
+#### WorkoutEventType
+
+<code>'lap' | 'pause' | 'segment' | 'marker'</code>
 
 
 #### BucketType
