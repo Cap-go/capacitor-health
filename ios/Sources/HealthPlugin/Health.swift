@@ -574,6 +574,7 @@ enum HealthDataType: String, CaseIterable {
     case distanceCycling
     case bodyFat
     case basalBodyTemperature
+    case appleSleepingWristTemperature
     case basalCalories
     case totalCalories
     case mindfulness
@@ -637,6 +638,12 @@ enum HealthDataType: String, CaseIterable {
             identifier = .bodyFatPercentage
         case .basalBodyTemperature:
             identifier = .basalBodyTemperature
+        case .appleSleepingWristTemperature:
+            if #available(iOS 16.0, *) {
+                identifier = .appleSleepingWristTemperature
+            } else {
+                throw HealthManagerError.dataTypeUnavailable(rawValue)
+            }
         case .basalCalories:
             identifier = .basalEnergyBurned
         case .totalCalories:
@@ -679,7 +686,7 @@ enum HealthDataType: String, CaseIterable {
             return HKUnit.millimeterOfMercury()
         case .bloodGlucose:
             return HKUnit.gramUnit(with: .milli).unitDivided(by: HKUnit.literUnit(with: .deci))
-        case .bodyTemperature, .basalBodyTemperature:
+        case .bodyTemperature, .basalBodyTemperature, .appleSleepingWristTemperature:
             return HKUnit.degreeCelsius()
         case .height:
             return HKUnit.meterUnit(with: .centi)
@@ -722,7 +729,7 @@ enum HealthDataType: String, CaseIterable {
             return "mmHg"
         case .bloodGlucose:
             return "mg/dL"
-        case .bodyTemperature, .basalBodyTemperature:
+        case .bodyTemperature, .basalBodyTemperature, .appleSleepingWristTemperature:
             return "celsius"
         case .height:
             return "centimeter"

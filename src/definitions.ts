@@ -19,6 +19,7 @@ export type HealthDataType =
   | 'distanceCycling'
   | 'bodyFat'
   | 'basalBodyTemperature'
+  | 'appleSleepingWristTemperature'
   | 'basalCalories'
   | 'totalCalories'
   | 'mindfulness'
