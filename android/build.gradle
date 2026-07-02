@@ -1,4 +1,4 @@
-def kotlinVersion = '1.9.25'
+def kotlinVersion = '2.4.0'
 project.ext.kotlinVersion = kotlinVersion
 
 ext {
@@ -15,7 +15,7 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.0'
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.0'
     }
 }
 
@@ -63,7 +63,7 @@ dependencies {
     implementation "androidx.appcompat:appcompat:${androidxAppCompatVersion}"
     implementation ("org.jetbrains.kotlin:kotlin-stdlib:" + project.ext.kotlinVersion)
     implementation 'androidx.health.connect:connect-client:1.1.0'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
     testImplementation "junit:junit:${junitVersion}"
     androidTestImplementation "androidx.test.ext:junit:${androidxJunitVersion}"
     androidTestImplementation "androidx.test.espresso:espresso-core:${androidxEspressoCoreVersion}"

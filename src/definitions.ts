@@ -305,6 +305,28 @@ export interface QueryWorkoutsOptions {
   anchor?: string;
 }
 
+export type WorkoutEventType = 'lap' | 'pause' | 'segment' | 'marker';
+
+export interface WorkoutEvent {
+  /**
+   * Workout event type.
+   * iOS returns lap events from HealthKit (`HKWorkoutEventType.lap`).
+   */
+  type: WorkoutEventType | string;
+  /** ISO 8601 timestamp of the event. */
+  date: string;
+  /**
+   * Duration of the lap interval in seconds until the next lap event or the workout end.
+   * Present for lap events returned on iOS.
+   */
+  durationSeconds?: number;
+  /**
+   * Lap distance in meters when HealthKit provides it on the workout event metadata
+   * (for example `HKMetadataKeyLapLength`).
+   */
+  distanceMeters?: number;
+}
+
 export interface Workout {
   /** The type of workout. */
   workoutType: WorkoutType;
@@ -326,6 +348,11 @@ export interface Workout {
   platformId?: string;
   /** Additional metadata (if available). */
   metadata?: Record<string, string>;
+  /**
+   * Lap workout events when available.
+   * On iOS, includes HealthKit lap markers with per-lap duration and optional distance.
+   */
+  workoutEvents?: WorkoutEvent[];
 }
 
 export interface QueryWorkoutsResult {

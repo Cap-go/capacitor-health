@@ -1711,6 +1711,28 @@ final class Health {
             }
         }
 
+        if let events = workout.workoutEvents, !events.isEmpty {
+            let lapEvents = events.filter { $0.type == .lap }
+            if !lapEvents.isEmpty {
+                payload["workoutEvents"] = lapEvents.enumerated().map { index, event in
+                    let nextDate = index + 1 < lapEvents.count
+                        ? lapEvents[index + 1].date
+                        : workout.endDate
+                    let durationSeconds = max(0, nextDate.timeIntervalSince(event.date))
+                    var lapPayload: [String: Any] = [
+                        "type": "lap",
+                        "date": isoFormatter.string(from: event.date),
+                        "durationSeconds": durationSeconds,
+                    ]
+                    if let metadata = event.metadata,
+                       let lapLength = metadata[HKMetadataKeyLapLength] as? HKQuantity {
+                        lapPayload["distanceMeters"] = lapLength.doubleValue(for: HKUnit.meter())
+                    }
+                    return lapPayload
+                }
+            }
+        }
+
         return payload
     }
 }
