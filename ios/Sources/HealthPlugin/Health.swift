@@ -1441,34 +1441,38 @@ final class Health {
                 return
             }
             
-            // Default bucket is "day" and default aggregation is "sum" (consistent with TypeScript defaults)
+            // Default bucket is "day".
             let bucket = bucketString ?? "day"
-            // Normalize to a de-duplicated, order-preserving list of aggregations.
+
+            // Restrict to the same data types and aggregations Android supports, so an identical
+            // queryAggregated call behaves the same on both platforms. Cumulative types (steps,
+            // distance, calories) support only `sum`; discrete types (heart rate, weight, resting
+            // heart rate) support only `average`/`min`/`max`. Every other type is rejected here,
+            // mirroring Android's validateAggregation / the per-type default in HealthPlugin.kt.
+            let supportedAggregations: Set<String>
+            let defaultAggregation: String
+            switch dataType {
+            case .steps, .distance, .calories:
+                supportedAggregations = ["sum"]
+                defaultAggregation = "sum"
+            case .heartRate, .weight, .restingHeartRate:
+                supportedAggregations = ["average", "min", "max"]
+                defaultAggregation = "average"
+            default:
+                completion(.failure(HealthManagerError.operationFailed("Aggregated queries are not supported for \(dataType.rawValue). Use readSamples instead.")))
+                return
+            }
+
+            // Normalize to a de-duplicated, order-preserving list of aggregations, falling back to
+            // the per-type default when none were requested.
             var aggregations: [String] = []
-            for aggregation in (aggregationInput.isEmpty ? ["sum"] : aggregationInput) where !aggregations.contains(aggregation) {
+            for aggregation in (aggregationInput.isEmpty ? [defaultAggregation] : aggregationInput) where !aggregations.contains(aggregation) {
                 aggregations.append(aggregation)
             }
 
-            // Validate each aggregation against the quantity type's aggregation style before running the
-            // query. HealthKit throws if `.cumulativeSum` is combined with discrete options (or vice
-            // versa) on an incompatible type, so reject early with a clear error. Cumulative types
-            // (steps, distance, calories) support only `sum`; discrete types (heart rate, weight, ...)
-            // support only `average`/`min`/`max`. Mirrors Android's validateAggregation.
-            let isCumulative = quantityType.aggregationStyle == .cumulative
-            for aggregation in aggregations {
-                let supported: Bool
-                switch aggregation {
-                case "sum":
-                    supported = isCumulative
-                case "average", "min", "max":
-                    supported = !isCumulative
-                default:
-                    supported = false
-                }
-                guard supported else {
-                    completion(.failure(HealthManagerError.operationFailed("Unsupported aggregation '\(aggregation)' for \(dataType.rawValue).")))
-                    return
-                }
+            for aggregation in aggregations where !supportedAggregations.contains(aggregation) {
+                completion(.failure(HealthManagerError.operationFailed("Unsupported aggregation '\(aggregation)' for \(dataType.rawValue).")))
+                return
             }
 
             // Determine the anchor date and interval based on bucket type

@@ -194,11 +194,16 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         let endDate = call.getString("endDate")
         let bucket = call.getString("bucket")
 
-        // `aggregation` may be a single string or an array of strings.
+        // `aggregation` may be a single string or an array of strings. Reject a non-string
+        // array explicitly rather than silently defaulting, matching Android's HealthPlugin.kt.
         var aggregations: [String] = []
         if let single = call.getString("aggregation") {
             aggregations = [single]
-        } else if let array = call.getArray("aggregation") as? [String] {
+        } else if let rawArray = call.getArray("aggregation") {
+            guard let array = rawArray as? [String] else {
+                call.reject("aggregation array must contain only strings")
+                return
+            }
             aggregations = array
         }
 
