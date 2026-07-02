@@ -772,9 +772,7 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 
 Construct a type with a set of properties K of type T
 
-<code>{
- [P in K]: T;
- }</code>
+<code>{ [P in K]: T; }</code>
 
 
 #### WorkoutType
@@ -782,13 +780,16 @@ Construct a type with a set of properties K of type T
 <code>'americanFootball' | 'australianFootball' | 'badminton' | 'baseball' | 'basketball' | 'bowling' | 'boxing' | 'climbing' | 'cricket' | 'crossTraining' | 'curling' | 'cycling' | 'dance' | 'elliptical' | 'fencing' | 'functionalStrengthTraining' | 'golf' | 'gymnastics' | 'handball' | 'hiking' | 'hockey' | 'jumpRope' | 'kickboxing' | 'lacrosse' | 'martialArts' | 'pilates' | 'racquetball' | 'rowing' | 'rugby' | 'running' | 'sailing' | 'skatingSports' | 'skiing' | 'snowboarding' | 'soccer' | 'softball' | 'squash' | 'stairClimbing' | 'strengthTraining' | 'surfing' | 'swimming' | 'swimmingPool' | 'swimmingOpenWater' | 'tableTennis' | 'tennis' | 'trackAndField' | 'traditionalStrengthTraining' | 'volleyball' | 'walking' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'weightlifting' | 'wheelchair' | 'yoga' | 'archery' | 'barre' | 'cooldown' | 'coreTraining' | 'crossCountrySkiing' | 'discSports' | 'downhillSkiing' | 'equestrianSports' | 'fishing' | 'fitnessGaming' | 'flexibility' | 'handCycling' | 'highIntensityIntervalTraining' | 'hunting' | 'mindAndBody' | 'mixedCardio' | 'paddleSports' | 'pickleball' | 'play' | 'preparationAndRecovery' | 'snowSports' | 'stairs' | 'stepTraining' | 'surfingSports' | 'taiChi' | 'transition' | 'underwaterDiving' | 'wheelchairRunPace' | 'wheelchairWalkPace' | 'wrestling' | 'cardioDance' | 'socialDance' | 'backExtension' | 'barbellShoulderPress' | 'benchPress' | 'benchSitUp' | 'bikingStationary' | 'bootCamp' | 'burpee' | 'calisthenics' | 'crunch' | 'dancing' | 'deadlift' | 'dumbbellCurlLeftArm' | 'dumbbellCurlRightArm' | 'dumbbellFrontRaise' | 'dumbbellLateralRaise' | 'dumbbellTricepsExtensionLeftArm' | 'dumbbellTricepsExtensionRightArm' | 'dumbbellTricepsExtensionTwoArm' | 'exerciseClass' | 'forwardTwist' | 'frisbeedisc' | 'guidedBreathing' | 'iceHockey' | 'iceSkating' | 'jumpingJack' | 'latPullDown' | 'lunge' | 'meditation' | 'paddling' | 'paraGliding' | 'plank' | 'rockClimbing' | 'rollerHockey' | 'rowingMachine' | 'runningTreadmill' | 'scubaDiving' | 'skating' | 'snowshoeing' | 'stairClimbingMachine' | 'stretching' | 'upperTwist' | 'other'</code>
 
 
+#### WorkoutEventType
+
+<code>'lap' | 'pause' | 'segment' | 'marker'</code>
+
+
 #### Partial
 
 Make all properties in T optional
 
-<code>{
- [P in keyof T]?: T[P];
- }</code>
+<code>{ [P in keyof T]?: T[P]; }</code>
 
 
 #### AggregationType
