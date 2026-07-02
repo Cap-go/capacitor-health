@@ -420,14 +420,30 @@ class HealthPlugin : Plugin() {
         }
 
         val bucket = call.getString("bucket") ?: "day"
-        val aggregation = call.getString("aggregation") ?: when (dataType) {
-            HealthDataType.STEPS,
-            HealthDataType.DISTANCE,
-            HealthDataType.CALORIES -> "sum"
-            HealthDataType.HEART_RATE,
-            HealthDataType.WEIGHT,
-            HealthDataType.RESTING_HEART_RATE -> "average"
-            else -> "sum"
+        // `aggregation` may be a single string or an array of strings. Fall back to a
+        // sensible per-data-type default when omitted.
+        val aggregations: List<String> = call.getArray("aggregation")?.let { array ->
+            try {
+                (0 until array.length()).map { array.getString(it) }
+            } catch (e: org.json.JSONException) {
+                call.reject("aggregation array must contain only strings", null, e)
+                return
+            }
+        } ?: call.getString("aggregation")?.let { listOf(it) } ?: listOf(
+            when (dataType) {
+                HealthDataType.STEPS,
+                HealthDataType.DISTANCE,
+                HealthDataType.CALORIES -> "sum"
+                HealthDataType.HEART_RATE,
+                HealthDataType.WEIGHT,
+                HealthDataType.RESTING_HEART_RATE -> "average"
+                else -> "sum"
+            },
+        )
+
+        if (aggregations.isEmpty()) {
+            call.reject("aggregation must not be empty")
+            return
         }
 
         val startInstant = try {
@@ -452,7 +468,7 @@ class HealthPlugin : Plugin() {
         pluginScope.launch {
             val client = getClientOrReject(call) ?: return@launch
             try {
-                val result = manager.queryAggregated(client, dataType, startInstant, endInstant, bucket, aggregation)
+                val result = manager.queryAggregated(client, dataType, startInstant, endInstant, bucket, aggregations)
                 call.resolve(result)
             } catch (e: CancellationException) {
                 throw e

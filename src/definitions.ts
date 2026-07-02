@@ -399,8 +399,14 @@ export interface QueryAggregatedOptions {
   endDate?: string;
   /** Time bucket for aggregation (defaults to 'day'). */
   bucket?: BucketType;
-  /** Aggregation operation to perform (defaults to 'sum'). */
-  aggregation?: AggregationType;
+  /**
+   * Aggregation operation(s) to perform (defaults to 'sum').
+   *
+   * Pass a single {@link AggregationType} to compute one aggregation, or an array to
+   * compute several in a single query. Each requested aggregation is returned in
+   * {@link AggregatedSample.values}, keyed by its name.
+   */
+  aggregation?: AggregationType | AggregationType[];
 }
 
 export interface AggregatedSample {
@@ -408,8 +414,14 @@ export interface AggregatedSample {
   startDate: string;
   /** ISO 8601 end date of the bucket. */
   endDate: string;
-  /** Aggregated value for the bucket. */
+  /**
+   * Aggregated value for the bucket. When multiple aggregations are requested, this holds
+   * the value of the first requested aggregation that produced a result. See {@link values}
+   * for every requested aggregation.
+   */
   value: number;
+  /** Map of each requested aggregation type to its aggregated value for the bucket. */
+  values: Partial<Record<AggregationType, number>>;
   /** Unit of the aggregated value. */
   unit: HealthUnit;
 }

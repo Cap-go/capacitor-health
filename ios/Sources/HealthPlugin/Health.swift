@@ -1414,7 +1414,7 @@ final class Health {
         return set
     }
 
-    func queryAggregated(dataTypeIdentifier: String, startDateString: String?, endDateString: String?, bucketString: String?, aggregationString: String?, completion: @escaping (Result<[String: Any], Error>) -> Void) {
+    func queryAggregated(dataTypeIdentifier: String, startDateString: String?, endDateString: String?, bucketString: String?, aggregations aggregationInput: [String], completion: @escaping (Result<[String: Any], Error>) -> Void) {
         do {
             let dataType = try parseDataType(identifier: dataTypeIdentifier)
             
@@ -1441,10 +1441,40 @@ final class Health {
                 return
             }
             
-            // Default bucket is "day" and default aggregation is "sum" (consistent with TypeScript defaults)
+            // Default bucket is "day".
             let bucket = bucketString ?? "day"
-            let aggregation = aggregationString ?? "sum"
-            
+
+            // Restrict to the same data types and aggregations Android supports, so an identical
+            // queryAggregated call behaves the same on both platforms. Cumulative types (steps,
+            // distance, calories) support only `sum`; discrete types (heart rate, weight, resting
+            // heart rate) support only `average`/`min`/`max`. Every other type is rejected here,
+            // mirroring Android's validateAggregation / the per-type default in HealthPlugin.kt.
+            let supportedAggregations: Set<String>
+            let defaultAggregation: String
+            switch dataType {
+            case .steps, .distance, .calories:
+                supportedAggregations = ["sum"]
+                defaultAggregation = "sum"
+            case .heartRate, .weight, .restingHeartRate:
+                supportedAggregations = ["average", "min", "max"]
+                defaultAggregation = "average"
+            default:
+                completion(.failure(HealthManagerError.operationFailed("Aggregated queries are not supported for \(dataType.rawValue). Use readSamples instead.")))
+                return
+            }
+
+            // Normalize to a de-duplicated, order-preserving list of aggregations, falling back to
+            // the per-type default when none were requested.
+            var aggregations: [String] = []
+            for aggregation in (aggregationInput.isEmpty ? [defaultAggregation] : aggregationInput) where !aggregations.contains(aggregation) {
+                aggregations.append(aggregation)
+            }
+
+            for aggregation in aggregations where !supportedAggregations.contains(aggregation) {
+                completion(.failure(HealthManagerError.operationFailed("Unsupported aggregation '\(aggregation)' for \(dataType.rawValue).")))
+                return
+            }
+
             // Determine the anchor date and interval based on bucket type
             var anchorComponents = Calendar.current.dateComponents([.year, .month, .day], from: startDate)
             var intervalComponents = DateComponents()
@@ -1471,19 +1501,21 @@ final class Health {
                 return
             }
             
-            // Determine the statistics options based on aggregation type
+            // Determine the statistics options by combining the flags for every requested aggregation.
             var options: HKStatisticsOptions = []
-            switch aggregation {
-            case "sum":
-                options = .cumulativeSum
-            case "average":
-                options = .discreteAverage
-            case "min":
-                options = .discreteMin
-            case "max":
-                options = .discreteMax
-            default:
-                options = .cumulativeSum
+            for aggregation in aggregations {
+                switch aggregation {
+                case "sum":
+                    options.insert(.cumulativeSum)
+                case "average":
+                    options.insert(.discreteAverage)
+                case "min":
+                    options.insert(.discreteMin)
+                case "max":
+                    options.insert(.discreteMax)
+                default:
+                    options.insert(.cumulativeSum)
+                }
             }
             
             let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
@@ -1512,26 +1544,38 @@ final class Health {
                 var samples: [[String: Any]] = []
                 
                 collection.enumerateStatistics(from: startDate, to: endDate) { statistics, _ in
-                    var value: Double?
-                    
-                    switch aggregation {
-                    case "sum":
-                        value = statistics.sumQuantity()?.doubleValue(for: dataType.defaultUnit)
-                    case "average":
-                        value = statistics.averageQuantity()?.doubleValue(for: dataType.defaultUnit)
-                    case "min":
-                        value = statistics.minimumQuantity()?.doubleValue(for: dataType.defaultUnit)
-                    case "max":
-                        value = statistics.maximumQuantity()?.doubleValue(for: dataType.defaultUnit)
-                    default:
-                        value = statistics.sumQuantity()?.doubleValue(for: dataType.defaultUnit)
+                    var values: [String: Double] = [:]
+                    var primaryValue: Double?
+
+                    for aggregation in aggregations {
+                        let value: Double?
+                        switch aggregation {
+                        case "sum":
+                            value = statistics.sumQuantity()?.doubleValue(for: dataType.defaultUnit)
+                        case "average":
+                            value = statistics.averageQuantity()?.doubleValue(for: dataType.defaultUnit)
+                        case "min":
+                            value = statistics.minimumQuantity()?.doubleValue(for: dataType.defaultUnit)
+                        case "max":
+                            value = statistics.maximumQuantity()?.doubleValue(for: dataType.defaultUnit)
+                        default:
+                            value = statistics.sumQuantity()?.doubleValue(for: dataType.defaultUnit)
+                        }
+
+                        if let value = value {
+                            values[aggregation] = value
+                            if primaryValue == nil {
+                                primaryValue = value
+                            }
+                        }
                     }
-                    
-                    if let value = value {
+
+                    if let primaryValue = primaryValue {
                         let sample: [String: Any] = [
                             "startDate": self.isoFormatter.string(from: statistics.startDate),
                             "endDate": self.isoFormatter.string(from: statistics.endDate),
-                            "value": value,
+                            "value": primaryValue,
+                            "values": values,
                             "unit": dataType.unitIdentifier
                         ]
                         samples.append(sample)
