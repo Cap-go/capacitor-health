@@ -193,14 +193,21 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         let startDate = call.getString("startDate")
         let endDate = call.getString("endDate")
         let bucket = call.getString("bucket")
-        let aggregation = call.getString("aggregation")
+
+        // `aggregation` may be a single string or an array of strings.
+        var aggregations: [String] = []
+        if let single = call.getString("aggregation") {
+            aggregations = [single]
+        } else if let array = call.getArray("aggregation") as? [String] {
+            aggregations = array
+        }
 
         implementation.queryAggregated(
             dataTypeIdentifier: dataType,
             startDateString: startDate,
             endDateString: endDate,
             bucketString: bucket,
-            aggregationString: aggregation
+            aggregations: aggregations
         ) { result in
             DispatchQueue.main.async {
                 switch result {

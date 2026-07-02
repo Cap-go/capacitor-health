@@ -367,13 +367,18 @@ samples.forEach(sample => {
   console.log(`${sample.startDate}: ${sample.value} ${sample.unit}`);
 });
 
-// Get average heart rate by day
-const { samples: avgHR } = await Health.queryAggregated({
+// Request several aggregations at once by passing an array. Each result is returned
+// in `sample.values`, keyed by aggregation name (`sample.value` holds the first one).
+const { samples: hr } = await Health.queryAggregated({
   dataType: 'heartRate',
   startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
   endDate: new Date().toISOString(),
   bucket: 'day',
-  aggregation: 'average',
+  aggregation: ['average', 'min', 'max'],
+});
+
+hr.forEach(sample => {
+  console.log(`${sample.startDate}: avg=${sample.values.average}, min=${sample.values.min}, max=${sample.values.max}`);
 });
 ```
 
@@ -714,23 +719,24 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 
 #### AggregatedSample
 
-| Prop            | Type                                              | Description                        |
-| --------------- | ------------------------------------------------- | ---------------------------------- |
-| **`startDate`** | <code>string</code>                               | ISO 8601 start date of the bucket. |
-| **`endDate`**   | <code>string</code>                               | ISO 8601 end date of the bucket.   |
-| **`value`**     | <code>number</code>                               | Aggregated value for the bucket.   |
-| **`unit`**      | <code><a href="#healthunit">HealthUnit</a></code> | Unit of the aggregated value.      |
+| Prop            | Type                                                                                                                                          | Description                                                                                                                                                                                                    |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`startDate`** | <code>string</code>                                                                                                                           | ISO 8601 start date of the bucket.                                                                                                                                                                             |
+| **`endDate`**   | <code>string</code>                                                                                                                           | ISO 8601 end date of the bucket.                                                                                                                                                                               |
+| **`value`**     | <code>number</code>                                                                                                                           | Aggregated value for the bucket. When multiple aggregations are requested, this holds the value of the first requested aggregation that produced a result. See {@link values} for every requested aggregation. |
+| **`values`**    | <code><a href="#partial">Partial</a>&lt;<a href="#record">Record</a>&lt;<a href="#aggregationtype">AggregationType</a>, number&gt;&gt;</code> | Map of each requested aggregation type to its aggregated value for the bucket.                                                                                                                                 |
+| **`unit`**      | <code><a href="#healthunit">HealthUnit</a></code>                                                                                             | Unit of the aggregated value.                                                                                                                                                                                  |
 
 
 #### QueryAggregatedOptions
 
-| Prop              | Type                                                        | Description                                              |
-| ----------------- | ----------------------------------------------------------- | -------------------------------------------------------- |
-| **`dataType`**    | <code><a href="#healthdatatype">HealthDataType</a></code>   | The type of data to aggregate from the health store.     |
-| **`startDate`**   | <code>string</code>                                         | Inclusive ISO 8601 start date (defaults to now - 1 day). |
-| **`endDate`**     | <code>string</code>                                         | Exclusive ISO 8601 end date (defaults to now).           |
-| **`bucket`**      | <code><a href="#buckettype">BucketType</a></code>           | Time bucket for aggregation (defaults to 'day').         |
-| **`aggregation`** | <code><a href="#aggregationtype">AggregationType</a></code> | Aggregation operation to perform (defaults to 'sum').    |
+| Prop              | Type                                                                             | Description                                                                                                                                                                                                                                                                                                                               |
+| ----------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`dataType`**    | <code><a href="#healthdatatype">HealthDataType</a></code>                        | The type of data to aggregate from the health store.                                                                                                                                                                                                                                                                                      |
+| **`startDate`**   | <code>string</code>                                                              | Inclusive ISO 8601 start date (defaults to now - 1 day).                                                                                                                                                                                                                                                                                  |
+| **`endDate`**     | <code>string</code>                                                              | Exclusive ISO 8601 end date (defaults to now).                                                                                                                                                                                                                                                                                            |
+| **`bucket`**      | <code><a href="#buckettype">BucketType</a></code>                                | Time bucket for aggregation (defaults to 'day').                                                                                                                                                                                                                                                                                          |
+| **`aggregation`** | <code><a href="#aggregationtype">AggregationType</a> \| AggregationType[]</code> | Aggregation operation(s) to perform (defaults to 'sum'). Pass a single {@link <a href="#aggregationtype">AggregationType</a>} to compute one aggregation, or an array to compute several in a single query. Each requested aggregation is returned in {@link <a href="#aggregatedsample">AggregatedSample.values</a>}, keyed by its name. |
 
 
 ### Type Aliases
@@ -763,14 +769,21 @@ Construct a type with a set of properties K of type T
 <code>'americanFootball' | 'australianFootball' | 'badminton' | 'baseball' | 'basketball' | 'bowling' | 'boxing' | 'climbing' | 'cricket' | 'crossTraining' | 'curling' | 'cycling' | 'dance' | 'elliptical' | 'fencing' | 'functionalStrengthTraining' | 'golf' | 'gymnastics' | 'handball' | 'hiking' | 'hockey' | 'jumpRope' | 'kickboxing' | 'lacrosse' | 'martialArts' | 'pilates' | 'racquetball' | 'rowing' | 'rugby' | 'running' | 'sailing' | 'skatingSports' | 'skiing' | 'snowboarding' | 'soccer' | 'softball' | 'squash' | 'stairClimbing' | 'strengthTraining' | 'surfing' | 'swimming' | 'swimmingPool' | 'swimmingOpenWater' | 'tableTennis' | 'tennis' | 'trackAndField' | 'traditionalStrengthTraining' | 'volleyball' | 'walking' | 'waterFitness' | 'waterPolo' | 'waterSports' | 'weightlifting' | 'wheelchair' | 'yoga' | 'archery' | 'barre' | 'cooldown' | 'coreTraining' | 'crossCountrySkiing' | 'discSports' | 'downhillSkiing' | 'equestrianSports' | 'fishing' | 'fitnessGaming' | 'flexibility' | 'handCycling' | 'highIntensityIntervalTraining' | 'hunting' | 'mindAndBody' | 'mixedCardio' | 'paddleSports' | 'pickleball' | 'play' | 'preparationAndRecovery' | 'snowSports' | 'stairs' | 'stepTraining' | 'surfingSports' | 'taiChi' | 'transition' | 'underwaterDiving' | 'wheelchairRunPace' | 'wheelchairWalkPace' | 'wrestling' | 'cardioDance' | 'socialDance' | 'backExtension' | 'barbellShoulderPress' | 'benchPress' | 'benchSitUp' | 'bikingStationary' | 'bootCamp' | 'burpee' | 'calisthenics' | 'crunch' | 'dancing' | 'deadlift' | 'dumbbellCurlLeftArm' | 'dumbbellCurlRightArm' | 'dumbbellFrontRaise' | 'dumbbellLateralRaise' | 'dumbbellTricepsExtensionLeftArm' | 'dumbbellTricepsExtensionRightArm' | 'dumbbellTricepsExtensionTwoArm' | 'exerciseClass' | 'forwardTwist' | 'frisbeedisc' | 'guidedBreathing' | 'iceHockey' | 'iceSkating' | 'jumpingJack' | 'latPullDown' | 'lunge' | 'meditation' | 'paddling' | 'paraGliding' | 'plank' | 'rockClimbing' | 'rollerHockey' | 'rowingMachine' | 'runningTreadmill' | 'scubaDiving' | 'skating' | 'snowshoeing' | 'stairClimbingMachine' | 'stretching' | 'upperTwist' | 'other'</code>
 
 
-#### BucketType
+#### Partial
 
-<code>'hour' | 'day' | 'week' | 'month'</code>
+Make all properties in T optional
+
+<code>{ [P in keyof T]?: T[P]; }</code>
 
 
 #### AggregationType
 
 <code>'sum' | 'average' | 'min' | 'max'</code>
+
+
+#### BucketType
+
+<code>'hour' | 'day' | 'week' | 'month'</code>
 
 </docgen-api>
 

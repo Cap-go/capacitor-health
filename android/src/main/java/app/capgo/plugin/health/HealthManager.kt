@@ -802,13 +802,35 @@ private fun createSamplePayload(
         }
     }
 
+    /**
+     * Builds a `values` map of aggregation name -> value for every requested aggregation, plus the
+     * primary value (the first requested aggregation that produced a result). Returns null when none
+     * of the requested aggregations produced a value for this bucket.
+     */
+    private fun buildAggregatedValues(
+        dataType: HealthDataType,
+        aggregations: List<String>,
+        result: AggregationResult
+    ): Pair<Double, JSObject>? {
+        val values = JSObject()
+        var primaryValue: Double? = null
+        for (aggregation in aggregations) {
+            val value = aggregateValue(dataType, aggregation, result) ?: continue
+            values.put(aggregation, value)
+            if (primaryValue == null) {
+                primaryValue = value
+            }
+        }
+        return primaryValue?.let { it to values }
+    }
+
     suspend fun queryAggregated(
         client: HealthConnectClient,
         dataType: HealthDataType,
         startTime: Instant,
         endTime: Instant,
         bucket: String,
-        aggregation: String
+        aggregations: List<String>
     ): JSObject {
         // Sleep aggregation is not directly supported like other metrics
         if (dataType == HealthDataType.SLEEP) {
@@ -824,7 +846,9 @@ private fun createSamplePayload(
             throw IllegalArgumentException("Aggregated queries are not supported for ${dataType.identifier}. Use readSamples instead.")
         }
 
-        validateAggregation(dataType, aggregation)
+        // De-duplicate while preserving order, and validate each requested aggregation.
+        val requestedAggregations = aggregations.distinct()
+        requestedAggregations.forEach { validateAggregation(dataType, it) }
 
         val metrics = aggregateMetrics(dataType)
         val samples = JSArray()
@@ -848,12 +872,14 @@ private fun createSamplePayload(
                 val groupedResults = client.aggregateGroupByPeriod(aggregateRequest)
 
                 for (groupedResult in groupedResults) {
-                    val value = aggregateValue(dataType, aggregation, groupedResult.result)
-                    if (value != null) {
+                    val aggregated = buildAggregatedValues(dataType, requestedAggregations, groupedResult.result)
+                    if (aggregated != null) {
+                        val (primaryValue, values) = aggregated
                         samples.put(JSObject().apply {
                             put("startDate", formatter.format(groupedResult.startTime.atZone(zoneId).toInstant()))
                             put("endDate", formatter.format(groupedResult.endTime.atZone(zoneId).toInstant()))
-                            put("value", value)
+                            put("value", primaryValue)
+                            put("values", values)
                             put("unit", dataType.unit)
                         })
                     }
@@ -892,13 +918,15 @@ private fun createSamplePayload(
             val groupedResults = client.aggregateGroupByDuration(aggregateRequest)
 
             for (groupedResult in groupedResults) {
-                val value = aggregateValue(dataType, aggregation, groupedResult.result)
-                // Only add the sample if we have a value
-                if (value != null) {
+                val aggregated = buildAggregatedValues(dataType, requestedAggregations, groupedResult.result)
+                // Only add the sample if at least one aggregation produced a value
+                if (aggregated != null) {
+                    val (primaryValue, values) = aggregated
                     val sample = JSObject().apply {
                         put("startDate", formatter.format(groupedResult.startTime))
                         put("endDate", formatter.format(groupedResult.endTime))
-                        put("value", value)
+                        put("value", primaryValue)
+                        put("values", values)
                         put("unit", dataType.unit)
                     }
                     samples.put(sample)
