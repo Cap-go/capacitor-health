@@ -1239,6 +1239,20 @@ final class Health {
         var denied: [HealthDataType] = []
 
         for type in types {
+            // Blood pressure share authorization is tracked on the component quantity
+            // types, not the correlation type (which always reports notDetermined).
+            if type == .bloodPressure {
+                if let systolicType = HKObjectType.quantityType(forIdentifier: .bloodPressureSystolic),
+                   let diastolicType = HKObjectType.quantityType(forIdentifier: .bloodPressureDiastolic),
+                   healthStore.authorizationStatus(for: systolicType) == .sharingAuthorized,
+                   healthStore.authorizationStatus(for: diastolicType) == .sharingAuthorized {
+                    authorized.append(type)
+                } else {
+                    denied.append(type)
+                }
+                continue
+            }
+
             guard let sampleType = try? type.sampleType() else {
                 denied.append(type)
                 continue
@@ -1408,6 +1422,18 @@ final class Health {
     private func sampleTypes(for dataTypes: [HealthDataType]) throws -> Set<HKSampleType> {
         var set = Set<HKSampleType>()
         for dataType in dataTypes {
+            // Blood pressure is an HKCorrelationType; requesting SHARE authorization for a
+            // correlation type throws an uncatchable NSException. Substitute the component
+            // quantity types instead, mirroring readAuthorizationObjectTypes(for:).
+            if dataType == .bloodPressure {
+                guard let systolicType = HKObjectType.quantityType(forIdentifier: .bloodPressureSystolic),
+                      let diastolicType = HKObjectType.quantityType(forIdentifier: .bloodPressureDiastolic) else {
+                    throw HealthManagerError.dataTypeUnavailable(dataType.rawValue)
+                }
+                set.insert(systolicType)
+                set.insert(diastolicType)
+                continue
+            }
             let type = try dataType.sampleType()
             set.insert(type)
         }
