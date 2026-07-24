@@ -183,7 +183,7 @@ await Health.saveSample({
 | `oxygenSaturation`      | `percent`     | Blood oxygen saturation (SpO2)                           |
 | `restingHeartRate`      | `bpm`         | Resting heart rate                                       |
 | `heartRateVariability`  | `millisecond` | Heart rate variability (HRV)                             |
-| `vo2Max`                | `mL/min/kg`   | VO2 max (Android Health Connect)                         |
+| `vo2Max`                | `mL/min/kg`   | VO2 max                                                  |
 | `bloodPressure`         | `mmHg`        | Blood pressure (requires systolic/diastolic values)      |
 | `bloodGlucose`          | `mg/dL`       | Blood glucose level                                      |
 | `bodyTemperature`       | `celsius`     | Body temperature                                         |

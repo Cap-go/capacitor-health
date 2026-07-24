@@ -565,6 +565,7 @@ enum HealthDataType: String, CaseIterable {
     case oxygenSaturation
     case restingHeartRate
     case heartRateVariability
+    case vo2Max
     case bloodPressure
     case bloodGlucose
     case bodyTemperature
@@ -622,6 +623,8 @@ enum HealthDataType: String, CaseIterable {
             identifier = .restingHeartRate
         case .heartRateVariability:
             identifier = .heartRateVariabilitySDNN
+        case .vo2Max:
+            identifier = .vo2Max
         case .bloodGlucose:
             identifier = .bloodGlucose
         case .bodyTemperature:
@@ -680,6 +683,9 @@ enum HealthDataType: String, CaseIterable {
             return HKUnit.percent()
         case .heartRateVariability:
             return HKUnit.secondUnit(with: .milli)
+        case .vo2Max:
+            return HKUnit.literUnit(with: .milli)
+                .unitDivided(by: HKUnit.gramUnit(with: .kilo).unitMultiplied(by: HKUnit.minute()))
         case .sleep:
             return HKUnit.minute()
         case .bloodPressure:
@@ -723,6 +729,8 @@ enum HealthDataType: String, CaseIterable {
             return "percent"
         case .heartRateVariability:
             return "millisecond"
+        case .vo2Max:
+            return "mL/min/kg"
         case .sleep:
             return "minute"
         case .bloodPressure:
