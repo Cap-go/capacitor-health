@@ -776,9 +776,7 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 
 Construct a type with a set of properties K of type T
 
-<code>{
- [P in K]: T;
- }</code>
+<code>{ [P in K]: T; }</code>
 
 
 #### WorkoutType
@@ -795,9 +793,7 @@ Construct a type with a set of properties K of type T
 
 Make all properties in T optional
 
-<code>{
- [P in keyof T]?: T[P];
- }</code>
+<code>{ [P in keyof T]?: T[P]; }</code>
 
 
 #### AggregationType
