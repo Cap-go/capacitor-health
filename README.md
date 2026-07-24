@@ -196,7 +196,7 @@ await Health.saveSample({
 | `basalCalories`         | `kilocalorie` | Basal metabolic rate / resting energy                    |
 | `totalCalories`         | `kilocalorie` | Total energy burned (active + basal)                     |
 | `mindfulness`           | `minute`      | Mindfulness / meditation sessions                        |
-| `appleStandHour`        | `count`       | Apple Watch stand hours (iOS only; value 1 = stood)      |
+| `appleStandHour`        | `count`       | Apple Watch stand hours (iOS only, read-only; 1 = stood) |
 | `dietaryWater`          | `liter`       | Water consumed                                           |
 | `dietaryEnergyConsumed` | `kilocalorie` | Dietary energy (calories) consumed                       |
 | `workouts`              | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
@@ -776,7 +776,9 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 
 Construct a type with a set of properties K of type T
 
-<code>{ [P in K]: T; }</code>
+<code>{
+ [P in K]: T;
+ }</code>
 
 
 #### WorkoutType
@@ -793,7 +795,9 @@ Construct a type with a set of properties K of type T
 
 Make all properties in T optional
 
-<code>{ [P in keyof T]?: T[P]; }</code>
+<code>{
+ [P in keyof T]?: T[P];
+ }</code>
 
 
 #### AggregationType

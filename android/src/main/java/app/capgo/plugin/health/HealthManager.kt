@@ -421,7 +421,11 @@ class HealthManager {
                 )
                 samples.add(record.startTime to payload)
             }
-            HealthDataType.DIETARY_ENERGY -> readRecords(client, NutritionRecord::class, startTime, endTime, limit) { record ->
+            // Paginate the (bounded) time range without the fetch cap: null-energy
+            // records are skipped below, so counting FETCHED records against the
+            // limit could under-deliver; the shared sort/take(limit) at the end of
+            // readSamples still enforces the requested cap on emitted samples.
+            HealthDataType.DIETARY_ENERGY -> readRecords(client, NutritionRecord::class, startTime, endTime, 0) { record ->
                 // NutritionRecord.energy is nullable — skip records without it.
                 val energy = record.energy
                 if (energy != null) {
