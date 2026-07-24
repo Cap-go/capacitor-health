@@ -578,6 +578,9 @@ enum HealthDataType: String, CaseIterable {
     case basalCalories
     case totalCalories
     case mindfulness
+    case appleStandHour
+    case dietaryWater
+    case dietaryEnergyConsumed
 
     func sampleType() throws -> HKSampleType {
         switch self {
@@ -593,6 +596,11 @@ enum HealthDataType: String, CaseIterable {
             return type
         case .mindfulness:
             guard let type = HKObjectType.categoryType(forIdentifier: .mindfulSession) else {
+                throw HealthManagerError.dataTypeUnavailable(rawValue)
+            }
+            return type
+        case .appleStandHour:
+            guard let type = HKObjectType.categoryType(forIdentifier: .appleStandHour) else {
                 throw HealthManagerError.dataTypeUnavailable(rawValue)
             }
             return type
@@ -648,12 +656,18 @@ enum HealthDataType: String, CaseIterable {
             identifier = .basalEnergyBurned
         case .totalCalories:
             identifier = .activeEnergyBurned
+        case .dietaryWater:
+            identifier = .dietaryWater
+        case .dietaryEnergyConsumed:
+            identifier = .dietaryEnergyConsumed
         case .sleep:
             throw HealthManagerError.invalidDataType("Sleep is a category type, not a quantity type")
         case .bloodPressure:
             throw HealthManagerError.invalidDataType("Blood pressure is a correlation type, not a quantity type")
         case .mindfulness:
             throw HealthManagerError.invalidDataType("Mindfulness is a category type, not a quantity type")
+        case .appleStandHour:
+            throw HealthManagerError.invalidDataType("Apple Stand Hour is a category type, not a quantity type")
         }
 
         guard let type = HKObjectType.quantityType(forIdentifier: identifier) else {
@@ -704,6 +718,12 @@ enum HealthDataType: String, CaseIterable {
             return HKUnit.kilocalorie()
         case .mindfulness:
             return HKUnit.minute()
+        case .appleStandHour:
+            return HKUnit.count()
+        case .dietaryWater:
+            return HKUnit.liter()
+        case .dietaryEnergyConsumed:
+            return HKUnit.kilocalorie()
         }
     }
 
@@ -747,6 +767,12 @@ enum HealthDataType: String, CaseIterable {
             return "kilocalorie"
         case .mindfulness:
             return "minute"
+        case .appleStandHour:
+            return "count"
+        case .dietaryWater:
+            return "liter"
+        case .dietaryEnergyConsumed:
+            return "kilocalorie"
         }
     }
 
@@ -950,6 +976,48 @@ final class Health {
                     ) else {
                         return nil
                     }
+
+                    self.addSampleMetadata(sample, to: &payload)
+
+                    return payload
+                }
+
+                completion(.success(results))
+            }
+            healthStore.execute(query)
+            return
+        }
+
+        // Handle Apple Stand Hours as a category sample. Each sample spans one
+        // hour; HKCategoryValueAppleStandHour.stood has raw value 0, so emit a
+        // normalized value (stood = 1, idle = 0) plus a standState label —
+        // summing value per day yields the Activity ring's stand-hour count.
+        if dataType == .appleStandHour {
+            let query = HKSampleQuery(sampleType: sampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
+                guard let self = self else { return }
+
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let categorySamples = samples as? [HKCategorySample] else {
+                    completion(.success([]))
+                    return
+                }
+
+                let results = categorySamples.compactMap { sample -> [String: Any]? in
+                    let stood = sample.value == HKCategoryValueAppleStandHour.stood.rawValue
+                    guard var payload = self.readSamplePayload(
+                        dataType: dataType,
+                        value: stood ? 1.0 : 0.0,
+                        startDate: sample.startDate,
+                        endDate: sample.endDate
+                    ) else {
+                        return nil
+                    }
+
+                    payload["standState"] = stood ? "stood" : "idle"
 
                     self.addSampleMetadata(sample, to: &payload)
 
@@ -1393,6 +1461,8 @@ final class Health {
             return HKUnit.secondUnit(with: .milli)
         case "minute":
             return HKUnit.minute()
+        case "liter":
+            return HKUnit.liter()
         default:
             return dataType.defaultUnit
         }
@@ -1478,7 +1548,7 @@ final class Health {
             let supportedAggregations: Set<String>
             let defaultAggregation: String
             switch dataType {
-            case .steps, .distance, .calories:
+            case .steps, .distance, .calories, .dietaryWater, .dietaryEnergyConsumed:
                 supportedAggregations = ["sum"]
                 defaultAggregation = "sum"
             case .heartRate, .weight, .restingHeartRate:

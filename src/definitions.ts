@@ -23,6 +23,9 @@ export type HealthDataType =
   | 'basalCalories'
   | 'totalCalories'
   | 'mindfulness'
+  | 'appleStandHour'
+  | 'dietaryWater'
+  | 'dietaryEnergyConsumed'
   | 'workouts';
 
 export type HealthUnit =
@@ -39,7 +42,8 @@ export type HealthUnit =
   | 'mg/dL'
   | 'celsius'
   | 'fahrenheit'
-  | 'centimeter';
+  | 'centimeter'
+  | 'liter';
 
 export interface AuthorizationOptions {
   /** Data types that should be readable after authorization. */
@@ -135,6 +139,12 @@ export interface HealthSample {
   platformId?: string;
   /** For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light'). */
   sleepState?: SleepState;
+  /**
+   * For Apple Stand Hour data (iOS only), whether the hour counted as stood or idle.
+   * `value` is normalized to 1 for stood and 0 for idle, so summing values per day
+   * yields the Activity ring's stand-hour count.
+   */
+  standState?: 'stood' | 'idle';
   /** For sleep data, individual sleep stages when the platform exposes stage-level data. */
   stages?: SleepStage[];
   /** For sleep data, indicates whether stage-level data was emitted. */

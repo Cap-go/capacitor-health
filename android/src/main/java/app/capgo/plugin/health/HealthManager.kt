@@ -21,7 +21,9 @@ import androidx.health.connect.client.records.FloorsClimbedRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.HeightRecord
+import androidx.health.connect.client.records.HydrationRecord
 import androidx.health.connect.client.records.MindfulnessSessionRecord
+import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.RespiratoryRateRecord
@@ -39,6 +41,7 @@ import androidx.health.connect.client.units.Length
 import androidx.health.connect.client.units.Mass
 import androidx.health.connect.client.units.Percentage
 import androidx.health.connect.client.units.Power
+import androidx.health.connect.client.units.Volume
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import java.time.Duration
@@ -408,6 +411,34 @@ class HealthManager {
                 )
                 samples.add(record.startTime to payload)
             }
+            HealthDataType.HYDRATION -> readRecords(client, HydrationRecord::class, startTime, endTime, limit) { record ->
+                val payload = createSamplePayload(
+                    dataType,
+                    record.startTime,
+                    record.endTime,
+                    record.volume.inLiters,
+                    record.metadata
+                )
+                samples.add(record.startTime to payload)
+            }
+            // Paginate the (bounded) time range without the fetch cap: null-energy
+            // records are skipped below, so counting FETCHED records against the
+            // limit could under-deliver; the shared sort/take(limit) at the end of
+            // readSamples still enforces the requested cap on emitted samples.
+            HealthDataType.DIETARY_ENERGY -> readRecords(client, NutritionRecord::class, startTime, endTime, 0) { record ->
+                // NutritionRecord.energy is nullable — skip records without it.
+                val energy = record.energy
+                if (energy != null) {
+                    val payload = createSamplePayload(
+                        dataType,
+                        record.startTime,
+                        record.endTime,
+                        energy.inKilocalories,
+                        record.metadata
+                    )
+                    samples.add(record.startTime to payload)
+                }
+            }
         }
 
         val sorted = samples.sortedBy { it.first }
@@ -682,6 +713,28 @@ class HealthManager {
                 )
                 client.insertRecords(listOf(record))
             }
+            HealthDataType.HYDRATION -> {
+                val record = HydrationRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime),
+                    volume = Volume.liters(value),
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
+            HealthDataType.DIETARY_ENERGY -> {
+                val record = NutritionRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime),
+                    energy = Energy.kilocalories(value),
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
         }
     }
 
@@ -753,7 +806,9 @@ private fun createSamplePayload(
         val supportedAggregations = when (dataType) {
             HealthDataType.STEPS,
             HealthDataType.DISTANCE,
-            HealthDataType.CALORIES -> setOf("sum")
+            HealthDataType.CALORIES,
+            HealthDataType.HYDRATION,
+            HealthDataType.DIETARY_ENERGY -> setOf("sum")
             HealthDataType.HEART_RATE,
             HealthDataType.WEIGHT,
             HealthDataType.RESTING_HEART_RATE -> setOf("average", "min", "max")
@@ -772,6 +827,8 @@ private fun createSamplePayload(
         HealthDataType.HEART_RATE -> setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN)
         HealthDataType.WEIGHT -> setOf(WeightRecord.WEIGHT_AVG, WeightRecord.WEIGHT_MAX, WeightRecord.WEIGHT_MIN)
         HealthDataType.RESTING_HEART_RATE -> setOf(RestingHeartRateRecord.BPM_AVG, RestingHeartRateRecord.BPM_MAX, RestingHeartRateRecord.BPM_MIN)
+        HealthDataType.HYDRATION -> setOf(HydrationRecord.VOLUME_TOTAL)
+        HealthDataType.DIETARY_ENERGY -> setOf(NutritionRecord.ENERGY_TOTAL)
         else -> throw IllegalArgumentException("Unsupported data type for aggregation: ${dataType.identifier}")
     }
 
@@ -798,6 +855,8 @@ private fun createSamplePayload(
                 "min" -> result[RestingHeartRateRecord.BPM_MIN]?.toDouble()
                 else -> null
             }
+            HealthDataType.HYDRATION -> result[HydrationRecord.VOLUME_TOTAL]?.inLiters
+            HealthDataType.DIETARY_ENERGY -> result[NutritionRecord.ENERGY_TOTAL]?.inKilocalories
             else -> null
         }
     }
