@@ -14,7 +14,9 @@ import androidx.health.connect.client.records.FloorsClimbedRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.HeightRecord
+import androidx.health.connect.client.records.HydrationRecord
 import androidx.health.connect.client.records.MindfulnessSessionRecord
+import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.RespiratoryRateRecord
@@ -53,7 +55,13 @@ enum class HealthDataType(
     BASAL_BODY_TEMPERATURE("basalBodyTemperature", BasalBodyTemperatureRecord::class, "celsius"),
     BASAL_CALORIES("basalCalories", BasalMetabolicRateRecord::class, "kilocalorie"),
     TOTAL_CALORIES("totalCalories", TotalCaloriesBurnedRecord::class, "kilocalorie"),
-    MINDFULNESS("mindfulness", MindfulnessSessionRecord::class, "minute");
+    MINDFULNESS("mindfulness", MindfulnessSessionRecord::class, "minute"),
+
+    // appleStandHour is deliberately absent: Health Connect has no stand-hour
+    // record, so Android rejects it as an unsupported data type (same
+    // precedent as exerciseTime / appleSleepingWristTemperature).
+    HYDRATION("dietaryWater", HydrationRecord::class, "liter"),
+    DIETARY_ENERGY("dietaryEnergyConsumed", NutritionRecord::class, "kilocalorie");
 
     val readPermission: String
         get() = HealthPermission.getReadPermission(recordClass)
