@@ -26,6 +26,7 @@ export type HealthDataType =
   | 'appleStandHour'
   | 'dietaryWater'
   | 'dietaryEnergyConsumed'
+  | 'stateOfMind'
   | 'workouts';
 
 export type HealthUnit =
@@ -43,7 +44,8 @@ export type HealthUnit =
   | 'celsius'
   | 'fahrenheit'
   | 'centimeter'
-  | 'liter';
+  | 'liter'
+  | 'valence';
 
 export interface AuthorizationOptions {
   /** Data types that should be readable after authorization. */
@@ -145,6 +147,12 @@ export interface HealthSample {
    * yields the Activity ring's stand-hour count.
    */
   standState?: 'stood' | 'idle';
+  /**
+   * For State of Mind data (iOS 18+), whether the sample is a momentary
+   * emotion or the day's overall mood. `value` carries the valence in
+   * [-1, 1] (unpleasant → pleasant).
+   */
+  stateOfMindKind?: 'momentaryEmotion' | 'dailyMood';
   /** For sleep data, individual sleep stages when the platform exposes stage-level data. */
   stages?: SleepStage[];
   /** For sleep data, indicates whether stage-level data was emitted. */

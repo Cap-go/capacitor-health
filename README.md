@@ -199,6 +199,7 @@ await Health.saveSample({
 | `appleStandHour`        | `count`       | Apple Watch stand hours (iOS only, read-only; 1 = stood) |
 | `dietaryWater`          | `liter`       | Water consumed                                           |
 | `dietaryEnergyConsumed` | `kilocalorie` | Dietary energy (calories) consumed                       |
+| `stateOfMind`           | `valence`     | State of Mind (iOS 18+, read-only; value = valence −1…1) |
 | `workouts`              | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
 
 All write operations expect the default unit shown above. On Android the `metadata` option is currently ignored by Health Connect.
@@ -633,6 +634,7 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | **`platformId`**        | <code>string</code>                                       | Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android).                                                                                                          |
 | **`sleepState`**        | <code><a href="#sleepstate">SleepState</a></code>         | For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light').                                                                                                                 |
 | **`standState`**        | <code>'stood' \| 'idle'</code>                            | For Apple Stand Hour data (iOS only), whether the hour counted as stood or idle. `value` is normalized to 1 for stood and 0 for idle, so summing values per day yields the Activity ring's stand-hour count. |
+| **`stateOfMindKind`**   | <code>'momentaryEmotion' \| 'dailyMood'</code>            | For State of Mind data (iOS 18+), whether the sample is a momentary emotion or the day's overall mood. `value` carries the valence in [-1, 1] (unpleasant → pleasant).                                       |
 | **`stages`**            | <code>SleepStage[]</code>                                 | For sleep data, individual sleep stages when the platform exposes stage-level data.                                                                                                                          |
 | **`hasStageData`**      | <code>boolean</code>                                      | For sleep data, indicates whether stage-level data was emitted.                                                                                                                                              |
 | **`systolic`**          | <code>number</code>                                       | For blood pressure data, the systolic value in mmHg.                                                                                                                                                         |
@@ -759,12 +761,12 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'appleSleepingWristTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'appleStandHour' | 'dietaryWater' | 'dietaryEnergyConsumed' | 'workouts'</code>
+<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'appleSleepingWristTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'appleStandHour' | 'dietaryWater' | 'dietaryEnergyConsumed' | 'stateOfMind' | 'workouts'</code>
 
 
 #### HealthUnit
 
-<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond' | 'mL/min/kg' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter' | 'liter'</code>
+<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond' | 'mL/min/kg' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter' | 'liter' | 'valence'</code>
 
 
 #### SleepState
