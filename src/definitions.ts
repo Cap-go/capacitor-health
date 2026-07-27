@@ -150,7 +150,8 @@ export interface HealthSample {
   /**
    * For State of Mind data (iOS 18+), whether the sample is a momentary
    * emotion or the day's overall mood. `value` carries the valence in
-   * [-1, 1] (unpleasant → pleasant).
+   * [-1, 1] (unpleasant → pleasant). Omitted for kinds introduced after
+   * this plugin version.
    */
   stateOfMindKind?: 'momentaryEmotion' | 'dailyMood';
   /** For sleep data, individual sleep stages when the platform exposes stage-level data. */

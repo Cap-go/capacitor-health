@@ -865,6 +865,15 @@ final class Health {
             // Separate "workouts" from regular health data types
             let (readTypes, includeWorkouts) = try parseTypesWithWorkouts(readIdentifiers)
             let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
+            if writeTypes.contains(.stateOfMind) {
+                throw HealthManagerError.invalidDataType("stateOfMind is read-only and cannot be write-authorized")
+            }
+            // State of Mind is read-only: reject it from the write scope up
+            // front instead of authorizing a share grant that every
+            // saveSample call would refuse.
+            if writeTypes.contains(.stateOfMind) {
+                throw HealthManagerError.invalidDataType("stateOfMind is read-only and cannot be write-authorized")
+            }
 
             var readObjectTypes = try readAuthorizationObjectTypes(for: readTypes)
             // Include workout type if explicitly requested
@@ -1091,7 +1100,10 @@ final class Health {
                     case .dailyMood:
                         payload["stateOfMindKind"] = "dailyMood"
                     @unknown default:
-                        payload["stateOfMindKind"] = "momentaryEmotion"
+                        // A kind introduced after this plugin version: omit the
+                        // optional field rather than mislabel the sample — the
+                        // valence still flows.
+                        break
                     }
 
                     self.addSampleMetadata(sample, to: &payload)
