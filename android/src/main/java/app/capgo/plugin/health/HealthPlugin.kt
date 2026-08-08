@@ -48,15 +48,17 @@ class HealthPlugin : Plugin() {
      * Without this, exceptions escaping a plain `launch` hit the thread's default
      * handler and kill the host app (e.g. Health Connect IPC rate limits).
      */
-    private inline fun PluginCall.launchSafely(crossinline block: suspend () -> Unit) {
+    private fun PluginCall.launchSafely(block: suspend PluginCall.() -> Unit) {
+        val call = this
         pluginScope.launch {
             try {
-                block()
+                call.block()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
                 Log.e(TAG, "Health Connect call failed", e)
-                reject(e.message ?: "Health Connect call failed", null, e)
+                val exception = e as? Exception ?: Exception(e)
+                call.reject(e.message ?: "Health Connect call failed", null, exception)
             }
         }
     }
