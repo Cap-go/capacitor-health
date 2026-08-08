@@ -18,6 +18,7 @@ import java.time.Instant
 import java.time.Duration
 import java.time.format.DateTimeParseException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,9 +27,14 @@ import kotlinx.coroutines.launch
 
 @CapacitorPlugin(name = "Health")
 class HealthPlugin : Plugin() {
-    private val pluginVersion = "7.2.14"
+    private val pluginVersion = "8.10.0"
     private val manager = HealthManager()
-    private val pluginScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val pluginScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main.immediate +
+            CoroutineExceptionHandler { _, throwable ->
+                Log.e(TAG, "Unhandled coroutine failure", throwable)
+            },
+    )
     private val permissionContract = PermissionController.createRequestPermissionResultContract()
 
     // Store pending request data for callback
@@ -36,6 +42,24 @@ class HealthPlugin : Plugin() {
     private var pendingWriteTypes: List<HealthDataType> = emptyList()
     private var pendingIncludeWorkouts: Boolean = false
     private var pendingIncludeHistoryAccess: Boolean = false
+
+    /**
+     * Launch work on [pluginScope] and always settle [this] PluginCall on failure.
+     * Without this, exceptions escaping a plain `launch` hit the thread's default
+     * handler and kill the host app (e.g. Health Connect IPC rate limits).
+     */
+    private inline fun PluginCall.launchSafely(crossinline block: suspend () -> Unit) {
+        pluginScope.launch {
+            try {
+                block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                Log.e(TAG, "Health Connect call failed", e)
+                reject(e.message ?: "Health Connect call failed", null, e)
+            }
+        }
+    }
 
     override fun handleOnDestroy() {
         super.handleOnDestroy()
@@ -66,8 +90,8 @@ class HealthPlugin : Plugin() {
 
         val includeHistoryAccess = call.getBoolean("requestHistoryAccess") ?: false
 
-        pluginScope.launch {
-            val client = getClientOrReject(call) ?: return@launch
+        call.launchSafely {
+            val client = getClientOrReject(this) ?: return@launchSafely
             // Only request the history permission when the provider actually supports it.
             // On an older-but-supported provider it can never be granted, which would leave
             // granted.containsAll(permissions) permanently false and reopen the permission
@@ -78,15 +102,15 @@ class HealthPlugin : Plugin() {
 
             if (permissions.isEmpty()) {
                 val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
-                call.resolve(status)
-                return@launch
+                resolve(status)
+                return@launchSafely
             }
 
             val granted = client.permissionController.getGrantedPermissions()
             if (granted.containsAll(permissions)) {
                 val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
-                call.resolve(status)
-                return@launch
+                resolve(status)
+                return@launchSafely
             }
 
             // Store types for callback
@@ -99,11 +123,11 @@ class HealthPlugin : Plugin() {
             val intent = permissionContract.createIntent(context, permissions)
 
             try {
-                startActivityForResult(call, intent, "handlePermissionResult")
+                startActivityForResult(this, intent, "handlePermissionResult")
             } catch (e: Exception) {
                 pendingReadTypes = emptyList()
                 pendingWriteTypes = emptyList()
-                call.reject("Failed to launch Health Connect permission request.", null, e)
+                reject("Failed to launch Health Connect permission request.", null, e)
             }
         }
     }
@@ -123,10 +147,10 @@ class HealthPlugin : Plugin() {
         pendingIncludeWorkouts = false
         pendingIncludeHistoryAccess = false
 
-        pluginScope.launch {
-            val client = getClientOrReject(call) ?: return@launch
+        call.launchSafely {
+            val client = getClientOrReject(this) ?: return@launchSafely
             val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
-            call.resolve(status)
+            resolve(status)
         }
     }
 
@@ -148,10 +172,10 @@ class HealthPlugin : Plugin() {
 
         val includeHistoryAccess = call.getBoolean("requestHistoryAccess") ?: false
 
-        pluginScope.launch {
-            val client = getClientOrReject(call) ?: return@launch
+        call.launchSafely {
+            val client = getClientOrReject(this) ?: return@launchSafely
             val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
-            call.resolve(status)
+            resolve(status)
         }
     }
 
@@ -191,14 +215,14 @@ class HealthPlugin : Plugin() {
             return
         }
 
-        pluginScope.launch {
-            val client = getClientOrReject(call) ?: return@launch
+        call.launchSafely {
+            val client = getClientOrReject(this) ?: return@launchSafely
             try {
                 val samples = manager.readSamples(client, dataType, startInstant, endInstant, limit, ascending)
                 val result = JSObject().apply { put("samples", samples) }
-                call.resolve(result)
+                resolve(result)
             } catch (e: Exception) {
-                call.reject(e.message ?: "Failed to read samples.", null, e)
+                reject(e.message ?: "Failed to read samples.", null, e)
             }
         }
     }
@@ -266,13 +290,13 @@ class HealthPlugin : Plugin() {
         val diastolic = call.getDouble("diastolic")
         val mindfulnessSessionType = call.getString("mindfulnessSessionType")
 
-        pluginScope.launch {
-            val client = getClientOrReject(call) ?: return@launch
+        call.launchSafely {
+            val client = getClientOrReject(this) ?: return@launchSafely
             try {
                 manager.saveSample(client, dataType, value, startInstant, endInstant, metadata, systolic, diastolic, mindfulnessSessionType)
-                call.resolve()
+                resolve()
             } catch (e: Exception) {
-                call.reject(e.message ?: "Failed to save sample.", null, e)
+                reject(e.message ?: "Failed to save sample.", null, e)
             }
         }
     }
@@ -394,13 +418,13 @@ class HealthPlugin : Plugin() {
             return
         }
 
-        pluginScope.launch {
-            val client = getClientOrReject(call) ?: return@launch
+        call.launchSafely {
+            val client = getClientOrReject(this) ?: return@launchSafely
             try {
                 val result = manager.queryWorkouts(client, workoutType, startInstant, endInstant, limit, ascending, anchor)
-                call.resolve(result)
+                resolve(result)
             } catch (e: Exception) {
-                call.reject(e.message ?: "Failed to query workouts.", null, e)
+                reject(e.message ?: "Failed to query workouts.", null, e)
             }
         }
     }
@@ -465,26 +489,27 @@ class HealthPlugin : Plugin() {
             return
         }
 
-        pluginScope.launch {
-            val client = getClientOrReject(call) ?: return@launch
+        call.launchSafely {
+            val client = getClientOrReject(this) ?: return@launchSafely
             try {
                 val result = manager.queryAggregated(client, dataType, startInstant, endInstant, bucket, aggregations)
-                call.resolve(result)
+                resolve(result)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: SecurityException) {
-                Log.w("HealthPlugin", "Permission denied for aggregation: ${e.message}", e)
-                call.reject(e.message ?: "Permission denied for aggregated data.", "permission-denied", e)
+                Log.w(TAG, "Permission denied for aggregation: ${e.message}", e)
+                reject(e.message ?: "Permission denied for aggregated data.", "permission-denied", e)
             } catch (e: IllegalArgumentException) {
-                call.reject(e.message ?: "Unsupported aggregation.", null, e)
+                reject(e.message ?: "Unsupported aggregation.", null, e)
             } catch (e: Exception) {
-                Log.w("HealthPlugin", "Aggregation failed: ${e.message}", e)
-                call.reject(e.message ?: "Failed to query aggregated data.", "query-aggregated-failed", e)
+                Log.w(TAG, "Aggregation failed: ${e.message}", e)
+                reject(e.message ?: "Failed to query aggregated data.", "query-aggregated-failed", e)
             }
         }
     }
 
     companion object {
+        private const val TAG = "HealthPlugin"
         private const val DEFAULT_LIMIT = 100
         private val DEFAULT_PAST_DURATION: Duration = Duration.ofDays(1)
     }
