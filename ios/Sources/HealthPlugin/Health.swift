@@ -582,6 +582,7 @@ enum HealthDataType: String, CaseIterable {
     case appleStandHour
     case dietaryWater
     case dietaryEnergyConsumed
+    case stateOfMind
 
     func sampleType() throws -> HKSampleType {
         switch self {
@@ -605,6 +606,12 @@ enum HealthDataType: String, CaseIterable {
                 throw HealthManagerError.dataTypeUnavailable(rawValue)
             }
             return type
+        case .stateOfMind:
+            if #available(iOS 18.0, *) {
+                return HKObjectType.stateOfMindType()
+            } else {
+                throw HealthManagerError.dataTypeUnavailable(rawValue)
+            }
         default:
             return try quantityType()
         }
@@ -671,6 +678,8 @@ enum HealthDataType: String, CaseIterable {
             throw HealthManagerError.invalidDataType("Mindfulness is a category type, not a quantity type")
         case .appleStandHour:
             throw HealthManagerError.invalidDataType("Apple Stand Hour is a category type, not a quantity type")
+        case .stateOfMind:
+            throw HealthManagerError.invalidDataType("State of Mind is not a quantity type")
         }
 
         guard let type = HKObjectType.quantityType(forIdentifier: identifier) else {
@@ -730,6 +739,10 @@ enum HealthDataType: String, CaseIterable {
             return HKUnit.liter()
         case .dietaryEnergyConsumed:
             return HKUnit.kilocalorie()
+        case .stateOfMind:
+            // Valence is unitless; count is the neutral HKUnit carrier (the
+            // payload's unitIdentifier reports "valence").
+            return HKUnit.count()
         }
     }
 
@@ -781,6 +794,8 @@ enum HealthDataType: String, CaseIterable {
             return "liter"
         case .dietaryEnergyConsumed:
             return "kilocalorie"
+        case .stateOfMind:
+            return "valence"
         }
     }
 
@@ -850,6 +865,15 @@ final class Health {
             // Separate "workouts" from regular health data types
             let (readTypes, includeWorkouts) = try parseTypesWithWorkouts(readIdentifiers)
             let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
+            if writeTypes.contains(.stateOfMind) {
+                throw HealthManagerError.invalidDataType("stateOfMind is read-only and cannot be write-authorized")
+            }
+            // State of Mind is read-only: reject it from the write scope up
+            // front instead of authorizing a share grant that every
+            // saveSample call would refuse.
+            if writeTypes.contains(.stateOfMind) {
+                throw HealthManagerError.invalidDataType("stateOfMind is read-only and cannot be write-authorized")
+            }
 
             var readObjectTypes = try readAuthorizationObjectTypes(for: readTypes)
             // Include workout type if explicitly requested
@@ -1026,6 +1050,61 @@ final class Health {
                     }
 
                     payload["standState"] = stood ? "stood" : "idle"
+
+                    self.addSampleMetadata(sample, to: &payload)
+
+                    return payload
+                }
+
+                completion(.success(results))
+            }
+            healthStore.execute(query)
+            return
+        }
+
+        // Handle State of Mind (iOS 18+). HKStateOfMind carries a valence in
+        // [-1, 1] (unpleasant → pleasant) plus a kind — a momentary emotion
+        // check-in vs the day's overall mood. The valence is emitted as the
+        // sample value with unit identifier "valence".
+        if dataType == .stateOfMind {
+            guard #available(iOS 18.0, *) else {
+                completion(.failure(HealthManagerError.dataTypeUnavailable(dataTypeIdentifier)))
+                return
+            }
+            let query = HKSampleQuery(sampleType: sampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
+                guard let self = self else { return }
+
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let stateOfMindSamples = samples as? [HKStateOfMind] else {
+                    completion(.success([]))
+                    return
+                }
+
+                let results = stateOfMindSamples.compactMap { sample -> [String: Any]? in
+                    guard var payload = self.readSamplePayload(
+                        dataType: dataType,
+                        value: sample.valence,
+                        startDate: sample.startDate,
+                        endDate: sample.endDate
+                    ) else {
+                        return nil
+                    }
+
+                    switch sample.kind {
+                    case .momentaryEmotion:
+                        payload["stateOfMindKind"] = "momentaryEmotion"
+                    case .dailyMood:
+                        payload["stateOfMindKind"] = "dailyMood"
+                    @unknown default:
+                        // A kind introduced after this plugin version: omit the
+                        // optional field rather than mislabel the sample — the
+                        // valence still flows.
+                        break
+                    }
 
                     self.addSampleMetadata(sample, to: &payload)
 
