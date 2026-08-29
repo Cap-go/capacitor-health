@@ -135,6 +135,14 @@ export interface HealthSample {
   endDate: string;
   sourceName?: string;
   sourceId?: string;
+  /**
+   * Android only. The recording device's type, when Health Connect reports one:
+   * 'watch' | 'phone' | 'scale' | 'ring' | 'headMounted' | 'fitnessBand' |
+   * 'chestStrap' | 'smartDisplay'. Useful when a record carries a device type but
+   * no manufacturer/model, where `sourceName` falls back to the package name and
+   * cannot distinguish a watch from a phone.
+   */
+  deviceType?: string;
   /** Platform-specific unique identifier (HealthKit UUID on iOS, Health Connect metadata ID on Android). */
   platformId?: string;
   /** For sleep data, indicates the sleep state (e.g., 'asleep', 'awake', 'rem', 'deep', 'light'). */
