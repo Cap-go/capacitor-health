@@ -475,7 +475,16 @@ class HealthManager {
             }
             fetched += response.records.size
             pageToken = response.pageToken
-        } while (pageToken != null && (limit <= 0 || fetched < limit))
+        // On the STANDALONE Health Connect APK (Android 13 and below) an exhausted
+        // page token comes back as an EMPTY STRING, not null — see
+        // developer.android.com "Read raw data": "ReadRecordsResponse.pageToken can
+        // return an empty string instead of null ... use isNullOrEmpty()".
+        // Comparing against null alone re-issues the same readRecords forever, and
+        // Health Connect answers that by rate-limiting the app, so every read fails
+        // with "Rate limited request quota has been exceeded" — on the first call,
+        // on a device that has never been read from. Android 14+ (platform module)
+        // returns null and was never affected.
+        } while (!pageToken.isNullOrEmpty() && (limit <= 0 || fetched < limit))
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -1042,7 +1051,16 @@ private fun createSamplePayload(
             
             fetched += response.records.size
             pageToken = response.pageToken
-        } while (pageToken != null && (limit <= 0 || fetched < limit))
+        // On the STANDALONE Health Connect APK (Android 13 and below) an exhausted
+        // page token comes back as an EMPTY STRING, not null — see
+        // developer.android.com "Read raw data": "ReadRecordsResponse.pageToken can
+        // return an empty string instead of null ... use isNullOrEmpty()".
+        // Comparing against null alone re-issues the same readRecords forever, and
+        // Health Connect answers that by rate-limiting the app, so every read fails
+        // with "Rate limited request quota has been exceeded" — on the first call,
+        // on a device that has never been read from. Android 14+ (platform module)
+        // returns null and was never affected.
+        } while (!pageToken.isNullOrEmpty() && (limit <= 0 || fetched < limit))
         
         val sorted = workouts.sortedBy { it.first }
         val ordered = if (ascending) sorted else sorted.asReversed()
