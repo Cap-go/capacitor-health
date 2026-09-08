@@ -33,6 +33,7 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
+import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -772,6 +773,23 @@ private fun mapSleepStageToString(stage: Int): String? {
             else -> null  // OUT_OF_BED, UNKNOWN: filtered out by caller
         }
     }
+/**
+ * Stable, lowercase token for a Health Connect device type, or null when the type
+ * carries no useful information. Deliberately a token rather than a display string
+ * so callers can localise it themselves.
+ */
+private fun deviceTypeToken(type: Int): String? = when (type) {
+    Device.TYPE_WATCH -> "watch"
+    Device.TYPE_PHONE -> "phone"
+    Device.TYPE_SCALE -> "scale"
+    Device.TYPE_RING -> "ring"
+    Device.TYPE_HEAD_MOUNTED -> "headMounted"
+    Device.TYPE_FITNESS_BAND -> "fitnessBand"
+    Device.TYPE_CHEST_STRAP -> "chestStrap"
+    Device.TYPE_SMART_DISPLAY -> "smartDisplay"
+    else -> null
+}
+
 private fun createSamplePayload(
         dataType: HealthDataType,
         startTime: Instant,
@@ -796,6 +814,13 @@ private fun createSamplePayload(
             if (label.isNotEmpty()) {
                 payload.put("sourceName", label)
             }
+            // Records very often carry a device TYPE with no manufacturer/model at
+            // all (the Health Connect Toolbox writes exactly that, and so do several
+            // real wearables). Without this, such a record is indistinguishable from
+            // an untyped one — both fall back to the package name — so a consumer
+            // cannot tell a watch's steps from a phone's. Additive: sourceName is
+            // left untouched.
+            deviceTypeToken(device.type)?.let { payload.put("deviceType", it) }
         }
 
         payload.put("platformId", metadata.id)
