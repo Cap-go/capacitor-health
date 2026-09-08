@@ -865,15 +865,7 @@ final class Health {
             // Separate "workouts" from regular health data types
             let (readTypes, includeWorkouts) = try parseTypesWithWorkouts(readIdentifiers)
             let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
-            if writeTypes.contains(.stateOfMind) {
-                throw HealthManagerError.invalidDataType("stateOfMind is read-only and cannot be write-authorized")
-            }
-            // State of Mind is read-only: reject it from the write scope up
-            // front instead of authorizing a share grant that every
-            // saveSample call would refuse.
-            if writeTypes.contains(.stateOfMind) {
-                throw HealthManagerError.invalidDataType("stateOfMind is read-only and cannot be write-authorized")
-            }
+            try rejectReadOnlyWriteTypes(writeTypes)
 
             var readObjectTypes = try readAuthorizationObjectTypes(for: readTypes)
             // Include workout type if explicitly requested
@@ -907,6 +899,7 @@ final class Health {
         do {
             let (readTypes, includeWorkouts) = try parseTypesWithWorkouts(readIdentifiers)
             let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
+            try rejectReadOnlyWriteTypes(writeTypes)
 
             evaluateAuthorizationStatus(readTypes: readTypes, includeWorkouts: includeWorkouts, writeTypes: writeTypes) { payload in
                 completion(.success(payload))
@@ -1372,6 +1365,14 @@ final class Health {
             } else {
                 completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
             }
+        }
+    }
+
+    /// Rejects read-only data types from the write authorization scope up front
+    /// instead of authorizing a share grant that every saveSample call would refuse.
+    private func rejectReadOnlyWriteTypes(_ writeTypes: [HealthDataType]) throws {
+        if writeTypes.contains(.stateOfMind) {
+            throw HealthManagerError.invalidDataType("stateOfMind is read-only and cannot be write-authorized")
         }
     }
 
