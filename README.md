@@ -1,6 +1,6 @@
 # @capgo/capacitor-health
 
-Read and write health data with Apple HealthKit on iOS and Health Connect on Android, using the same data types and units on both. Build fitness, wellness and medical apps once.
+Read and write health data with Apple HealthKit on iOS and Health Connect on Android through one API. Build fitness, wellness and medical apps once.
 
 <a href="https://capgo.app/?ref=plugin_health"><img src="https://capgo.app/readme-banner.svg?repo=Cap-go/capacitor-health" alt="Capgo - Instant updates for Capacitor" /></a>
 
@@ -22,7 +22,7 @@ Read and write health data with Apple HealthKit on iOS and Health Connect on And
 - **Workouts and aggregates**: `queryWorkouts()` and `queryAggregated()` for summaries.
 - **Authorization**: `requestAuthorization()` and `checkAuthorization()` per data type.
 - **Health Connect helpers**: `openHealthConnectSettings()` and `showPrivacyPolicy()` on Android.
-- **Platforms**: iOS and Android. Not available on web.
+- **Platforms**: iOS and Android. A few data types and units differ between iOS and Android, see the Supported data types table below. Not available on web.
 
 ## Why Capacitor Health?
 
