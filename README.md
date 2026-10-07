@@ -1,17 +1,28 @@
 # @capgo/capacitor-health
 
-<a href="https://capgo.app/"><img src="https://capgo.app/readme-banner.svg?repo=Cap-go/capacitor-health" alt="Capgo - Instant updates for Capacitor" /></a>
+Read and write health data with Apple HealthKit on iOS and Health Connect on Android through one API. Build fitness, wellness and medical apps once.
+
+<a href="https://capgo.app/?ref=plugin_health"><img src="https://capgo.app/readme-banner.svg?repo=Cap-go/capacitor-health" alt="Capgo - Instant updates for Capacitor" /></a>
 
 <div align="center">
-  <h2>
-    <a href="https://capgo.app/?ref=plugin_health"> ➡️ Get Instant updates for your App with Capgo</a>
-  </h2>
-  <h2>
-    <a href="https://capgo.app/consulting/?ref=plugin_health"> Missing a feature? We’ll build the plugin for you 💪</a>
-  </h2>
+  <p><b>Capgo</b>: open-source live updates for Ionic and Capacitor apps. Ship OTA fixes and features instantly, without waiting for app store review.</p>
+  <h2><a href="https://capgo.app/register/?ref=plugin_health">➡️ Get started for free</a></h2>
+  <p>14-day unlimited free trial. No credit card required</p>
+  <p><a href="https://capgo.app/consulting/?ref=plugin_health">Missing a feature? We'll build the plugin for you 💪</a></p>
 </div>
 
-Capacitor plugin to read and write health metrics via Apple HealthKit (iOS) and Health Connect (Android). The TypeScript API keeps the same data types and units across platforms so you can build once and deploy everywhere.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Cap-go/capacitor-health/main/assets/github-social-preview.png" alt="@capgo/capacitor-health for Capacitor apps" width="300" />
+</p>
+
+## Key features
+
+- **Read samples**: `readSamples()` for steps, heart rate, sleep and other types over a time range.
+- **Write samples**: `saveSample()` stores a single sample.
+- **Workouts and aggregates**: `queryWorkouts()` and `queryAggregated()` for summaries.
+- **Authorization**: `requestAuthorization()` and `checkAuthorization()` per data type.
+- **Health Connect helpers**: `openHealthConnectSettings()` and `showPrivacyPolicy()` on Android.
+- **Platforms**: iOS and Android. A few data types and units differ between iOS and Android, see the Supported data types table below. Not available on web.
 
 ## Why Capacitor Health?
 
@@ -262,7 +273,7 @@ The `READ_HEALTH_DATA_HISTORY` permission only exists on sufficiently new Health
 (Android 14 extension 13+ or Health Connect APK 171302+). On an older but otherwise supported
 provider the permission can never be granted, so the plugin checks
 [feature availability](https://developer.android.com/health-and-fitness/health-connect/features/availability)
-and **silently skips** the history permission when it is unavailable — your normal read/write scopes
+and **silently skips** the history permission when it is unavailable, your normal read/write scopes
 are still requested as usual. In that case the status reports `historyAccessAvailable: false` (and
 `historyAccessAuthorized: false`), which lets you distinguish "the device can't do this" from "the
 user denied it" and avoid re-prompting. `historyAccessAvailable` is omitted unless
