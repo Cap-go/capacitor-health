@@ -3,7 +3,7 @@ import Capacitor
 
 @objc(HealthPlugin)
 public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
-    private let pluginVersion: String = "8.11.10"
+    private let pluginVersion: String = "8.11.11"
     public let identifier = "HealthPlugin"
     public let jsName = "Health"
     public let pluginMethods: [CAPPluginMethod] = [
