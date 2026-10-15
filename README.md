@@ -8,7 +8,6 @@ Read and write health data with Apple HealthKit on iOS and Health Connect on And
   <p><b>Capgo</b>: push fixes to your Capacitor users in minutes, build signed iOS and Android apps without a Mac, and roll back in one click.</p>
   <h2><a href="https://capgo.app/register/?ref=plugin_health">➡️ Get started for free</a></h2>
   <p>14-day unlimited free trial. No credit card required</p>
-  <p><a href="https://capgo.app/consulting/?ref=plugin_health">Missing a feature? We'll build the plugin for you 💪</a></p>
 </div>
 
 > 🤖 **Building with an AI coding agent?** Install [Capgo skills](https://capgo.app/skills/?ref=plugin_health) so Claude Code, Codex, Cursor, Copilot, or Gemini CLI know how to install and use `@capgo/capacitor-health` in your Capacitor app: `npx skills add Cap-go/capgo-skills`. Then ask your agent: *"Add @capgo/capacitor-health to my Capacitor app and wire it up."* [Agent setup guides](https://capgo.app/agents/?ref=plugin_health) · [Hosted MCP](https://capgo.app/docs/ai/mcp/?ref=plugin_health)
@@ -790,7 +789,9 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 
 Construct a type with a set of properties K of type T
 
-<code>{ [P in K]: T; }</code>
+<code>{
+ [P in K]: T;
+ }</code>
 
 
 #### WorkoutType
@@ -807,7 +808,9 @@ Construct a type with a set of properties K of type T
 
 Make all properties in T optional
 
-<code>{ [P in keyof T]?: T[P]; }</code>
+<code>{
+ [P in keyof T]?: T[P];
+ }</code>
 
 
 #### AggregationType
