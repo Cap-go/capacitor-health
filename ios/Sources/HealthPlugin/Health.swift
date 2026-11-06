@@ -1015,7 +1015,7 @@ final class Health {
 
         // Handle Apple Stand Hours as a category sample. Each sample spans one
         // hour; HKCategoryValueAppleStandHour.stood has raw value 0, so emit a
-        // normalized value (stood = 1, idle = 0) plus a standState label —
+        // normalized value (stood = 1, idle = 0) plus a standState label;
         // summing value per day yields the Activity ring's stand-hour count.
         if dataType == .appleStandHour {
             let query = HKSampleQuery(sampleType: sampleType, predicate: predicate, limit: queryLimit, sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
@@ -1056,7 +1056,7 @@ final class Health {
         }
 
         // Handle State of Mind (iOS 18+). HKStateOfMind carries a valence in
-        // [-1, 1] (unpleasant → pleasant) plus a kind — a momentary emotion
+        // [-1, 1] (unpleasant to pleasant) plus a kind: a momentary emotion
         // check-in vs the day's overall mood. The valence is emitted as the
         // sample value with unit identifier "valence".
         if dataType == .stateOfMind {
@@ -1094,7 +1094,7 @@ final class Health {
                         payload["stateOfMindKind"] = "dailyMood"
                     @unknown default:
                         // A kind introduced after this plugin version: omit the
-                        // optional field rather than mislabel the sample — the
+                        // optional field rather than mislabel the sample; the
                         // valence still flows.
                         break
                     }
