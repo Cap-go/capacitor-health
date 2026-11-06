@@ -34,12 +34,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24.x
+          node-version: 26.x
       - name: Install dependencies
         id: install_code
         run: bun i
       - name: Check plugin wiring
         run: bun run check:wiring
+      - name: Check Cap 9 deprecated APIs
+        run: bun run check:cap9-deprecated
       - name: Setup java
         uses: actions/setup-java@v5
         with:
@@ -62,12 +64,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24.x
+          node-version: 26.x
       - name: Install dependencies
         id: install_code
         run: bun i
       - name: Check plugin wiring
         run: bun run check:wiring
+      - name: Check Cap 9 deprecated APIs
+        run: bun run check:cap9-deprecated
       - name: Build
         id: build_code
         run: bun run verify:ios
@@ -88,6 +92,8 @@ jobs:
         run: bun i
       - name: Check plugin wiring
         run: bun run check:wiring
+      - name: Check Cap 9 deprecated APIs
+        run: bun run check:cap9-deprecated
       - name: Lint
         id: lint_code
         run: bun run lint
