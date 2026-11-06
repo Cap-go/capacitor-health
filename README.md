@@ -1,17 +1,29 @@
 # @capgo/capacitor-health
 
-<a href="https://capgo.app/"><img src="https://capgo.app/readme-banner.svg?repo=Cap-go/capacitor-health" alt="Capgo - Instant updates for Capacitor" /></a>
+Read and write health data with Apple HealthKit on iOS and Health Connect on Android through one API. Build fitness, wellness and medical apps once.
+
+<a href="https://capgo.app/?ref=plugin_health"><img src="https://capgo.app/readme-banner.svg?repo=Cap-go/capacitor-health" alt="Capgo - Build Capacitor apps with AI, ship updates instantly" /></a>
 
 <div align="center">
-  <h2>
-    <a href="https://capgo.app/?ref=plugin_health"> ➡️ Get Instant updates for your App with Capgo</a>
-  </h2>
-  <h2>
-    <a href="https://capgo.app/consulting/?ref=plugin_health"> Missing a feature? We’ll build the plugin for you 💪</a>
-  </h2>
+  <p><b>Capgo</b>: push fixes to your Capacitor users in minutes, build signed iOS and Android apps without a Mac, and roll back in one click.</p>
+  <h2><a href="https://capgo.app/register/?ref=plugin_health">➡️ Get started for free</a></h2>
+  <p>14-day unlimited free trial. No credit card required</p>
 </div>
 
-Capacitor plugin to read and write health metrics via Apple HealthKit (iOS) and Health Connect (Android). The TypeScript API keeps the same data types and units across platforms so you can build once and deploy everywhere.
+> 🤖 **Building with an AI coding agent?** Install [Capgo skills](https://capgo.app/skills/?ref=plugin_health) so Claude Code, Codex, Cursor, Copilot, or Gemini CLI know how to install and use `@capgo/capacitor-health` in your Capacitor app: `npx skills add Cap-go/capgo-skills`. Then ask your agent: *"Add @capgo/capacitor-health to my Capacitor app and wire it up."* [Agent setup guides](https://capgo.app/agents/?ref=plugin_health) · [Hosted MCP](https://capgo.app/docs/ai/mcp/?ref=plugin_health)
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Cap-go/capacitor-health/main/assets/github-social-preview.png" alt="@capgo/capacitor-health for Capacitor apps" width="300" />
+</p>
+
+## Key features
+
+- **Read samples**: `readSamples()` for steps, heart rate, sleep and other types over a time range.
+- **Write samples**: `saveSample()` stores a single sample.
+- **Workouts and aggregates**: `queryWorkouts()` and `queryAggregated()` for summaries.
+- **Authorization**: `requestAuthorization()` and `checkAuthorization()` per data type.
+- **Health Connect helpers**: `openHealthConnectSettings()` and `showPrivacyPolicy()` on Android.
+- **Platforms**: iOS and Android. A few data types and units differ between iOS and Android, see the Supported data types table below. Not available on web.
 
 ## Why Capacitor Health?
 
@@ -199,7 +211,7 @@ await Health.saveSample({
 | `appleStandHour`        | `count`       | Apple Watch stand hours (iOS only, read-only; 1 = stood) |
 | `dietaryWater`          | `liter`       | Water consumed                                           |
 | `dietaryEnergyConsumed` | `kilocalorie` | Dietary energy (calories) consumed                       |
-| `stateOfMind`           | `valence`     | State of Mind (iOS 18+, read-only; value = valence −1…1) |
+| `stateOfMind`           | `valence`     | State of Mind (iOS 18+, read-only; value = valence in [-1, 1]) |
 | `workouts`              | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
 
 All write operations expect the default unit shown above. On Android the `metadata` option is currently ignored by Health Connect.
@@ -263,7 +275,7 @@ The `READ_HEALTH_DATA_HISTORY` permission only exists on sufficiently new Health
 (Android 14 extension 13+ or Health Connect APK 171302+). On an older but otherwise supported
 provider the permission can never be granted, so the plugin checks
 [feature availability](https://developer.android.com/health-and-fitness/health-connect/features/availability)
-and **silently skips** the history permission when it is unavailable — your normal read/write scopes
+and **silently skips** the history permission when it is unavailable, your normal read/write scopes
 are still requested as usual. In that case the status reports `historyAccessAvailable: false` (and
 `historyAccessAuthorized: false`), which lets you distinguish "the device can't do this" from "the
 user denied it" and avoid re-prompting. `historyAccessAvailable` is omitted unless

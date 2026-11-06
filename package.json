@@ -1,6 +1,6 @@
 {
   "name": "@capgo/capacitor-health",
-  "version": "8.10.6",
+  "version": "8.11.14",
   "description": "Capacitor plugin to interact with data from Apple HealthKit and Health Connect",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -37,7 +37,7 @@
     "verify:web": "npm run build",
     "lint": "npm run eslint && npm run prettier -- --check && npm run swiftlint -- lint",
     "fmt": "npm run eslint -- --fix && npm run prettier -- --write && npm run swiftlint -- --fix --format",
-    "eslint": "eslint . --ext ts",
+    "eslint": "eslint .",
     "prettier": "prettier-pretty-check \"**/*.{css,html,ts,js,java}\" --plugin=prettier-plugin-java",
     "swiftlint": "node-swiftlint",
     "docgen": "docgen --api HealthPlugin --output-readme README.md --output-json dist/docs.json",
@@ -46,6 +46,7 @@
     "watch": "tsc --watch",
     "prepublishOnly": "bun run build",
     "check:wiring": "node scripts/check-capacitor-plugin-wiring.mjs",
+    "check:cap9-deprecated": "node scripts/check-cap9-deprecated.mjs",
     "example:install": "cd example-app && bun install --frozen-lockfile",
     "example:build": "bun run build && cd example-app && bun install --frozen-lockfile && bun run build",
     "changelog:ai": "node scripts/generate-ai-changelog.mjs"
@@ -55,18 +56,20 @@
     "@capacitor/core": "^8.0.0",
     "@capacitor/docgen": "^0.3.1",
     "@capacitor/ios": "^8.0.0",
-    "@ionic/eslint-config": "^0.4.0",
+    "@ionic/eslint-config": "^0.5.0",
     "@ionic/prettier-config": "^4.0.0",
     "@ionic/swiftlint-config": "^2.0.0",
     "@types/node": "^26.0.0",
-    "eslint": "^8.57.1",
+    "@typescript-eslint/eslint-plugin": "^8.70.0",
+    "@typescript-eslint/parser": "^8.70.0",
+    "eslint": "^10.0.0",
     "eslint-plugin-import": "^2.31.0",
     "prettier": "^3.6.2",
     "prettier-plugin-java": "^2.7.7",
     "rimraf": "^6.1.0",
     "rollup": "^4.53.2",
     "swiftlint": "^2.0.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "prettier-pretty-check": "^0.2.0"
   },
   "peerDependencies": {
@@ -74,9 +77,6 @@
   },
   "prettier": "@ionic/prettier-config",
   "swiftlint": "@ionic/swiftlint-config",
-  "eslintConfig": {
-    "extends": "@ionic/eslint-config/recommended"
-  },
   "capacitor": {
     "ios": {
       "src": "ios"
