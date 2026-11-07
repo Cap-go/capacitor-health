@@ -20,6 +20,7 @@ Read and write health data with Apple HealthKit on iOS and Health Connect on And
 
 - **Read samples**: `readSamples()` for steps, heart rate, sleep and other types over a time range.
 - **Write samples**: `saveSample()` stores a single sample.
+- **Write workouts**: `saveWorkout()` stores a complete workout with its route, heart rate, distance and active energy (Android).
 - **Workouts and aggregates**: `queryWorkouts()` and `queryAggregated()` for summaries.
 - **Authorization**: `requestAuthorization()` and `checkAuthorization()` per data type.
 - **Health Connect helpers**: `openHealthConnectSettings()` and `showPrivacyPolicy()` on Android.
@@ -212,7 +213,8 @@ await Health.saveSample({
 | `dietaryWater`          | `liter`       | Water consumed                                           |
 | `dietaryEnergyConsumed` | `kilocalorie` | Dietary energy (calories) consumed                       |
 | `stateOfMind`           | `valence`     | State of Mind (iOS 18+, read-only; value = valence -1...1) |
-| `workouts`              | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
+| `workouts`              | N/A           | Workout sessions (read with `queryWorkouts()`, write with `saveWorkout()` on Android) |
+| `workoutRoute`          | N/A           | Workout GPS routes (Android only, write-only, use with `saveWorkout()`) |
 
 All write operations expect the default unit shown above. On Android the `metadata` option is currently ignored by Health Connect.
 
@@ -246,6 +248,49 @@ await Health.requestAuthorization({
   read: ['steps', 'workouts'], // Include 'workouts' to access workout sessions
 });
 ```
+
+### Saving workouts (Android)
+
+`saveWorkout()` writes a finished workout to Health Connect in a single atomic insert: one exercise
+session (with its GPS route and pauses) plus a distance, an active-calories and a heart-rate record
+when you provide those values. It never writes steps. iOS support is not implemented yet (the call
+rejects with `UNIMPLEMENTED`).
+
+```ts
+await Health.requestAuthorization({
+  write: ['workouts', 'workoutRoute', 'distance', 'calories', 'heartRate'],
+});
+
+const { platformId, routeSaved } = await Health.saveWorkout({
+  workoutType: 'running',
+  startDate: '2026-03-01T07:00:00.000Z',
+  endDate: '2026-03-01T07:42:10.000Z',
+  clientRecordId: 'run-7f3c2a9e', // same id again => replaces the saved copy, never duplicates
+  title: 'Morning run',
+  totalDistance: 8240, // meters
+  totalEnergyBurned: 612, // active kilocalories
+  heartRateSamples: [{ date: '2026-03-01T07:00:05.000Z', bpm: 96 }],
+  route: [{ date: '2026-03-01T07:00:02.000Z', latitude: -34.6037, longitude: -58.3816, altitude: 25 }],
+  pauses: [{ startDate: '2026-03-01T07:20:00.000Z', endDate: '2026-03-01T07:21:30.000Z' }],
+});
+```
+
+- **Permissions:** `workouts` write access is required. `distance`, `calories` and `heartRate` write
+  access are required only when you pass `totalDistance`, `totalEnergyBurned` or `heartRateSamples`;
+  if one is missing the call rejects with code `permission-denied` and nothing is written. The route
+  needs `workoutRoute` write access, but a missing route permission never fails the save: the workout
+  is stored without it and `routeSaved` is `false`. The plugin manifest declares `WRITE_EXERCISE` and
+  `WRITE_EXERCISE_ROUTE`.
+- **Retries:** pass a stable `clientRecordId` so retrying an uncertain save replaces the earlier copy
+  instead of duplicating it.
+- **Samples outside the workout:** heart-rate readings and route locations outside the workout window
+  (`startDate` inclusive, `endDate` exclusive) are dropped, as are route locations repeating an earlier
+  timestamp. The result reports how many in `droppedHeartRateSamples` and `droppedRouteLocations`.
+  Invalid values (for example a latitude out of range or `bpm` outside 1 to 300) reject the call with
+  a message naming the field.
+- **Pauses:** stored as Health Connect exercise segments of type pause (`EXERCISE_SEGMENT_TYPE_PAUSE`,
+  valid for every workout type). They must lie within the workout and must not overlap.
+- **Metadata:** ignored on Android, Health Connect has no custom metadata.
 
 ### Reading data older than 30 days (Android)
 
@@ -413,6 +458,7 @@ hr.forEach(sample => {
 * [`openHealthConnectSettings()`](#openhealthconnectsettings)
 * [`showPrivacyPolicy()`](#showprivacypolicy)
 * [`queryWorkouts(...)`](#queryworkouts)
+* [`saveWorkout(...)`](#saveworkout)
 * [`queryAggregated(...)`](#queryaggregated)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
@@ -571,6 +617,34 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 --------------------
 
 
+### saveWorkout(...)
+
+```typescript
+saveWorkout(options: SaveWorkoutOptions) => Promise<SaveWorkoutResult>
+```
+
+Saves a completed workout to the native health store.
+Supported on Android (Health Connect). Not implemented on iOS yet: rejects with `UNIMPLEMENTED`.
+
+On Android the workout is written in a single atomic Health Connect insert: one
+`ExerciseSessionRecord` (with the optional route and pauses), plus a `DistanceRecord`, an
+`ActiveCaloriesBurnedRecord` and a `HeartRateRecord` when the matching options are provided.
+Steps are never written.
+
+Requires write access to `workouts`, and to `distance`, `calories` or `heartRate` when
+`totalDistance`, `totalEnergyBurned` or `heartRateSamples` are provided; otherwise it rejects
+with code `permission-denied` and writes nothing. The route needs `workoutRoute` write access,
+but a missing route permission never fails the save (see {@link <a href="#saveworkoutresult">SaveWorkoutResult.routeSaved</a>}).
+
+| Param         | Type                                                              | Description         |
+| ------------- | ----------------------------------------------------------------- | ------------------- |
+| **`options`** | <code><a href="#saveworkoutoptions">SaveWorkoutOptions</a></code> | The workout to save |
+
+**Returns:** <code>Promise&lt;<a href="#saveworkoutresult">SaveWorkoutResult</a>&gt;</code>
+
+--------------------
+
+
 ### queryAggregated(...)
 
 ```typescript
@@ -621,7 +695,7 @@ Supported on iOS (HealthKit) and Android (Health Connect).
 | Prop                       | Type                          | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | -------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`read`**                 | <code>HealthDataType[]</code> | Data types that should be readable after authorization.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **`write`**                | <code>HealthDataType[]</code> | Data types that should be writable after authorization.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **`write`**                | <code>HealthDataType[]</code> | Data types that should be writable after authorization. Android: include `workouts` to save workouts with {@link HealthPlugin.saveWorkout}, and `workoutRoute` to also save their GPS route (Health Connect `WRITE_EXERCISE_ROUTE`). `workoutRoute` is write-only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **`requestHistoryAccess`** | <code>boolean</code>          | Android only: also request the `READ_HEALTH_DATA_HISTORY` permission in the same Health Connect permission sheet. Without it, Health Connect caps reads to roughly the last 30 days; granting it lets you read older data. The consuming app must also declare the permission in its `AndroidManifest.xml`: `&lt;uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" /&gt;` The permission only exists on sufficiently new Health Connect providers (Android 14 extension 13+ or Health Connect APK 171302+). On older but otherwise supported providers it is silently skipped — the normal read/write scopes are still requested — and the returned status reports `historyAccessAvailable: false`. Ignored on iOS (HealthKit has no equivalent permission and no 30-day read cap). |
 
 
@@ -740,6 +814,68 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 | **`anchor`**      | <code>string</code>                                 | Anchor for pagination. Use the anchor returned from a previous query to continue from that point. On iOS, this is the ISO 8601 cursor returned by the previous query. On Android, this uses Health Connect's pageToken. Omit this parameter to start from the beginning. |
 
 
+#### SaveWorkoutResult
+
+| Prop                          | Type                 | Description                                                                                                                                                                             |
+| ----------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`platformId`**              | <code>string</code>  | Platform-specific identifier of the saved workout (Health Connect metadata ID of the exercise session on Android). Matches `platformId` returned by {@link HealthPlugin.queryWorkouts}. |
+| **`routeSaved`**              | <code>boolean</code> | Whether a route with at least one location was saved with the workout.                                                                                                                  |
+| **`droppedRouteLocations`**   | <code>number</code>  | Number of route locations dropped because they were outside the workout or duplicated a timestamp.                                                                                      |
+| **`droppedHeartRateSamples`** | <code>number</code>  | Number of heart-rate readings dropped because they were outside the workout.                                                                                                            |
+
+
+#### SaveWorkoutOptions
+
+| Prop                    | Type                                                                      | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`workoutType`**       | <code><a href="#workouttype">WorkoutType</a></code>                       | The type of workout.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **`startDate`**         | <code>string</code>                                                       | ISO 8601 start date of the workout.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **`endDate`**           | <code>string</code>                                                       | ISO 8601 end date of the workout. Must be after `startDate`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **`clientRecordId`**    | <code>string</code>                                                       | Idempotency key. Saving again with the same `clientRecordId` replaces the previously saved workout instead of creating a duplicate, so a failed or uncertain save can simply be retried. On Android it becomes the Health Connect `clientRecordId` of the exercise session, and the distance, energy and heart-rate records get derived ids (`&lt;id&gt;:distance`, `&lt;id&gt;:energy`, `&lt;id&gt;:hr`). Each save uses the current time as `clientRecordVersion`, so the latest save wins. Without it, every call inserts new records. |
+| **`title`**             | <code>string</code>                                                       | Title of the workout.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **`totalDistance`**     | <code>number</code>                                                       | Total distance in meters. Android writes it as a `DistanceRecord` covering the workout.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **`totalEnergyBurned`** | <code>number</code>                                                       | Active energy burned in kilocalories (not total energy). Android writes it as an `ActiveCaloriesBurnedRecord` covering the workout.                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **`heartRateSamples`**  | <code>WorkoutHeartRateSample[]</code>                                     | Heart-rate readings recorded during the workout. Android writes them as one `HeartRateRecord`. Readings outside the workout (`startDate` inclusive, `endDate` exclusive) are dropped and counted in {@link <a href="#saveworkoutresult">SaveWorkoutResult.droppedHeartRateSamples</a>}.                                                                                                                                                                                                                                                   |
+| **`route`**             | <code>WorkoutRouteLocation[]</code>                                       | GPS route of the workout. Locations outside the workout (`startDate` inclusive, `endDate` exclusive) or sharing a timestamp with an earlier location are dropped and counted in {@link <a href="#saveworkoutresult">SaveWorkoutResult.droppedRouteLocations</a>}. Android only saves the route when `workoutRoute` write access is granted; otherwise the workout is saved without it and {@link <a href="#saveworkoutresult">SaveWorkoutResult.routeSaved</a>} is `false`.                                                               |
+| **`pauses`**            | <code>WorkoutPause[]</code>                                               | Pauses inside the workout. They must lie within the workout and must not overlap. Android stores each one as a Health Connect exercise segment of type pause (`EXERCISE_SEGMENT_TYPE_PAUSE`, valid for every workout type).                                                                                                                                                                                                                                                                                                               |
+| **`recordingMethod`**   | <code><a href="#workoutrecordingmethod">WorkoutRecordingMethod</a></code> | How the workout was recorded (defaults to `'activelyRecorded'`). On Android this sets the Health Connect recording method; actively recorded workouts are attributed to a phone device.                                                                                                                                                                                                                                                                                                                                                   |
+| **`metadata`**          | <code><a href="#record">Record</a>&lt;string, string&gt;</code>           | Metadata key-value pairs. Ignored on Android: Health Connect has no custom metadata.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+
+
+#### WorkoutHeartRateSample
+
+A heart-rate reading recorded during a workout.
+
+| Prop       | Type                | Description                                                                         |
+| ---------- | ------------------- | ----------------------------------------------------------------------------------- |
+| **`date`** | <code>string</code> | ISO 8601 timestamp of the reading.                                                  |
+| **`bpm`**  | <code>number</code> | Beats per minute. Health Connect accepts 1 to 300 (rounded to the nearest integer). |
+
+
+#### WorkoutRouteLocation
+
+A GPS location recorded during a workout.
+
+| Prop                     | Type                | Description                                |
+| ------------------------ | ------------------- | ------------------------------------------ |
+| **`date`**               | <code>string</code> | ISO 8601 timestamp of the location.        |
+| **`latitude`**           | <code>number</code> | Latitude in degrees, from -90 to 90.       |
+| **`longitude`**          | <code>number</code> | Longitude in degrees, from -180 to 180.    |
+| **`altitude`**           | <code>number</code> | Altitude in meters.                        |
+| **`horizontalAccuracy`** | <code>number</code> | Horizontal accuracy in meters (0 or more). |
+| **`verticalAccuracy`**   | <code>number</code> | Vertical accuracy in meters (0 or more).   |
+
+
+#### WorkoutPause
+
+A pause inside a workout.
+
+| Prop            | Type                | Description                                           |
+| --------------- | ------------------- | ----------------------------------------------------- |
+| **`startDate`** | <code>string</code> | ISO 8601 start of the pause.                          |
+| **`endDate`**   | <code>string</code> | ISO 8601 end of the pause. Must be after `startDate`. |
+
+
 #### QueryAggregatedResult
 
 | Prop          | Type                            |
@@ -774,7 +910,7 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'appleSleepingWristTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'appleStandHour' | 'dietaryWater' | 'dietaryEnergyConsumed' | 'stateOfMind' | 'workouts'</code>
+<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'appleSleepingWristTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'appleStandHour' | 'dietaryWater' | 'dietaryEnergyConsumed' | 'stateOfMind' | 'workouts' | 'workoutRoute'</code>
 
 
 #### HealthUnit
@@ -802,6 +938,11 @@ Construct a type with a set of properties K of type T
 #### WorkoutEventType
 
 <code>'lap' | 'pause' | 'segment' | 'marker'</code>
+
+
+#### WorkoutRecordingMethod
+
+<code>'activelyRecorded' | 'manualEntry'</code>
 
 
 #### Partial
