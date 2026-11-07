@@ -16,10 +16,12 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "openHealthConnectSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showPrivacyPolicy", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "queryWorkouts", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "saveWorkout", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "queryAggregated", returnType: CAPPluginReturnPromise)
     ]
 
     private let implementation = Health()
+    private let workoutWriter = WorkoutWriter()
 
     @objc func isAvailable(_ call: CAPPluginCall) {
         call.resolve(implementation.availabilityPayload())
@@ -179,6 +181,19 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.resolve(response)
                 case let .failure(error):
                     call.reject(error.localizedDescription, nil, error)
+                }
+            }
+        }
+    }
+
+    @objc func saveWorkout(_ call: CAPPluginCall) {
+        workoutWriter.saveWorkout(options: call.jsObjectRepresentation) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case let .success(response):
+                    call.resolve(response)
+                case let .failure(error):
+                    call.reject(error.localizedDescription, WorkoutWriter.errorCode(for: error), error)
                 }
             }
         }

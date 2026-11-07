@@ -54,9 +54,9 @@ export interface AuthorizationOptions {
   /**
    * Data types that should be writable after authorization.
    *
-   * Android: include `workouts` to save workouts with {@link HealthPlugin.saveWorkout}, and
-   * `workoutRoute` to also save their GPS route (Health Connect `WRITE_EXERCISE_ROUTE`).
-   * `workoutRoute` is write-only.
+   * Include `workouts` to save workouts with {@link HealthPlugin.saveWorkout}, and `workoutRoute`
+   * to also save their GPS route (Health Connect `WRITE_EXERCISE_ROUTE`, HealthKit
+   * `HKSeriesType.workoutRoute()`). `workoutRoute` is write-only.
    */
   write?: HealthDataType[];
   /**
@@ -424,7 +424,7 @@ export interface WriteSampleOptions {
 export interface WorkoutHeartRateSample {
   /** ISO 8601 timestamp of the reading. */
   date: string;
-  /** Beats per minute. Health Connect accepts 1 to 300 (rounded to the nearest integer). */
+  /** Beats per minute, from 1 to 300. Android rounds it to the nearest integer (Health Connect stores whole bpm). */
   bpm: number;
 }
 
@@ -436,11 +436,11 @@ export interface WorkoutRouteLocation {
   latitude: number;
   /** Longitude in degrees, from -180 to 180. */
   longitude: number;
-  /** Altitude in meters. */
+  /** Altitude in meters. On iOS a location without altitude is stored with an invalid altitude (vertical accuracy -1). */
   altitude?: number;
-  /** Horizontal accuracy in meters (0 or more). */
+  /** Horizontal accuracy in meters (0 or more). On iOS a missing value is stored as 0. */
   horizontalAccuracy?: number;
-  /** Vertical accuracy in meters (0 or more). */
+  /** Vertical accuracy in meters (0 or more). On iOS a missing value is stored as 0 when `altitude` is set. */
   verticalAccuracy?: number;
 }
 
@@ -471,20 +471,35 @@ export interface SaveWorkoutOptions {
    * On Android it becomes the Health Connect `clientRecordId` of the exercise session, and the
    * distance, energy and heart-rate records get derived ids (`<id>:distance`, `<id>:energy`,
    * `<id>:hr`). Each save uses the current time as `clientRecordVersion`, so the latest save wins.
+   *
+   * On iOS it becomes the `HKMetadataKeySyncIdentifier` of the workout, and the other objects get
+   * derived ids (`<id>:distance`, `<id>:energy`, `<id>:hr:<n>` per heart-rate reading,
+   * `<id>:route`), with the save time in milliseconds as `HKMetadataKeySyncVersion`. Retry with the
+   * same readings: a retry with fewer heart-rate readings leaves the extra earlier ones in place.
+   *
    * Without it, every call inserts new records.
    */
   clientRecordId?: string;
-  /** Title of the workout. */
+  /** Title of the workout. Not saved on iOS: HealthKit workouts have no title. */
   title?: string;
-  /** Total distance in meters. Android writes it as a `DistanceRecord` covering the workout. */
+  /**
+   * Total distance in meters. Android writes it as a `DistanceRecord` covering the workout (needs
+   * `distance` write access).
+   *
+   * iOS writes a sample covering the workout with the distance type of the workout: walking, running
+   * and hiking use `distanceWalkingRunning` (`distance` write access), cycling uses `distanceCycling`
+   * (`distanceCycling` write access). Other workout types have no matching HealthKit distance type, so
+   * the distance is not saved and is reported in {@link SaveWorkoutResult.skippedRecords}.
+   */
   totalDistance?: number;
   /**
    * Active energy burned in kilocalories (not total energy). Android writes it as an
-   * `ActiveCaloriesBurnedRecord` covering the workout.
+   * `ActiveCaloriesBurnedRecord` covering the workout, iOS as an `activeEnergyBurned` sample.
    */
   totalEnergyBurned?: number;
   /**
-   * Heart-rate readings recorded during the workout. Android writes them as one `HeartRateRecord`.
+   * Heart-rate readings recorded during the workout. Android writes them as one `HeartRateRecord`,
+   * iOS as one `heartRate` sample per reading.
    * Readings outside the workout (`startDate` inclusive, `endDate` exclusive) are dropped and
    * counted in {@link SaveWorkoutResult.droppedHeartRateSamples}.
    */
@@ -494,30 +509,39 @@ export interface SaveWorkoutOptions {
    * exclusive) or sharing a timestamp with an earlier location are dropped and counted in
    * {@link SaveWorkoutResult.droppedRouteLocations}.
    *
-   * Android only saves the route when `workoutRoute` write access is granted; otherwise the
-   * workout is saved without it and {@link SaveWorkoutResult.routeSaved} is `false`.
+   * The route is only saved when `workoutRoute` write access is granted; otherwise the workout is
+   * saved without it and {@link SaveWorkoutResult.routeSaved} is `false`. On iOS the route goes
+   * through `HKWorkoutRouteBuilder` after the workout is saved; if HealthKit refuses it, the workout
+   * stays saved and `routeSaved` is `false`.
    */
   route?: WorkoutRouteLocation[];
   /**
    * Pauses inside the workout. They must lie within the workout and must not overlap.
    * Android stores each one as a Health Connect exercise segment of type pause
-   * (`EXERCISE_SEGMENT_TYPE_PAUSE`, valid for every workout type).
+   * (`EXERCISE_SEGMENT_TYPE_PAUSE`, valid for every workout type). iOS adds a pause and a resume
+   * workout event, and HealthKit leaves the time between them out of the workout duration.
    */
   pauses?: WorkoutPause[];
   /**
    * How the workout was recorded (defaults to `'activelyRecorded'`).
    * On Android this sets the Health Connect recording method; actively recorded workouts are
-   * attributed to a phone device.
+   * attributed to a phone device. On iOS actively recorded workouts are attributed to this device,
+   * and manual entries get `HKMetadataKeyWasUserEntered` and no device.
    */
   recordingMethod?: WorkoutRecordingMethod;
-  /** Metadata key-value pairs. Ignored on Android: Health Connect has no custom metadata. */
+  /**
+   * Metadata key-value pairs. Ignored on Android: Health Connect has no custom metadata.
+   * On iOS the string values are saved on the workout; keys starting with `HK` are reserved by
+   * HealthKit and rejected.
+   */
   metadata?: Record<string, string>;
 }
 
 export interface SaveWorkoutResult {
   /**
-   * Platform-specific identifier of the saved workout (Health Connect metadata ID of the exercise
-   * session on Android). Matches `platformId` returned by {@link HealthPlugin.queryWorkouts}.
+   * Platform-specific identifier of the saved workout (HealthKit UUID on iOS, Health Connect metadata
+   * ID of the exercise session on Android). Matches `platformId` returned by
+   * {@link HealthPlugin.queryWorkouts}.
    */
   platformId: string;
   /** Whether a route with at least one location was saved with the workout. */
@@ -525,7 +549,8 @@ export interface SaveWorkoutResult {
   /**
    * Companion records that were provided but not saved because their write permission is missing
    * (`distance` for `totalDistance`, `energy` for `totalEnergyBurned`, `heartRate` for
-   * `heartRateSamples`). The workout itself is still saved. Empty when everything was written.
+   * `heartRateSamples`), or, for `distance` on iOS, because the workout type has no HealthKit
+   * distance type. The workout itself is still saved. Empty when everything was written.
    */
   skippedRecords: WorkoutCompanionRecord[];
   /** Number of route locations dropped because they were outside the workout or duplicated a timestamp. */
@@ -643,19 +668,22 @@ export interface HealthPlugin {
 
   /**
    * Saves a completed workout to the native health store.
-   * Supported on Android (Health Connect). Not implemented on iOS yet: rejects with `UNIMPLEMENTED`.
+   * Supported on iOS (HealthKit) and Android (Health Connect). Steps are never written.
    *
    * On Android the workout is written in a single atomic Health Connect insert: one
    * `ExerciseSessionRecord` (with the optional route and pauses), plus a `DistanceRecord`, an
    * `ActiveCaloriesBurnedRecord` and a `HeartRateRecord` when the matching options are provided.
-   * Steps are never written.
+   *
+   * On iOS an `HKWorkoutBuilder` saves the workout with its distance, active energy and heart-rate
+   * samples and its pause / resume events; the route is then attached with the builder's
+   * `HKWorkoutRouteBuilder`.
    *
    * Requires write access to `workouts`; without it the call rejects with code `permission-denied`
-   * and writes nothing. Distance, active energy and heart rate need `distance`, `calories` and
-   * `heartRate` write access: when one is missing the workout is still saved without that record,
-   * which is reported in {@link SaveWorkoutResult.skippedRecords}. The route needs `workoutRoute`
-   * write access; without it the workout is saved without the route
-   * (see {@link SaveWorkoutResult.routeSaved}).
+   * and writes nothing. Distance, active energy and heart rate need `distance` (`distanceCycling`
+   * for cycling on iOS), `calories` and `heartRate` write access: when one is missing the workout is
+   * still saved without that record, which is reported in {@link SaveWorkoutResult.skippedRecords}.
+   * The route needs `workoutRoute` write access; without it the workout is saved without the route
+   * (see {@link SaveWorkoutResult.routeSaved}). Other failures reject with code `save-workout-failed`.
    *
    * @param options The workout to save
    * @returns A promise that resolves with the saved workout's platform id and what was written
