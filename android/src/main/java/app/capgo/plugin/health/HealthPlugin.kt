@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 class HealthPlugin : Plugin() {
     private val pluginVersion = "8.10.0"
     private val manager = HealthManager()
+    private val workoutWriter = WorkoutWriter()
     private val pluginScope = CoroutineScope(
         SupervisorJob() + Dispatchers.Main.immediate +
             CoroutineExceptionHandler { _, throwable ->
@@ -39,7 +40,7 @@ class HealthPlugin : Plugin() {
 
     // Store pending request data for callback
     private var pendingReadTypes: List<HealthDataType> = emptyList()
-    private var pendingWriteTypes: List<HealthDataType> = emptyList()
+    private var pendingWriteTypes = WriteTypes()
     private var pendingIncludeWorkouts: Boolean = false
     private var pendingIncludeHistoryAccess: Boolean = false
 
@@ -84,7 +85,7 @@ class HealthPlugin : Plugin() {
         }
 
         val writeTypes = try {
-            parseTypeList(call, "write")
+            parseWriteTypeList(call)
         } catch (e: IllegalArgumentException) {
             call.reject(e.message, null, e)
             return
@@ -100,17 +101,24 @@ class HealthPlugin : Plugin() {
             // sheet on every call. The normal data scopes are still requested either way;
             // authorizationStatus reports historyAccessAvailable so callers can react.
             val requestHistoryAccess = includeHistoryAccess && manager.isHistoryAccessAvailable(client)
-            val permissions = manager.permissionsFor(readTypes, writeTypes, includeWorkouts, requestHistoryAccess)
+            val permissions = manager.permissionsFor(
+                readTypes,
+                writeTypes.dataTypes,
+                includeWorkouts,
+                requestHistoryAccess,
+                includeWorkoutWrite = writeTypes.workouts,
+                includeWorkoutRouteWrite = writeTypes.workoutRoute,
+            )
 
             if (permissions.isEmpty()) {
-                val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
+                val status = authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
                 resolve(status)
                 return@launchSafely
             }
 
             val granted = client.permissionController.getGrantedPermissions()
             if (granted.containsAll(permissions)) {
-                val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
+                val status = authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
                 resolve(status)
                 return@launchSafely
             }
@@ -128,7 +136,7 @@ class HealthPlugin : Plugin() {
                 startActivityForResult(this, intent, "handlePermissionResult")
             } catch (e: Exception) {
                 pendingReadTypes = emptyList()
-                pendingWriteTypes = emptyList()
+                pendingWriteTypes = WriteTypes()
                 reject("Failed to launch Health Connect permission request.", null, e)
             }
         }
@@ -145,13 +153,13 @@ class HealthPlugin : Plugin() {
         val includeWorkouts = pendingIncludeWorkouts
         val includeHistoryAccess = pendingIncludeHistoryAccess
         pendingReadTypes = emptyList()
-        pendingWriteTypes = emptyList()
+        pendingWriteTypes = WriteTypes()
         pendingIncludeWorkouts = false
         pendingIncludeHistoryAccess = false
 
         call.launchSafely {
             val client = getClientOrReject(this) ?: return@launchSafely
-            val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
+            val status = authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
             resolve(status)
         }
     }
@@ -166,7 +174,7 @@ class HealthPlugin : Plugin() {
         }
 
         val writeTypes = try {
-            parseTypeList(call, "write")
+            parseWriteTypeList(call)
         } catch (e: IllegalArgumentException) {
             call.reject(e.message, null, e)
             return
@@ -176,7 +184,7 @@ class HealthPlugin : Plugin() {
 
         call.launchSafely {
             val client = getClientOrReject(this) ?: return@launchSafely
-            val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
+            val status = authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
             resolve(status)
         }
     }
@@ -303,17 +311,48 @@ class HealthPlugin : Plugin() {
         }
     }
 
-    private fun parseTypeList(call: PluginCall, key: String): List<HealthDataType> {
-        val array = call.getArray(key) ?: JSArray()
+    /** Parsed `write` list: regular data types plus the `workouts` / `workoutRoute` pseudo types. */
+    private data class WriteTypes(
+        val dataTypes: List<HealthDataType> = emptyList(),
+        val workouts: Boolean = false,
+        val workoutRoute: Boolean = false,
+    )
+
+    private fun parseWriteTypeList(call: PluginCall): WriteTypes {
+        val array = call.getArray("write") ?: JSArray()
         val result = mutableListOf<HealthDataType>()
+        var includeWorkouts = false
+        var includeWorkoutRoute = false
         for (i in 0 until array.length()) {
             val identifier = array.optString(i, null) ?: continue
-            val dataType = HealthDataType.from(identifier)
-                ?: throw IllegalArgumentException("Unsupported data type: $identifier")
-            result.add(dataType)
+            when (identifier) {
+                "workouts" -> includeWorkouts = true
+                "workoutRoute" -> includeWorkoutRoute = true
+                else -> {
+                    val dataType = HealthDataType.from(identifier)
+                        ?: throw IllegalArgumentException("Unsupported data type: $identifier")
+                    result.add(dataType)
+                }
+            }
         }
-        return result
+        return WriteTypes(result, includeWorkouts, includeWorkoutRoute)
     }
+
+    private suspend fun authorizationStatus(
+        client: HealthConnectClient,
+        readTypes: List<HealthDataType>,
+        writeTypes: WriteTypes,
+        includeWorkouts: Boolean,
+        includeHistoryAccess: Boolean,
+    ): JSObject = manager.authorizationStatus(
+        client,
+        readTypes,
+        writeTypes.dataTypes,
+        includeWorkouts,
+        includeHistoryAccess,
+        includeWorkoutWrite = writeTypes.workouts,
+        includeWorkoutRouteWrite = writeTypes.workoutRoute,
+    )
 
     private fun parseTypeListWithWorkouts(call: PluginCall, key: String): Pair<List<HealthDataType>, Boolean> {
         val array = call.getArray(key) ?: JSArray()
@@ -427,6 +466,32 @@ class HealthPlugin : Plugin() {
                 resolve(result)
             } catch (e: Exception) {
                 reject(e.message ?: "Failed to query workouts.", null, e)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun saveWorkout(call: PluginCall) {
+        val input = try {
+            workoutWriter.parse(call.data)
+        } catch (e: IllegalArgumentException) {
+            call.reject(e.message, null, e)
+            return
+        }
+
+        call.launchSafely {
+            val client = getClientOrReject(this) ?: return@launchSafely
+            try {
+                resolve(workoutWriter.save(client, input))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SecurityException) {
+                reject(e.message ?: "Permission denied for saving workouts.", "permission-denied", e)
+            } catch (e: IllegalArgumentException) {
+                reject(e.message ?: "Invalid workout.", null, e)
+            } catch (e: Exception) {
+                Log.w(TAG, "Saving workout failed: ${e.message}", e)
+                reject(e.message ?: "Failed to save workout.", "save-workout-failed", e)
             }
         }
     }
