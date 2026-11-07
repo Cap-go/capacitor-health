@@ -13,6 +13,7 @@ import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Length
+import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -216,32 +217,29 @@ class WorkoutWriter {
     /**
      * Saves [input] in one `insertRecords` call and returns the `saveWorkout` result.
      *
-     * Throws [SecurityException] before writing anything when the exercise write permission, or
-     * the permission for a provided distance / energy / heart-rate value, is missing. A missing
-     * route permission only drops the route (`routeSaved: false`).
+     * Only the exercise write permission is required: without it this throws
+     * [SecurityException] and nothing is written. The Health Connect sheet lets the user untick
+     * single types, so a missing distance / active-calories / heart-rate permission does not fail
+     * the save: that record is left out and reported in `skippedRecords`. A missing route
+     * permission likewise only drops the route (`routeSaved: false`).
      */
     suspend fun save(client: HealthConnectClient, input: WorkoutInput): JSObject {
         val granted = client.permissionController.getGrantedPermissions()
 
-        val missing = buildList {
-            if (EXERCISE_WRITE_PERMISSION !in granted) {
-                add("workouts")
-            }
-            if (input.totalDistanceMeters != null && DISTANCE_WRITE_PERMISSION !in granted) {
-                add("distance (needed for totalDistance)")
-            }
-            if (input.totalEnergyKilocalories != null && ACTIVE_CALORIES_WRITE_PERMISSION !in granted) {
-                add("calories (needed for totalEnergyBurned)")
-            }
-            if (input.heartRateSamples.isNotEmpty() && HEART_RATE_WRITE_PERMISSION !in granted) {
-                add("heartRate (needed for heartRateSamples)")
-            }
-        }
-        if (missing.isNotEmpty()) {
+        if (EXERCISE_WRITE_PERMISSION !in granted) {
             throw SecurityException(
-                "Missing Health Connect write permission for: ${missing.joinToString(", ")}. " +
-                    "Request write access to these types with requestAuthorization() first."
+                "Missing Health Connect write permission for workouts. " +
+                    "Request write access to 'workouts' with requestAuthorization() first."
             )
+        }
+
+        val writeDistance = input.totalDistanceMeters != null && DISTANCE_WRITE_PERMISSION in granted
+        val writeEnergy = input.totalEnergyKilocalories != null && ACTIVE_CALORIES_WRITE_PERMISSION in granted
+        val writeHeartRate = input.heartRateSamples.isNotEmpty() && HEART_RATE_WRITE_PERMISSION in granted
+        val skippedRecords = JSArray().apply {
+            if (input.totalDistanceMeters != null && !writeDistance) put("distance")
+            if (input.totalEnergyKilocalories != null && !writeEnergy) put("energy")
+            if (input.heartRateSamples.isNotEmpty() && !writeHeartRate) put("heartRate")
         }
 
         val routeSaved = input.route.isNotEmpty() && HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE in granted
@@ -263,7 +261,7 @@ class WorkoutWriter {
                 exerciseRoute = if (routeSaved) ExerciseRoute(input.route) else null,
             )
         )
-        input.totalDistanceMeters?.let { meters ->
+        input.totalDistanceMeters?.takeIf { writeDistance }?.let { meters ->
             records.add(
                 DistanceRecord(
                     startTime = input.startTime,
@@ -275,7 +273,7 @@ class WorkoutWriter {
                 )
             )
         }
-        input.totalEnergyKilocalories?.let { kilocalories ->
+        input.totalEnergyKilocalories?.takeIf { writeEnergy }?.let { kilocalories ->
             records.add(
                 ActiveCaloriesBurnedRecord(
                     startTime = input.startTime,
@@ -287,7 +285,7 @@ class WorkoutWriter {
                 )
             )
         }
-        if (input.heartRateSamples.isNotEmpty()) {
+        if (writeHeartRate) {
             records.add(
                 HeartRateRecord(
                     startTime = input.startTime,
@@ -308,6 +306,7 @@ class WorkoutWriter {
         return JSObject().apply {
             put("platformId", platformId)
             put("routeSaved", routeSaved)
+            put("skippedRecords", skippedRecords)
             put("droppedRouteLocations", input.droppedRouteLocations)
             put("droppedHeartRateSamples", input.droppedHeartRateSamples)
         }

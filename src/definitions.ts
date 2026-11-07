@@ -454,6 +454,9 @@ export interface WorkoutPause {
 
 export type WorkoutRecordingMethod = 'activelyRecorded' | 'manualEntry';
 
+/** Records saved alongside a workout by {@link HealthPlugin.saveWorkout}. */
+export type WorkoutCompanionRecord = 'distance' | 'energy' | 'heartRate';
+
 export interface SaveWorkoutOptions {
   /** The type of workout. */
   workoutType: WorkoutType;
@@ -519,6 +522,12 @@ export interface SaveWorkoutResult {
   platformId: string;
   /** Whether a route with at least one location was saved with the workout. */
   routeSaved: boolean;
+  /**
+   * Companion records that were provided but not saved because their write permission is missing
+   * (`distance` for `totalDistance`, `energy` for `totalEnergyBurned`, `heartRate` for
+   * `heartRateSamples`). The workout itself is still saved. Empty when everything was written.
+   */
+  skippedRecords: WorkoutCompanionRecord[];
   /** Number of route locations dropped because they were outside the workout or duplicated a timestamp. */
   droppedRouteLocations: number;
   /** Number of heart-rate readings dropped because they were outside the workout. */
@@ -641,10 +650,12 @@ export interface HealthPlugin {
    * `ActiveCaloriesBurnedRecord` and a `HeartRateRecord` when the matching options are provided.
    * Steps are never written.
    *
-   * Requires write access to `workouts`, and to `distance`, `calories` or `heartRate` when
-   * `totalDistance`, `totalEnergyBurned` or `heartRateSamples` are provided; otherwise it rejects
-   * with code `permission-denied` and writes nothing. The route needs `workoutRoute` write access,
-   * but a missing route permission never fails the save (see {@link SaveWorkoutResult.routeSaved}).
+   * Requires write access to `workouts`; without it the call rejects with code `permission-denied`
+   * and writes nothing. Distance, active energy and heart rate need `distance`, `calories` and
+   * `heartRate` write access: when one is missing the workout is still saved without that record,
+   * which is reported in {@link SaveWorkoutResult.skippedRecords}. The route needs `workoutRoute`
+   * write access; without it the workout is saved without the route
+   * (see {@link SaveWorkoutResult.routeSaved}).
    *
    * @param options The workout to save
    * @returns A promise that resolves with the saved workout's platform id and what was written

@@ -261,7 +261,7 @@ await Health.requestAuthorization({
   write: ['workouts', 'workoutRoute', 'distance', 'calories', 'heartRate'],
 });
 
-const { platformId, routeSaved } = await Health.saveWorkout({
+const { platformId, routeSaved, skippedRecords } = await Health.saveWorkout({
   workoutType: 'running',
   startDate: '2026-03-01T07:00:00.000Z',
   endDate: '2026-03-01T07:42:10.000Z',
@@ -275,12 +275,13 @@ const { platformId, routeSaved } = await Health.saveWorkout({
 });
 ```
 
-- **Permissions:** `workouts` write access is required. `distance`, `calories` and `heartRate` write
-  access are required only when you pass `totalDistance`, `totalEnergyBurned` or `heartRateSamples`;
-  if one is missing the call rejects with code `permission-denied` and nothing is written. The route
-  needs `workoutRoute` write access, but a missing route permission never fails the save: the workout
-  is stored without it and `routeSaved` is `false`. The plugin manifest declares `WRITE_EXERCISE` and
-  `WRITE_EXERCISE_ROUTE`.
+- **Permissions:** only `workouts` write access is required; without it the call rejects with code
+  `permission-denied` and nothing is written. The Health Connect sheet lets users untick single types,
+  so a missing `distance`, `calories` or `heartRate` write permission never fails the save: the workout
+  is stored without that record and `skippedRecords` lists it (`'distance'`, `'energy'`,
+  `'heartRate'`). Likewise the route needs `workoutRoute` write access; without it the workout is
+  stored without the route and `routeSaved` is `false`. The plugin manifest declares `WRITE_EXERCISE`
+  and `WRITE_EXERCISE_ROUTE`.
 - **Retries:** pass a stable `clientRecordId` so retrying an uncertain save replaces the earlier copy
   instead of duplicating it.
 - **Samples outside the workout:** heart-rate readings and route locations outside the workout window
@@ -631,10 +632,12 @@ On Android the workout is written in a single atomic Health Connect insert: one
 `ActiveCaloriesBurnedRecord` and a `HeartRateRecord` when the matching options are provided.
 Steps are never written.
 
-Requires write access to `workouts`, and to `distance`, `calories` or `heartRate` when
-`totalDistance`, `totalEnergyBurned` or `heartRateSamples` are provided; otherwise it rejects
-with code `permission-denied` and writes nothing. The route needs `workoutRoute` write access,
-but a missing route permission never fails the save (see {@link <a href="#saveworkoutresult">SaveWorkoutResult.routeSaved</a>}).
+Requires write access to `workouts`; without it the call rejects with code `permission-denied`
+and writes nothing. Distance, active energy and heart rate need `distance`, `calories` and
+`heartRate` write access: when one is missing the workout is still saved without that record,
+which is reported in {@link <a href="#saveworkoutresult">SaveWorkoutResult.skippedRecords</a>}. The route needs `workoutRoute`
+write access; without it the workout is saved without the route
+(see {@link <a href="#saveworkoutresult">SaveWorkoutResult.routeSaved</a>}).
 
 | Param         | Type                                                              | Description         |
 | ------------- | ----------------------------------------------------------------- | ------------------- |
@@ -816,12 +819,13 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 
 #### SaveWorkoutResult
 
-| Prop                          | Type                 | Description                                                                                                                                                                             |
-| ----------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`platformId`**              | <code>string</code>  | Platform-specific identifier of the saved workout (Health Connect metadata ID of the exercise session on Android). Matches `platformId` returned by {@link HealthPlugin.queryWorkouts}. |
-| **`routeSaved`**              | <code>boolean</code> | Whether a route with at least one location was saved with the workout.                                                                                                                  |
-| **`droppedRouteLocations`**   | <code>number</code>  | Number of route locations dropped because they were outside the workout or duplicated a timestamp.                                                                                      |
-| **`droppedHeartRateSamples`** | <code>number</code>  | Number of heart-rate readings dropped because they were outside the workout.                                                                                                            |
+| Prop                          | Type                                  | Description                                                                                                                                                                                                                                                                |
+| ----------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`platformId`**              | <code>string</code>                   | Platform-specific identifier of the saved workout (Health Connect metadata ID of the exercise session on Android). Matches `platformId` returned by {@link HealthPlugin.queryWorkouts}.                                                                                    |
+| **`routeSaved`**              | <code>boolean</code>                  | Whether a route with at least one location was saved with the workout.                                                                                                                                                                                                     |
+| **`skippedRecords`**          | <code>WorkoutCompanionRecord[]</code> | Companion records that were provided but not saved because their write permission is missing (`distance` for `totalDistance`, `energy` for `totalEnergyBurned`, `heartRate` for `heartRateSamples`). The workout itself is still saved. Empty when everything was written. |
+| **`droppedRouteLocations`**   | <code>number</code>                   | Number of route locations dropped because they were outside the workout or duplicated a timestamp.                                                                                                                                                                         |
+| **`droppedHeartRateSamples`** | <code>number</code>                   | Number of heart-rate readings dropped because they were outside the workout.                                                                                                                                                                                               |
 
 
 #### SaveWorkoutOptions
@@ -938,6 +942,13 @@ Construct a type with a set of properties K of type T
 #### WorkoutEventType
 
 <code>'lap' | 'pause' | 'segment' | 'marker'</code>
+
+
+#### WorkoutCompanionRecord
+
+Records saved alongside a workout by {@link HealthPlugin.saveWorkout}.
+
+<code>'distance' | 'energy' | 'heartRate'</code>
 
 
 #### WorkoutRecordingMethod
