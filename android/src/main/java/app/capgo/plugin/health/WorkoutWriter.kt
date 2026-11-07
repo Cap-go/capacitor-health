@@ -269,7 +269,7 @@ class WorkoutWriter {
                     endTime = input.endTime,
                     endZoneOffset = endZoneOffset,
                     distance = Length.meters(meters),
-                    metadata = metadata(input, "distance", version),
+                    metadata = metadata(input, DISTANCE_ID_SUFFIX, version),
                 )
             )
         }
@@ -281,7 +281,7 @@ class WorkoutWriter {
                     endTime = input.endTime,
                     endZoneOffset = endZoneOffset,
                     energy = Energy.kilocalories(kilocalories),
-                    metadata = metadata(input, "energy", version),
+                    metadata = metadata(input, ENERGY_ID_SUFFIX, version),
                 )
             )
         }
@@ -293,7 +293,7 @@ class WorkoutWriter {
                     endTime = input.endTime,
                     endZoneOffset = endZoneOffset,
                     samples = input.heartRateSamples,
-                    metadata = metadata(input, "hr", version),
+                    metadata = metadata(input, HEART_RATE_ID_SUFFIX, version),
                 )
             )
         }
@@ -314,15 +314,7 @@ class WorkoutWriter {
 
     private fun metadata(input: WorkoutInput, idSuffix: String?, version: Long): Metadata {
         val clientRecordId = input.clientRecordId?.let { id -> if (idSuffix == null) id else "$id:$idSuffix" }
-        return if (input.manualEntry) {
-            if (clientRecordId != null) Metadata.manualEntry(clientRecordId, version) else Metadata.manualEntry()
-        } else {
-            if (clientRecordId != null) {
-                Metadata.activelyRecorded(PHONE_DEVICE, clientRecordId, version)
-            } else {
-                Metadata.activelyRecorded(PHONE_DEVICE)
-            }
-        }
+        return recordMetadata(clientRecordId, input.manualEntry, version)
     }
 
     private fun zoneOffset(instant: Instant): ZoneOffset? {
@@ -393,6 +385,28 @@ class WorkoutWriter {
         private const val MAX_ENERGY_KILOCALORIES = 1_000_000.0
 
         private val PHONE_DEVICE = Device(type = Device.TYPE_PHONE)
+
+        /** Suffixes of the companion records' clientRecordIds (`<id>:distance`, ...); SampleDeleter uses them too. */
+        internal const val DISTANCE_ID_SUFFIX = "distance"
+        internal const val ENERGY_ID_SUFFIX = "energy"
+        internal const val HEART_RATE_ID_SUFFIX = "hr"
+
+        /**
+         * Health Connect metadata for a record this plugin writes (saveWorkout and saveSample).
+         * With a [clientRecordId], [version] makes a later save replace the earlier one. Actively
+         * recorded records are attributed to a phone device; manual entries have no device.
+         */
+        internal fun recordMetadata(clientRecordId: String?, manualEntry: Boolean, version: Long): Metadata {
+            return if (manualEntry) {
+                if (clientRecordId != null) Metadata.manualEntry(clientRecordId, version) else Metadata.manualEntry()
+            } else {
+                if (clientRecordId != null) {
+                    Metadata.activelyRecorded(PHONE_DEVICE, clientRecordId, version)
+                } else {
+                    Metadata.activelyRecorded(PHONE_DEVICE)
+                }
+            }
+        }
 
         private val EXERCISE_WRITE_PERMISSION = HealthPermission.getWritePermission(ExerciseSessionRecord::class)
         private val DISTANCE_WRITE_PERMISSION = HealthPermission.getWritePermission(DistanceRecord::class)

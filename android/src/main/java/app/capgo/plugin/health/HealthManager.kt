@@ -525,11 +525,15 @@ class HealthManager {
         metadata: Map<String, String>?,
         systolic: Double?,
         diastolic: Double?,
-        mindfulnessSessionType: String?
-    ) {
-        val recordMetadata = Metadata.manualEntry()
+        mindfulnessSessionType: String?,
+        clientRecordId: String? = null,
+        manualEntry: Boolean = true
+    ): String? {
+        // Without clientRecordId / recordingMethod this stays Metadata.manualEntry(), as before.
+        val recordMetadata = WorkoutWriter.recordMetadata(clientRecordId, manualEntry, System.currentTimeMillis())
 
-        when (dataType) {
+        // Every branch ends with insertRecords, so the `when` yields its response.
+        val response = when (dataType) {
             HealthDataType.STEPS -> {
                 val record = StepsRecord(
                     startTime = startTime,
@@ -773,6 +777,7 @@ class HealthManager {
                 client.insertRecords(listOf(record))
             }
         }
+        return response.recordIdsList.firstOrNull()
     }
 
     fun parseInstant(value: String?, defaultInstant: Instant): Instant {

@@ -1254,7 +1254,8 @@ final class Health {
         }
     }
 
-    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, completion: @escaping (Result<Void, Error>) -> Void) throws {
+    /// Calls back with the saved object's UUID (the correlation's for blood pressure).
+    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, clientRecordId: String?, recordingMethod: String?, completion: @escaping (Result<String, Error>) -> Void) throws {
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthManagerError.healthDataUnavailable
         }
@@ -1274,6 +1275,11 @@ final class Health {
                 result[entry.key] = entry.value
             }
         }
+        // clientRecordId / recordingMethod: sync identifier and user-entered flag (see SyncMetadata)
+        let syncMetadata = try SyncMetadata.forSample(clientRecordId: clientRecordId, recordingMethod: recordingMethod)
+        if !syncMetadata.isEmpty {
+            metadataDictionary = (metadataDictionary ?? [:]).merging(syncMetadata) { _, syncValue in syncValue }
+        }
 
         // Handle sleep as a category sample
         if dataType == .sleep {
@@ -1292,7 +1298,7 @@ final class Health {
                 }
                 
                 if success {
-                    completion(.success(()))
+                    completion(.success(sample.uuid.uuidString))
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
                 }
@@ -1314,7 +1320,7 @@ final class Health {
                 }
                 
                 if success {
-                    completion(.success(()))
+                    completion(.success(sample.uuid.uuidString))
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
                 }
@@ -1347,9 +1353,9 @@ final class Health {
                     completion(.failure(error))
                     return
                 }
-                
+
                 if success {
-                    completion(.success(()))
+                    completion(.success(correlation.uuid.uuidString))
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
                 }
@@ -1370,7 +1376,7 @@ final class Health {
             }
 
             if success {
-                completion(.success(()))
+                completion(.success(sample.uuid.uuidString))
             } else {
                 completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
             }

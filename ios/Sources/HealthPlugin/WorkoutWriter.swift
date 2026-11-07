@@ -3,22 +3,24 @@ import HealthKit
 import CoreLocation
 import Capacitor
 
-enum WorkoutWriterError: LocalizedError {
+/// Errors of `saveWorkout` and `deleteSamples`, with plugin error codes aligned with Android.
+enum HealthWriteError: LocalizedError {
     case invalidOption(String)
     case permissionDenied(String)
     case saveFailed(String)
     /// HealthKit saved the workout but could not return it (the device is locked).
     case savedButUnavailable(String)
+    case deleteFailed(String)
 
     var errorDescription: String? {
         switch self {
         case let .invalidOption(message), let .permissionDenied(message), let .saveFailed(message),
-             let .savedButUnavailable(message):
+             let .savedButUnavailable(message), let .deleteFailed(message):
             return message
         }
     }
 
-    /// Plugin error code, aligned with Android: validation errors carry no code.
+    /// Plugin error code; validation errors carry no code.
     var code: String? {
         switch self {
         case .invalidOption:
@@ -29,7 +31,25 @@ enum WorkoutWriterError: LocalizedError {
             return "save-workout-failed"
         case .savedButUnavailable:
             return "workout-saved-unavailable"
+        case .deleteFailed:
+            return "delete-samples-failed"
         }
+    }
+
+    /// Code for any error: ours, `permission-denied` for HealthKit authorization errors, nil for
+    /// validation errors, otherwise `fallback`.
+    static func code(for error: Error, fallback: String) -> String? {
+        if let writeError = error as? HealthWriteError {
+            return writeError.code
+        }
+        if error is HealthManagerError {
+            return nil
+        }
+        if let healthKitError = error as? HKError,
+           healthKitError.code == .errorAuthorizationDenied || healthKitError.code == .errorAuthorizationNotDetermined {
+            return "permission-denied"
+        }
+        return fallback
     }
 }
 
@@ -70,27 +90,13 @@ final class WorkoutWriter {
         }
 
         guard isSharingAuthorized(HKObjectType.workoutType()) else {
-            completion(.failure(WorkoutWriterError.permissionDenied(
+            completion(.failure(HealthWriteError.permissionDenied(
                 "Missing HealthKit write permission for workouts. Request write access to 'workouts' with requestAuthorization() first."
             )))
             return
         }
 
         save(input, plan: makePlan(for: input), completion: completion)
-    }
-
-    static func errorCode(for error: Error) -> String? {
-        if let writerError = error as? WorkoutWriterError {
-            return writerError.code
-        }
-        if error is HealthManagerError {
-            return nil
-        }
-        if let healthKitError = error as? HKError,
-           healthKitError.code == .errorAuthorizationDenied || healthKitError.code == .errorAuthorizationNotDetermined {
-            return "permission-denied"
-        }
-        return "save-workout-failed"
     }
 
     // MARK: - Plan
@@ -112,7 +118,7 @@ final class WorkoutWriter {
     private func makePlan(for input: WorkoutInput) -> SavePlan {
         // Actively recorded workouts come from this phone; manual entries have no device.
         let device: HKDevice? = input.manualEntry ? nil : HKDevice.local()
-        let version = NSNumber(value: Int64((Date().timeIntervalSince1970 * 1000).rounded()))
+        let version = SyncMetadata.currentVersion()
         let metadata = { (idSuffix: String?) -> [String: Any] in
             WorkoutWriter.objectMetadata(for: input, idSuffix: idSuffix, version: version)
         }
@@ -196,15 +202,10 @@ final class WorkoutWriter {
     }
 
     private static func objectMetadata(for input: WorkoutInput, idSuffix: String?, version: NSNumber) -> [String: Any] {
-        var metadata: [String: Any] = [:]
-        if let clientRecordId = input.clientRecordId {
-            metadata[HKMetadataKeySyncIdentifier] = idSuffix.map { "\(clientRecordId):\($0)" } ?? clientRecordId
-            metadata[HKMetadataKeySyncVersion] = version
+        let syncIdentifier = input.clientRecordId.map { clientRecordId in
+            idSuffix.map { "\(clientRecordId):\($0)" } ?? clientRecordId
         }
-        if input.manualEntry {
-            metadata[HKMetadataKeyWasUserEntered] = true
-        }
-        return metadata
+        return SyncMetadata.metadata(syncIdentifier: syncIdentifier, version: version, userEntered: input.manualEntry)
     }
 
     /// Each pause becomes a zero-length pause event and a resume event; HealthKit excludes the time
@@ -281,7 +282,7 @@ final class WorkoutWriter {
                 return
             }
             guard success else {
-                completion(WorkoutWriterError.saveFailed("HealthKit could not \(step.action)."))
+                completion(HealthWriteError.saveFailed("HealthKit could not \(step.action)."))
                 return
             }
             WorkoutWriter.run(steps.dropFirst(), completion: completion)
@@ -309,7 +310,7 @@ final class WorkoutWriter {
         builder.endCollection(withEnd: endDate) { success, error in
             guard success, error == nil else {
                 builder.discardWorkout()
-                completion(.failure(error ?? WorkoutWriterError.saveFailed("HealthKit could not end the workout.")))
+                completion(.failure(error ?? HealthWriteError.saveFailed("HealthKit could not end the workout.")))
                 return
             }
             builder.finishWorkout { workout, error in
@@ -320,7 +321,7 @@ final class WorkoutWriter {
                 guard let workout = workout else {
                     // Apple: no workout and no error means the workout was saved but is not available
                     // because the device is locked. Without it the route cannot be attached.
-                    completion(.failure(WorkoutWriterError.savedButUnavailable(
+                    completion(.failure(HealthWriteError.savedButUnavailable(
                         "HealthKit saved the workout but could not return it because the device is locked, so its route was not saved. "
                             + "Retrying with the same clientRecordId replaces it."
                     )))
@@ -351,6 +352,46 @@ final class WorkoutWriter {
         routeBuilder.finishRoute(with: workout, metadata: metadata) { route, error in
             completion(route != nil && error == nil)
         }
+    }
+}
+
+// MARK: - Sync metadata
+
+/// Sync and recording metadata shared by `saveWorkout` and `saveSample`.
+enum SyncMetadata {
+    /// The save time in milliseconds, used as `HKMetadataKeySyncVersion`: HealthKit replaces an object
+    /// with the same `HKMetadataKeySyncIdentifier` when the new sync version is greater.
+    static func currentVersion() -> NSNumber {
+        return NSNumber(value: Int64((Date().timeIntervalSince1970 * 1000).rounded()))
+    }
+
+    static func metadata(syncIdentifier: String?, version: NSNumber, userEntered: Bool) -> [String: Any] {
+        var metadata: [String: Any] = [:]
+        if let syncIdentifier = syncIdentifier {
+            metadata[HKMetadataKeySyncIdentifier] = syncIdentifier
+            metadata[HKMetadataKeySyncVersion] = version
+        }
+        if userEntered {
+            metadata[HKMetadataKeyWasUserEntered] = true
+        }
+        return metadata
+    }
+
+    /// `saveSample`'s `clientRecordId` and `recordingMethod`. Omitting both adds nothing, as before;
+    /// only `manualEntry` sets `HKMetadataKeyWasUserEntered`.
+    static func forSample(clientRecordId: String?, recordingMethod: String?) throws -> [String: Any] {
+        if let clientRecordId = clientRecordId, clientRecordId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            throw HealthWriteError.invalidOption("clientRecordId must not be blank")
+        }
+        switch recordingMethod {
+        case nil, "activelyRecorded"?, "manualEntry"?:
+            break
+        case let other?:
+            throw HealthWriteError.invalidOption(
+                "Unsupported recordingMethod: \(other). Expected 'activelyRecorded' or 'manualEntry'."
+            )
+        }
+        return metadata(syncIdentifier: clientRecordId, version: currentVersion(), userEntered: recordingMethod == "manualEntry")
     }
 }
 
@@ -424,7 +465,7 @@ extension WorkoutWriter {
 
 /// Validated `saveWorkout` options, with the same rules as Android's `WorkoutWriter.parse`.
 ///
-/// Invalid values throw `WorkoutWriterError.invalidOption` naming the field. Heart-rate readings and
+/// Invalid values throw `HealthWriteError.invalidOption` naming the field. Heart-rate readings and
 /// route locations outside the workout (`startDate` inclusive, `endDate` exclusive), and route
 /// locations repeating an earlier timestamp, are dropped and counted instead of failing the workout.
 struct WorkoutInput {
@@ -451,16 +492,16 @@ struct WorkoutInput {
     init(options: JSObject) throws {
         let typeName = try WorkoutInput.requiredString(options["workoutType"], path: "workoutType")
         guard let type = WorkoutType(rawValue: typeName) else {
-            throw WorkoutWriterError.invalidOption("Unsupported workoutType: \(typeName)")
+            throw HealthWriteError.invalidOption("Unsupported workoutType: \(typeName)")
         }
         let start = try WorkoutInput.requiredDate(options["startDate"], path: "startDate")
         let end = try WorkoutInput.requiredDate(options["endDate"], path: "endDate")
         guard end > start else {
-            throw WorkoutWriterError.invalidOption("endDate must be after startDate")
+            throw HealthWriteError.invalidOption("endDate must be after startDate")
         }
         let recordId = try WorkoutInput.optionalString(options["clientRecordId"], path: "clientRecordId")
         if let recordId = recordId, recordId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            throw WorkoutWriterError.invalidOption("clientRecordId must not be blank")
+            throw HealthWriteError.invalidOption("clientRecordId must not be blank")
         }
         // HealthKit workouts have no title: the option is validated like on Android, then not saved.
         _ = try WorkoutInput.optionalString(options["title"], path: "title")
@@ -495,7 +536,7 @@ struct WorkoutInput {
     private static func parseTotal(_ value: JSValue?, path: String, unit: String) throws -> Double? {
         let total = try optionalNumber(value, path: path)
         if let total = total, !(0...1_000_000).contains(total) {
-            throw WorkoutWriterError.invalidOption("\(path) must be between 0 and 1000000 \(unit), got \(total)")
+            throw HealthWriteError.invalidOption("\(path) must be between 0 and 1000000 \(unit), got \(total)")
         }
         return total
     }
@@ -507,7 +548,7 @@ struct WorkoutInput {
         case "manualEntry"?:
             return true
         case let other?:
-            throw WorkoutWriterError.invalidOption(
+            throw HealthWriteError.invalidOption(
                 "Unsupported recordingMethod: \(other). Expected 'activelyRecorded' or 'manualEntry'."
             )
         }
@@ -522,7 +563,7 @@ struct WorkoutInput {
             let date = try requiredDate(object["date"], path: "\(path).date")
             let bpm = try requiredNumber(object["bpm"], path: "\(path).bpm")
             guard (1.0...300.0).contains(bpm) else {
-                throw WorkoutWriterError.invalidOption("\(path).bpm must be between 1 and 300, got \(bpm)")
+                throw HealthWriteError.invalidOption("\(path).bpm must be between 1 and 300, got \(bpm)")
             }
             if window.contains(date) {
                 readings.append(HeartRateReading(date: date, bpm: bpm))
@@ -553,11 +594,11 @@ struct WorkoutInput {
         let date = try requiredDate(object["date"], path: "\(path).date")
         let latitude = try requiredNumber(object["latitude"], path: "\(path).latitude")
         guard (-90.0...90.0).contains(latitude) else {
-            throw WorkoutWriterError.invalidOption("\(path).latitude must be between -90 and 90, got \(latitude)")
+            throw HealthWriteError.invalidOption("\(path).latitude must be between -90 and 90, got \(latitude)")
         }
         let longitude = try requiredNumber(object["longitude"], path: "\(path).longitude")
         guard (-180.0...180.0).contains(longitude) else {
-            throw WorkoutWriterError.invalidOption("\(path).longitude must be between -180 and 180, got \(longitude)")
+            throw HealthWriteError.invalidOption("\(path).longitude must be between -180 and 180, got \(longitude)")
         }
         let altitude = try optionalNumber(object["altitude"], path: "\(path).altitude")
         let horizontalAccuracy = try accuracy(object["horizontalAccuracy"], path: "\(path).horizontalAccuracy")
@@ -576,7 +617,7 @@ struct WorkoutInput {
     private static func accuracy(_ value: JSValue?, path: String) throws -> Double? {
         let accuracy = try optionalNumber(value, path: path)
         if let accuracy = accuracy, accuracy < 0 {
-            throw WorkoutWriterError.invalidOption("\(path) must be 0 or more, got \(accuracy)")
+            throw HealthWriteError.invalidOption("\(path) must be 0 or more, got \(accuracy)")
         }
         return accuracy
     }
@@ -590,16 +631,16 @@ struct WorkoutInput {
             let start = try requiredDate(object["startDate"], path: "\(path).startDate")
             let end = try requiredDate(object["endDate"], path: "\(path).endDate")
             guard end > start else {
-                throw WorkoutWriterError.invalidOption("\(path).endDate must be after \(path).startDate")
+                throw HealthWriteError.invalidOption("\(path).endDate must be after \(path).startDate")
             }
             guard start >= workout.start, end <= workout.end else {
-                throw WorkoutWriterError.invalidOption("\(path) must lie within the workout (between startDate and endDate)")
+                throw HealthWriteError.invalidOption("\(path) must lie within the workout (between startDate and endDate)")
             }
             pauses.append(DateInterval(start: start, end: end))
         }
         let sorted = pauses.sorted { $0.start < $1.start }
         for (previous, next) in zip(sorted, sorted.dropFirst()) where previous.end > next.start {
-            throw WorkoutWriterError.invalidOption(
+            throw HealthWriteError.invalidOption(
                 "pauses must not overlap: the pause ending at \(isoString(previous.end)) overlaps the one starting at \(isoString(next.start))"
             )
         }
@@ -611,12 +652,12 @@ struct WorkoutInput {
             return [:]
         }
         guard let object = value as? JSObject else {
-            throw WorkoutWriterError.invalidOption("metadata must be an object")
+            throw HealthWriteError.invalidOption("metadata must be an object")
         }
         var metadata: [String: String] = [:]
         for (key, entry) in object {
             guard !key.hasPrefix("HK") else {
-                throw WorkoutWriterError.invalidOption("metadata.\(key): keys starting with HK are reserved by HealthKit")
+                throw HealthWriteError.invalidOption("metadata.\(key): keys starting with HK are reserved by HealthKit")
             }
             // Only string values are kept, like saveSample.
             if let string = entry as? String {
@@ -660,7 +701,7 @@ struct WorkoutInput {
             return nil
         }
         guard let string = value as? String else {
-            throw WorkoutWriterError.invalidOption("\(path) must be a string")
+            throw HealthWriteError.invalidOption("\(path) must be a string")
         }
         return string
     }
@@ -668,7 +709,7 @@ struct WorkoutInput {
     private static func requiredString(_ value: JSValue?, path: String) throws -> String {
         guard let string = try optionalString(value, path: path),
               !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw WorkoutWriterError.invalidOption("\(path) is required")
+            throw HealthWriteError.invalidOption("\(path) is required")
         }
         return string
     }
@@ -679,17 +720,17 @@ struct WorkoutInput {
         }
         // JSON numbers arrive as NSNumber. Booleans do too, and are rejected.
         guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() else {
-            throw WorkoutWriterError.invalidOption("\(path) must be a number")
+            throw HealthWriteError.invalidOption("\(path) must be a number")
         }
         guard number.doubleValue.isFinite else {
-            throw WorkoutWriterError.invalidOption("\(path) must be a finite number")
+            throw HealthWriteError.invalidOption("\(path) must be a finite number")
         }
         return number.doubleValue
     }
 
     private static func requiredNumber(_ value: JSValue?, path: String) throws -> Double {
         guard let number = try optionalNumber(value, path: path) else {
-            throw WorkoutWriterError.invalidOption("\(path) is required")
+            throw HealthWriteError.invalidOption("\(path) is required")
         }
         return number
     }
@@ -698,7 +739,7 @@ struct WorkoutInput {
     private static func requiredDate(_ value: JSValue?, path: String) throws -> Date {
         let string = try requiredString(value, path: path)
         guard let date = fractionalSecondsFormatter.date(from: string) ?? wholeSecondsFormatter.date(from: string) else {
-            throw WorkoutWriterError.invalidOption("\(path) must be an ISO 8601 date, got \(string)")
+            throw HealthWriteError.invalidOption("\(path) must be an ISO 8601 date, got \(string)")
         }
         return date
     }
@@ -708,14 +749,14 @@ struct WorkoutInput {
             return []
         }
         guard let array = value as? JSArray else {
-            throw WorkoutWriterError.invalidOption("\(path) must be an array")
+            throw HealthWriteError.invalidOption("\(path) must be an array")
         }
         return array
     }
 
     private static func requiredObject(_ value: JSValue, path: String) throws -> JSObject {
         guard let object = value as? JSObject else {
-            throw WorkoutWriterError.invalidOption("\(path) must be an object")
+            throw HealthWriteError.invalidOption("\(path) must be an object")
         }
         return object
     }

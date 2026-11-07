@@ -399,6 +399,9 @@ export interface QueryWorkoutsResult {
   anchor?: string;
 }
 
+/** How a record was recorded: by the app while it happened, or typed in by the user. */
+export type RecordingMethod = 'activelyRecorded' | 'manualEntry';
+
 export interface WriteSampleOptions {
   dataType: HealthDataType;
   value: number;
@@ -419,6 +422,54 @@ export interface WriteSampleOptions {
   systolic?: number;
   /** For blood pressure data, the diastolic value in mmHg. Required when dataType is 'bloodPressure'. */
   diastolic?: number;
+  /**
+   * Idempotency key. Saving again with the same `clientRecordId` replaces the earlier sample instead
+   * of duplicating it, and {@link HealthPlugin.deleteSamples} can delete it later by this id.
+   *
+   * Android: the Health Connect `clientRecordId`, with the save time as `clientRecordVersion`.
+   * iOS: `HKMetadataKeySyncIdentifier`, with the save time in milliseconds as `HKMetadataKeySyncVersion`
+   * (for blood pressure it is set on the correlation).
+   */
+  clientRecordId?: string;
+  /**
+   * How the sample was recorded. When omitted nothing changes: Android saves a manual entry and iOS sets
+   * no recording flag.
+   *
+   * `manualEntry`: Android manual entry; iOS `HKMetadataKeyWasUserEntered: true`.
+   * `activelyRecorded`: Android actively recorded on a phone device; iOS no recording flag.
+   */
+  recordingMethod?: RecordingMethod;
+}
+
+export interface SaveSampleResult {
+  /**
+   * Platform-specific identifier of the saved sample (Health Connect record id on Android, HealthKit
+   * UUID on iOS; the correlation's UUID for blood pressure). Usable with {@link HealthPlugin.deleteSamples}.
+   */
+  platformId?: string;
+}
+
+export interface DeleteSamplesOptions {
+  /**
+   * Type of the records to delete. Use `workouts` for workouts saved with
+   * {@link HealthPlugin.saveWorkout}; `workoutRoute` is not accepted (delete the workout instead).
+   */
+  dataType: HealthDataType;
+  /** `clientRecordId`s given when the records were saved. */
+  clientRecordIds?: string[];
+  /** `platformId`s of the records (as returned by `saveSample`, `saveWorkout`, `readSamples` or `queryWorkouts`). */
+  platformIds?: string[];
+}
+
+export interface DeleteSamplesResult {
+  /**
+   * iOS: the number of records of `dataType` actually deleted (for `workouts`, the workouts, not their
+   * associated samples).
+   *
+   * Android: the number of ids requested. Health Connect does not report how many records it deleted,
+   * and ids that match nothing are ignored.
+   */
+  deleted: number;
 }
 
 /** A heart-rate reading recorded during a workout. */
@@ -452,8 +503,6 @@ export interface WorkoutPause {
   /** ISO 8601 end of the pause. Must be after `startDate`. */
   endDate: string;
 }
-
-export type WorkoutRecordingMethod = 'activelyRecorded' | 'manualEntry';
 
 /** Records saved alongside a workout by {@link HealthPlugin.saveWorkout}. */
 export type WorkoutCompanionRecord = 'distance' | 'energy' | 'heartRate';
@@ -529,7 +578,7 @@ export interface SaveWorkoutOptions {
    * attributed to a phone device. On iOS actively recorded workouts are attributed to this device,
    * and manual entries get `HKMetadataKeyWasUserEntered` and no device.
    */
-  recordingMethod?: WorkoutRecordingMethod;
+  recordingMethod?: RecordingMethod;
   /**
    * Metadata key-value pairs. Ignored on Android: Health Connect has no custom metadata.
    * On iOS the string values are saved on the workout; keys starting with `HK` are reserved by
@@ -620,8 +669,36 @@ export interface HealthPlugin {
   checkAuthorization(options: AuthorizationOptions): Promise<AuthorizationStatus>;
   /** Reads samples for the given data type within the specified time frame. */
   readSamples(options: QueryOptions): Promise<ReadSamplesResult>;
-  /** Writes a single sample to the native health store. */
-  saveSample(options: WriteSampleOptions): Promise<void>;
+  /**
+   * Writes a single sample to the native health store.
+   *
+   * Resolves with the saved sample's `platformId` (backward compatible: callers that ignored the
+   * previous `void` result are unaffected).
+   */
+  saveSample(options: WriteSampleOptions): Promise<SaveSampleResult>;
+
+  /**
+   * Deletes records this app saved, by `clientRecordId` and/or `platformId`.
+   * Supported on iOS (HealthKit) and Android (Health Connect).
+   *
+   * Give at least one id, and at most 100 ids in total. Both platforms only let an app delete the
+   * records it wrote itself, and deleting needs write access to the type; without it the call rejects
+   * with code `permission-denied`. Other failures reject with code `delete-samples-failed`.
+   *
+   * With `dataType: 'workouts'` the workout's companion records are deleted too:
+   * - iOS: the distance, active-energy and heart-rate samples and the route associated with each
+   *   workout (for types the app can still write). Finding the workouts needs read access to
+   *   workouts: request `read: ['workouts']`, otherwise HealthKit may reject the lookup
+   *   (`permission-denied`).
+   * - Android: the distance, active-calories and heart-rate records saved by `saveWorkout` for the
+   *   given `clientRecordIds` (for types the app can still write). With `platformIds` only the exercise
+   *   session is deleted.
+   *
+   * @param options The record type and the ids to delete
+   * @returns A promise that resolves with the number of deleted records (see {@link DeleteSamplesResult.deleted})
+   * @throws An error if the options are invalid, the write permission is missing, or the delete fails
+   */
+  deleteSamples(options: DeleteSamplesOptions): Promise<DeleteSamplesResult>;
 
   /**
    * Get the native Capacitor plugin version

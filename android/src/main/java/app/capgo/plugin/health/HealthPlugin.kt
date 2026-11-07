@@ -30,6 +30,7 @@ class HealthPlugin : Plugin() {
     private val pluginVersion = "8.10.0"
     private val manager = HealthManager()
     private val workoutWriter = WorkoutWriter()
+    private val sampleDeleter = SampleDeleter()
     private val pluginScope = CoroutineScope(
         SupervisorJob() + Dispatchers.Main.immediate +
             CoroutineExceptionHandler { _, throwable ->
@@ -300,13 +301,58 @@ class HealthPlugin : Plugin() {
         val diastolic = call.getDouble("diastolic")
         val mindfulnessSessionType = call.getString("mindfulnessSessionType")
 
+        val clientRecordId = call.getString("clientRecordId")
+        if (clientRecordId != null && clientRecordId.isBlank()) {
+            call.reject("clientRecordId must not be blank")
+            return
+        }
+        // Omitted keeps the previous behaviour: a manual entry.
+        val manualEntry = when (val recordingMethod = call.getString("recordingMethod")) {
+            null, "manualEntry" -> true
+            "activelyRecorded" -> false
+            else -> {
+                call.reject("Unsupported recordingMethod: $recordingMethod. Expected 'activelyRecorded' or 'manualEntry'.")
+                return
+            }
+        }
+
         call.launchSafely {
             val client = getClientOrReject(this) ?: return@launchSafely
             try {
-                manager.saveSample(client, dataType, value, startInstant, endInstant, metadata, systolic, diastolic, mindfulnessSessionType)
-                resolve()
+                val platformId = manager.saveSample(
+                    client, dataType, value, startInstant, endInstant, metadata, systolic, diastolic, mindfulnessSessionType,
+                    clientRecordId = clientRecordId,
+                    manualEntry = manualEntry,
+                )
+                resolve(JSObject().apply { platformId?.let { put("platformId", it) } })
             } catch (e: Exception) {
                 reject(e.message ?: "Failed to save sample.", null, e)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun deleteSamples(call: PluginCall) {
+        val input = try {
+            sampleDeleter.parse(call.data)
+        } catch (e: IllegalArgumentException) {
+            call.reject(e.message, null, e)
+            return
+        }
+
+        call.launchSafely {
+            val client = getClientOrReject(this) ?: return@launchSafely
+            try {
+                resolve(sampleDeleter.delete(client, input))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SecurityException) {
+                reject(e.message ?: "Permission denied for deleting samples.", "permission-denied", e)
+            } catch (e: IllegalArgumentException) {
+                reject(e.message ?: "Invalid delete request.", null, e)
+            } catch (e: Exception) {
+                Log.w(TAG, "Deleting samples failed: ${e.message}", e)
+                reject(e.message ?: "Failed to delete samples.", "delete-samples-failed", e)
             }
         }
     }
