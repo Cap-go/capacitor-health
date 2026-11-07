@@ -21,7 +21,8 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     private let implementation = Health()
-    private let workoutWriter = WorkoutWriter()
+    // Lazy so it can share the implementation's HKHealthStore (plugin calls run on the serial bridge queue).
+    private lazy var workoutWriter = WorkoutWriter(healthStore: implementation.healthStore)
 
     @objc func isAvailable(_ call: CAPPluginCall) {
         call.resolve(implementation.availabilityPayload())

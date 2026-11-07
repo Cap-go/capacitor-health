@@ -56,7 +56,8 @@ export interface AuthorizationOptions {
    *
    * Include `workouts` to save workouts with {@link HealthPlugin.saveWorkout}, and `workoutRoute`
    * to also save their GPS route (Health Connect `WRITE_EXERCISE_ROUTE`, HealthKit
-   * `HKSeriesType.workoutRoute()`). `workoutRoute` is write-only.
+   * `HKSeriesType.workoutRoute()`). `workoutRoute` is write-only. On iOS it also requests read and
+   * share access to workouts and read access to routes, which Apple requires for route data.
    */
   write?: HealthDataType[];
   /**
@@ -684,6 +685,10 @@ export interface HealthPlugin {
    * still saved without that record, which is reported in {@link SaveWorkoutResult.skippedRecords}.
    * The route needs `workoutRoute` write access; without it the workout is saved without the route
    * (see {@link SaveWorkoutResult.routeSaved}). Other failures reject with code `save-workout-failed`.
+   *
+   * iOS only: code `workout-saved-unavailable` means HealthKit saved the workout but could not return
+   * it because the device is locked, so its route was not saved and no `platformId` is known. With a
+   * `clientRecordId` the call can be retried safely: the sync identifier replaces the saved copy.
    *
    * @param options The workout to save
    * @returns A promise that resolves with the saved workout's platform id and what was written

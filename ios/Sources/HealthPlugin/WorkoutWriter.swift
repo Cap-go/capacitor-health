@@ -7,10 +7,13 @@ enum WorkoutWriterError: LocalizedError {
     case invalidOption(String)
     case permissionDenied(String)
     case saveFailed(String)
+    /// HealthKit saved the workout but could not return it (the device is locked).
+    case savedButUnavailable(String)
 
     var errorDescription: String? {
         switch self {
-        case let .invalidOption(message), let .permissionDenied(message), let .saveFailed(message):
+        case let .invalidOption(message), let .permissionDenied(message), let .saveFailed(message),
+             let .savedButUnavailable(message):
             return message
         }
     }
@@ -24,6 +27,8 @@ enum WorkoutWriterError: LocalizedError {
             return "permission-denied"
         case .saveFailed:
             return "save-workout-failed"
+        case .savedButUnavailable:
+            return "workout-saved-unavailable"
         }
     }
 }
@@ -41,7 +46,12 @@ enum WorkoutWriterError: LocalizedError {
 /// the workout, `<id>:distance`, `<id>:energy`, `<id>:hr:<n>` and `<id>:route` for the rest) and the
 /// save time in milliseconds as `HKMetadataKeySyncVersion`, so HealthKit replaces the earlier copy.
 final class WorkoutWriter {
-    private let healthStore = HKHealthStore()
+    private let healthStore: HKHealthStore
+
+    /// Uses the plugin's existing store (one `HKHealthStore` per app, as Apple recommends).
+    init(healthStore: HKHealthStore) {
+        self.healthStore = healthStore
+    }
 
     /// Validates `options` and saves the workout. `completion` is called exactly once: synchronously for
     /// validation and permission errors, otherwise on a HealthKit background queue.
@@ -226,14 +236,10 @@ final class WorkoutWriter {
         }
         let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: configuration, device: plan.device)
 
+        // begin -> events -> metadata -> samples, so the pauses are known before the samples arrive.
         var steps = [BuilderStep(action: "start the workout") { done in
             builder.beginCollection(withStart: input.startDate, completion: done)
         }]
-        if !plan.samples.isEmpty {
-            steps.append(BuilderStep(action: "add the workout samples") { done in
-                builder.add(plan.samples, completion: done)
-            })
-        }
         if !plan.events.isEmpty {
             steps.append(BuilderStep(action: "add the workout pauses") { done in
                 builder.addWorkoutEvents(plan.events, completion: done)
@@ -244,9 +250,15 @@ final class WorkoutWriter {
                 builder.addMetadata(plan.metadata, completion: done)
             })
         }
+        if !plan.samples.isEmpty {
+            steps.append(BuilderStep(action: "add the workout samples") { done in
+                builder.add(plan.samples, completion: done)
+            })
+        }
 
         WorkoutWriter.run(steps[...]) { error in
             if let error = error {
+                // Still collecting (endCollection not called yet), so discarding is valid here.
                 builder.discardWorkout()
                 completion(.failure(error))
                 return
@@ -278,6 +290,8 @@ final class WorkoutWriter {
 
     /// Hands `locations` to the builder's route builder. Calls back with the route builder, or nil when
     /// there is no route or HealthKit refuses the locations (the workout is then saved without a route).
+    /// The route builder is never `discard()`ed: any later call on a discarded builder raises, and an
+    /// unfinished route builder just drops its data when it is released.
     private static func insertRoute(_ locations: [CLLocation], into builder: HKWorkoutBuilder,
                                     completion: @escaping (HKWorkoutRouteBuilder?) -> Void) {
         guard !locations.isEmpty,
@@ -286,12 +300,7 @@ final class WorkoutWriter {
             return
         }
         routeBuilder.insertRouteData(locations) { success, error in
-            guard success, error == nil else {
-                routeBuilder.discard()
-                completion(nil)
-                return
-            }
-            completion(routeBuilder)
+            completion(success && error == nil ? routeBuilder : nil)
         }
     }
 
@@ -299,15 +308,22 @@ final class WorkoutWriter {
                                completion: @escaping (Result<[String: Any], Error>) -> Void) {
         builder.endCollection(withEnd: endDate) { success, error in
             guard success, error == nil else {
-                routeBuilder?.discard()
                 builder.discardWorkout()
                 completion(.failure(error ?? WorkoutWriterError.saveFailed("HealthKit could not end the workout.")))
                 return
             }
             builder.finishWorkout { workout, error in
-                guard let workout = workout, error == nil else {
-                    routeBuilder?.discard()
-                    completion(.failure(error ?? WorkoutWriterError.saveFailed("HealthKit did not return the saved workout.")))
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                guard let workout = workout else {
+                    // Apple: no workout and no error means the workout was saved but is not available
+                    // because the device is locked. Without it the route cannot be attached.
+                    completion(.failure(WorkoutWriterError.savedButUnavailable(
+                        "HealthKit saved the workout but could not return it because the device is locked, so its route was not saved. "
+                            + "Retrying with the same clientRecordId replaces it."
+                    )))
                     return
                 }
                 // Apple: finish the route after the workout is saved, so it can be associated with it.
@@ -361,8 +377,22 @@ extension WorkoutWriter {
         return (dataTypes, workouts)
     }
 
+    /// Share types to request. Apple ("Creating a workout route"): route data needs permission to read
+    /// and share both `HKWorkout` and `HKWorkoutRoute`, so `workoutRoute` also shares workouts.
     static func shareTypes(forWriteIdentifiers identifiers: [String]) -> Set<HKSampleType> {
-        return Set(identifiers.compactMap { shareType(forWriteIdentifier: $0) })
+        var types = Set(identifiers.compactMap { shareType(forWriteIdentifier: $0) })
+        if identifiers.contains("workoutRoute") {
+            types.insert(HKObjectType.workoutType())
+        }
+        return types
+    }
+
+    /// Read types to request alongside: `workoutRoute` needs read access to workouts and routes (see above).
+    static func readTypes(forWriteIdentifiers identifiers: [String]) -> Set<HKObjectType> {
+        guard identifiers.contains("workoutRoute") else {
+            return []
+        }
+        return [HKObjectType.workoutType(), HKSeriesType.workoutRoute()]
     }
 
     /// Adds the share status of the workout write identifiers to `payload`.

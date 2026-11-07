@@ -826,7 +826,8 @@ struct AuthorizationStatusPayload {
 }
 
 final class Health {
-    private let healthStore = HKHealthStore()
+    /// Shared with WorkoutWriter so the plugin keeps a single store.
+    let healthStore = HKHealthStore()
     private let isoFormatter: ISO8601DateFormatter
     private let emptyWriteTypesSet = Set<HKSampleType>()
     
@@ -874,6 +875,8 @@ final class Health {
             if includeWorkouts {
                 readObjectTypes.insert(HKObjectType.workoutType())
             }
+            // Routes need read + share access to workouts and routes (Apple, "Creating a workout route")
+            readObjectTypes.formUnion(WorkoutWriter.readTypes(forWriteIdentifiers: workoutWriteIdentifiers))
             let writeSampleTypes = try sampleTypes(for: writeTypes)
                 .union(WorkoutWriter.shareTypes(forWriteIdentifiers: workoutWriteIdentifiers))
 
