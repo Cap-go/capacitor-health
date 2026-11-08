@@ -426,9 +426,15 @@ export interface WriteSampleOptions {
    * Idempotency key. Saving again with the same `clientRecordId` replaces the earlier sample instead
    * of duplicating it, and {@link HealthPlugin.deleteSamples} can delete it later by this id.
    *
-   * Android: the Health Connect `clientRecordId`, with the save time as `clientRecordVersion`.
-   * iOS: `HKMetadataKeySyncIdentifier`, with the save time in milliseconds as `HKMetadataKeySyncVersion`
-   * (for blood pressure it is set on the correlation).
+   * Android: the Health Connect `clientRecordId`, with the save time in milliseconds as
+   * `clientRecordVersion` (always higher than the previous save's).
+   * iOS: `HKMetadataKeySyncIdentifier`, with the same kind of version as `HKMetadataKeySyncVersion`
+   * (for blood pressure it is set on the correlation, and its systolic and diastolic samples get
+   * `<id>:systolic` and `<id>:diastolic`).
+   *
+   * Ids are unique per data type. Do not give a sample an id the plugin derives for another record:
+   * `<workout id>:distance`, `:energy`, `:hr`, `:hr:<n>` and `:route` belong to the records saved
+   * with a workout (see {@link SaveWorkoutOptions.clientRecordId}).
    */
   clientRecordId?: string;
   /**
@@ -466,8 +472,10 @@ export interface DeleteSamplesResult {
    * iOS: the number of records of `dataType` actually deleted (for `workouts`, the workouts, not their
    * associated samples).
    *
-   * Android: the number of ids requested. Health Connect does not report how many records it deleted,
-   * and ids that match nothing are ignored.
+   * Android: the number of ids requested, since Health Connect does not report how many records it
+   * deleted. Android 14 and later ignore ids that match nothing. Health Connect documents that such an
+   * id fails the whole call, so on Android 13 and lower (Health Connect app) the call can reject with
+   * `delete-samples-failed` and delete nothing.
    */
   deleted: number;
 }
@@ -508,7 +516,10 @@ export interface WorkoutPause {
 export type WorkoutCompanionRecord = 'distance' | 'energy' | 'heartRate';
 
 export interface SaveWorkoutOptions {
-  /** The type of workout. */
+  /**
+   * The type of workout. On iOS `swimmingPool` and `swimmingOpenWater` are saved as swimming workouts
+   * with a pool or open-water location, so {@link HealthPlugin.queryWorkouts} reports both as `swimming`.
+   */
   workoutType: WorkoutType;
   /** ISO 8601 start date of the workout. */
   startDate: string;
@@ -520,12 +531,16 @@ export interface SaveWorkoutOptions {
    *
    * On Android it becomes the Health Connect `clientRecordId` of the exercise session, and the
    * distance, energy and heart-rate records get derived ids (`<id>:distance`, `<id>:energy`,
-   * `<id>:hr`). Each save uses the current time as `clientRecordVersion`, so the latest save wins.
+   * `<id>:hr`). Each save uses the save time in milliseconds as `clientRecordVersion` (always higher
+   * than the previous save's), so the latest save wins. Derived records a later save no longer
+   * writes are deleted, for the types the app can still write.
    *
    * On iOS it becomes the `HKMetadataKeySyncIdentifier` of the workout, and the other objects get
    * derived ids (`<id>:distance`, `<id>:energy`, `<id>:hr:<n>` per heart-rate reading,
-   * `<id>:route`), with the save time in milliseconds as `HKMetadataKeySyncVersion`. Retry with the
-   * same readings: a retry with fewer heart-rate readings leaves the extra earlier ones in place.
+   * `<id>:route`), with the same kind of version as `HKMetadataKeySyncVersion`. HealthKit only
+   * replaces the objects a later save writes again: a distance, energy or route it leaves out, and
+   * heart-rate readings beyond its count, stay from the earlier save. Retry with the same data, or
+   * delete the workout with {@link HealthPlugin.deleteSamples} before saving different contents.
    *
    * Without it, every call inserts new records.
    */
@@ -556,7 +571,7 @@ export interface SaveWorkoutOptions {
   heartRateSamples?: WorkoutHeartRateSample[];
   /**
    * GPS route of the workout. Locations outside the workout (`startDate` inclusive, `endDate`
-   * exclusive) or sharing a timestamp with an earlier location are dropped and counted in
+   * exclusive) or in the same millisecond as an earlier location are dropped and counted in
    * {@link SaveWorkoutResult.droppedRouteLocations}.
    *
    * The route is only saved when `workoutRoute` write access is granted; otherwise the workout is
@@ -603,7 +618,7 @@ export interface SaveWorkoutResult {
    * distance type. The workout itself is still saved. Empty when everything was written.
    */
   skippedRecords: WorkoutCompanionRecord[];
-  /** Number of route locations dropped because they were outside the workout or duplicated a timestamp. */
+  /** Number of route locations dropped because they were outside the workout or repeated an earlier location's millisecond. */
   droppedRouteLocations: number;
   /** Number of heart-rate readings dropped because they were outside the workout. */
   droppedHeartRateSamples: number;
@@ -672,8 +687,9 @@ export interface HealthPlugin {
   /**
    * Writes a single sample to the native health store.
    *
-   * Resolves with the saved sample's `platformId` (backward compatible: callers that ignored the
-   * previous `void` result are unaffected).
+   * Resolves with the saved sample's `platformId`. It used to resolve with nothing: code that awaits
+   * it or chains `.then()` is unaffected, but a function declared to return `Promise<void>` that
+   * returns this promise directly no longer type-checks and needs an `await`.
    */
   saveSample(options: WriteSampleOptions): Promise<SaveSampleResult>;
 
@@ -693,6 +709,13 @@ export interface HealthPlugin {
    * - Android: the distance, active-calories and heart-rate records saved by `saveWorkout` for the
    *   given `clientRecordIds` (for types the app can still write). With `platformIds` only the exercise
    *   session is deleted.
+   *
+   * iOS: `bloodPressure` is looked up first too (to delete the correlation with its systolic and
+   * diastolic samples), which needs read access: request `read: ['bloodPressure']`, otherwise the call
+   * can reject with `permission-denied`.
+   *
+   * Android: ids that match nothing are ignored on Android 14 and later; on Android 13 and lower the
+   * call can reject instead (see {@link DeleteSamplesResult.deleted}).
    *
    * @param options The record type and the ids to delete
    * @returns A promise that resolves with the number of deleted records (see {@link DeleteSamplesResult.deleted})
