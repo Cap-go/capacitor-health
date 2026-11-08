@@ -1254,8 +1254,7 @@ final class Health {
         }
     }
 
-    /// Calls back with the saved object's UUID (the correlation's for blood pressure).
-    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, clientRecordId: String?, recordingMethod: String?, completion: @escaping (Result<String, Error>) -> Void) throws {
+    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, clientRecordId: String?, recordingMethod: String?, completion: @escaping (Result<Void, Error>) -> Void) throws {
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthManagerError.healthDataUnavailable
         }
@@ -1298,7 +1297,7 @@ final class Health {
                 }
                 
                 if success {
-                    completion(.success(sample.uuid.uuidString))
+                    completion(.success(()))
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
                 }
@@ -1320,7 +1319,7 @@ final class Health {
                 }
                 
                 if success {
-                    completion(.success(sample.uuid.uuidString))
+                    completion(.success(()))
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
                 }
@@ -1356,9 +1355,9 @@ final class Health {
                     completion(.failure(error))
                     return
                 }
-
+                
                 if success {
-                    completion(.success(correlation.uuid.uuidString))
+                    completion(.success(()))
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
                 }
@@ -1379,7 +1378,7 @@ final class Health {
             }
 
             if success {
-                completion(.success(sample.uuid.uuidString))
+                completion(.success(()))
             } else {
                 completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
             }

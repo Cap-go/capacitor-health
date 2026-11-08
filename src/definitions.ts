@@ -447,14 +447,6 @@ export interface WriteSampleOptions {
   recordingMethod?: RecordingMethod;
 }
 
-export interface SaveSampleResult {
-  /**
-   * Platform-specific identifier of the saved sample (Health Connect record id on Android, HealthKit
-   * UUID on iOS; the correlation's UUID for blood pressure). Usable with {@link HealthPlugin.deleteSamples}.
-   */
-  platformId?: string;
-}
-
 export interface DeleteSamplesOptions {
   /**
    * Type of the records to delete. Use `workouts` for workouts saved with
@@ -463,7 +455,7 @@ export interface DeleteSamplesOptions {
   dataType: HealthDataType;
   /** `clientRecordId`s given when the records were saved. */
   clientRecordIds?: string[];
-  /** `platformId`s of the records (as returned by `saveSample`, `saveWorkout`, `readSamples` or `queryWorkouts`). */
+  /** `platformId`s of the records (as returned by `saveWorkout`, `readSamples` or `queryWorkouts`). */
   platformIds?: string[];
 }
 
@@ -684,14 +676,8 @@ export interface HealthPlugin {
   checkAuthorization(options: AuthorizationOptions): Promise<AuthorizationStatus>;
   /** Reads samples for the given data type within the specified time frame. */
   readSamples(options: QueryOptions): Promise<ReadSamplesResult>;
-  /**
-   * Writes a single sample to the native health store.
-   *
-   * Resolves with the saved sample's `platformId`. It used to resolve with nothing: code that awaits
-   * it or chains `.then()` is unaffected, but a function declared to return `Promise<void>` that
-   * returns this promise directly no longer type-checks and needs an `await`.
-   */
-  saveSample(options: WriteSampleOptions): Promise<SaveSampleResult>;
+  /** Writes a single sample to the native health store. */
+  saveSample(options: WriteSampleOptions): Promise<void>;
 
   /**
    * Deletes records this app saved, by `clientRecordId` and/or `platformId`.

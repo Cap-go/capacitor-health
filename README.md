@@ -319,19 +319,18 @@ const { platformId, routeSaved, skippedRecords } = await Health.saveWorkout({
 ### Deleting samples and workouts
 
 `saveSample()` accepts the same `clientRecordId` idempotency key as `saveWorkout()` (plus an optional
-`recordingMethod`) and resolves with the saved record's `platformId`. Either id can later be passed to
-`deleteSamples()`:
+`recordingMethod`). Pass that id to `deleteSamples()` to delete the record later, or use a `platformId`
+returned by `saveWorkout()`, `readSamples()` or `queryWorkouts()`:
 
 ```ts
-const { platformId } = await Health.saveSample({
+await Health.saveSample({
   dataType: 'weight',
   value: 74.3,
   clientRecordId: 'weight-c41e9b07', // same id again => replaces, never duplicates
 });
 
-// Delete by the id you chose, or by the platform id
+// Delete by the id you chose (platformIds work too)
 await Health.deleteSamples({ dataType: 'weight', clientRecordIds: ['weight-c41e9b07'] });
-// or: await Health.deleteSamples({ dataType: 'weight', platformIds: [platformId] });
 await Health.deleteSamples({ dataType: 'workouts', clientRecordIds: ['run-7f3c2a9e'] });
 ```
 
@@ -602,20 +601,14 @@ Reads samples for the given data type within the specified time frame.
 ### saveSample(...)
 
 ```typescript
-saveSample(options: WriteSampleOptions) => Promise<SaveSampleResult>
+saveSample(options: WriteSampleOptions) => Promise<void>
 ```
 
 Writes a single sample to the native health store.
 
-Resolves with the saved sample's `platformId`. It used to resolve with nothing: code that awaits
-it or chains `.then()` is unaffected, but a function declared to return `Promise&lt;void&gt;` that
-returns this promise directly no longer type-checks and needs an `await`.
-
 | Param         | Type                                                              |
 | ------------- | ----------------------------------------------------------------- |
 | **`options`** | <code><a href="#writesampleoptions">WriteSampleOptions</a></code> |
-
-**Returns:** <code>Promise&lt;<a href="#savesampleresult">SaveSampleResult</a>&gt;</code>
 
 --------------------
 
@@ -867,13 +860,6 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 | **`ascending`** | <code>boolean</code>                                      | Return results sorted ascending by start date (defaults to false). |
 
 
-#### SaveSampleResult
-
-| Prop             | Type                | Description                                                                                                                                                                                               |
-| ---------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`platformId`** | <code>string</code> | Platform-specific identifier of the saved sample (Health Connect record id on Android, HealthKit UUID on iOS; the correlation's UUID for blood pressure). Usable with {@link HealthPlugin.deleteSamples}. |
-
-
 #### WriteSampleOptions
 
 | Prop                         | Type                                                                                         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -904,7 +890,7 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 | --------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`dataType`**        | <code><a href="#healthdatatype">HealthDataType</a></code> | Type of the records to delete. Use `workouts` for workouts saved with {@link HealthPlugin.saveWorkout}; `workoutRoute` is not accepted (delete the workout instead). |
 | **`clientRecordIds`** | <code>string[]</code>                                     | `clientRecordId`s given when the records were saved.                                                                                                                 |
-| **`platformIds`**     | <code>string[]</code>                                     | `platformId`s of the records (as returned by `saveSample`, `saveWorkout`, `readSamples` or `queryWorkouts`).                                                         |
+| **`platformIds`**     | <code>string[]</code>                                     | `platformId`s of the records (as returned by `saveWorkout`, `readSamples` or `queryWorkouts`).                                                                       |
 
 
 #### QueryWorkoutsResult
