@@ -1343,8 +1343,11 @@ final class Health {
             let systolicQuantity = HKQuantity(unit: HKUnit.millimeterOfMercury(), doubleValue: systolicValue)
             let diastolicQuantity = HKQuantity(unit: HKUnit.millimeterOfMercury(), doubleValue: diastolicValue)
             
-            let systolicSample = HKQuantitySample(type: systolicType, quantity: systolicQuantity, start: startDate, end: endDate)
-            let diastolicSample = HKQuantitySample(type: diastolicType, quantity: diastolicQuantity, start: startDate, end: endDate)
+            // With a clientRecordId the two samples get derived sync identifiers too (see SyncMetadata.part)
+            let systolicSample = HKQuantitySample(type: systolicType, quantity: systolicQuantity, start: startDate, end: endDate,
+                                                  metadata: SyncMetadata.part("systolic", of: syncMetadata))
+            let diastolicSample = HKQuantitySample(type: diastolicType, quantity: diastolicQuantity, start: startDate, end: endDate,
+                                                   metadata: SyncMetadata.part("diastolic", of: syncMetadata))
             
             let correlation = HKCorrelation(type: correlationType, start: startDate, end: endDate, objects: [systolicSample, diastolicSample], metadata: metadataDictionary)
             

@@ -406,6 +406,19 @@ enum SyncMetadata {
         }
         return metadata(syncIdentifier: clientRecordId, version: currentVersion(), userEntered: recordingMethod == "manualEntry")
     }
+
+    /// Metadata for a part of a sample saved with `forSample` metadata (the systolic and diastolic samples
+    /// of a blood pressure correlation): `<clientRecordId>:<part>` as sync identifier with the same sync
+    /// version, so saving again replaces the parts along with the correlation. Nil without a
+    /// `clientRecordId`, so the parts are saved without metadata as before.
+    static func part(_ name: String, of sampleMetadata: [String: Any]) -> [String: Any]? {
+        guard let syncIdentifier = sampleMetadata[HKMetadataKeySyncIdentifier] as? String,
+              let version = sampleMetadata[HKMetadataKeySyncVersion] as? NSNumber else {
+            return nil
+        }
+        let userEntered = sampleMetadata[HKMetadataKeyWasUserEntered] as? Bool ?? false
+        return metadata(syncIdentifier: "\(syncIdentifier):\(name)", version: version, userEntered: userEntered)
+    }
 }
 
 /// Hands out strictly increasing sync versions. Thread-safe, since plugin calls can run on different threads.
