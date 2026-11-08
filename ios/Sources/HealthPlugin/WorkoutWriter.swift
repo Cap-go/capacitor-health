@@ -233,8 +233,16 @@ final class WorkoutWriter {
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = input.workoutType.hkWorkoutActivityType()
         configuration.locationType = input.route.isEmpty ? .unknown : .outdoor
-        if input.workoutType == .swimmingPool {
+        switch input.workoutType {
+        case .swimmingPool:
             configuration.swimmingLocationType = .pool
+        case .swimmingOpenWater:
+            // The shared mapping (used by queryWorkouts filters) turns swimmingOpenWater into waterSports;
+            // HealthKit records an open-water swim as a swimming workout with an open-water location.
+            configuration.activityType = .swimming
+            configuration.swimmingLocationType = .openWater
+        default:
+            break
         }
         let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: configuration, device: plan.device)
 
