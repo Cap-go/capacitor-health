@@ -63,7 +63,8 @@ enum HealthWriteError: LocalizedError {
 /// out and reported in `skippedRecords`; a route without share access is left out (`routeSaved: false`).
 ///
 /// Idempotency: with a `clientRecordId`, every object gets `HKMetadataKeySyncIdentifier` (the id for
-/// the workout, `<id>:distance`, `<id>:energy`, `<id>:hr:<n>` and `<id>:route` for the rest) and an
+/// the workout, `<id>:distance`, `<id>:energy`, `<id>:hr:<n>` and `<id>:route` for the rest; with pauses
+/// the distance and energy are split per active interval as `<id>:distance:<n>` / `<id>:energy:<n>`) and an
 /// increasing `HKMetadataKeySyncVersion` (`SyncMetadata.currentVersion()`), so HealthKit replaces the
 /// earlier copy of each object written again.
 final class WorkoutWriter {
@@ -149,12 +150,12 @@ final class WorkoutWriter {
                                   metadata: (String?) -> [String: Any]) -> (samples: [HKSample], skipped: [String]) {
         var samples: [HKSample] = []
         var skippedRecords: [String] = []
+        let activeIntervals = WorkoutWriter.activeIntervals(start: input.startDate, end: input.endDate, pauses: input.pauses)
 
         if let meters = input.totalDistanceMeters {
             if let type = WorkoutWriter.distanceType(for: input.workoutType.hkWorkoutActivityType()), isSharingAuthorized(type) {
-                let quantity = HKQuantity(unit: HKUnit.meter(), doubleValue: meters)
-                samples.append(HKQuantitySample(type: type, quantity: quantity, start: input.startDate, end: input.endDate,
-                                                device: device, metadata: metadata("distance")))
+                samples += WorkoutWriter.totalSamples(type: type, unit: HKUnit.meter(), total: meters, over: activeIntervals,
+                                                      idSuffix: "distance", device: device, metadata: metadata)
             } else {
                 skippedRecords.append("distance")
             }
@@ -162,9 +163,8 @@ final class WorkoutWriter {
 
         if let kilocalories = input.totalEnergyKilocalories {
             if let type = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned), isSharingAuthorized(type) {
-                let quantity = HKQuantity(unit: HKUnit.kilocalorie(), doubleValue: kilocalories)
-                samples.append(HKQuantitySample(type: type, quantity: quantity, start: input.startDate, end: input.endDate,
-                                                device: device, metadata: metadata("energy")))
+                samples += WorkoutWriter.totalSamples(type: type, unit: HKUnit.kilocalorie(), total: kilocalories, over: activeIntervals,
+                                                      idSuffix: "energy", device: device, metadata: metadata)
             } else {
                 skippedRecords.append("energy")
             }
@@ -200,6 +200,58 @@ final class WorkoutWriter {
         default:
             return nil
         }
+    }
+
+    /// The workout window minus the pauses (sorted, non-overlapping and inside the window, as
+    /// `WorkoutInput` validates them), leaving out empty gaps. A workout paused from start to end has
+    /// no active time: the whole window is returned so the total is still saved.
+    private static func activeIntervals(start: Date, end: Date, pauses: [DateInterval]) -> [DateInterval] {
+        var intervals: [DateInterval] = []
+        var cursor = start
+        for pause in pauses {
+            if pause.start > cursor {
+                intervals.append(DateInterval(start: cursor, end: pause.start))
+            }
+            cursor = max(cursor, pause.end)
+        }
+        if end > cursor {
+            intervals.append(DateInterval(start: cursor, end: end))
+        }
+        return intervals.isEmpty ? [DateInterval(start: start, end: end)] : intervals
+    }
+
+    /// Splits `total` over `intervals` (non-empty, each longer than zero) in proportion to their
+    /// durations. The last share takes the floating-point remainder, so the shares add up to `total`.
+    private static func split(_ total: Double, over intervals: [DateInterval]) -> [Double] {
+        let activeDuration = intervals.reduce(0) { $0 + $1.duration }
+        var shares: [Double] = []
+        var assigned = 0.0
+        for interval in intervals.dropLast() {
+            let share = total * (interval.duration / activeDuration)
+            shares.append(share)
+            assigned += share
+        }
+        shares.append(max(0, total - assigned))
+        return shares
+    }
+
+    /// A workout total (distance or active energy) as one sample per active interval. HealthKit leaves
+    /// paused time out of the workout's statistics and prorates a sample that spans a pause, so a single
+    /// sample over the whole window would count only part of the total. One piece keeps `<id>:<idSuffix>`;
+    /// several pieces get `<id>:<idSuffix>:<n>` (from 0, in time order).
+    private static func totalSamples(type: HKQuantityType, unit: HKUnit, total: Double, over intervals: [DateInterval],
+                                     idSuffix: String, device: HKDevice?,
+                                     metadata: (String?) -> [String: Any]) -> [HKSample] {
+        let shares = split(total, over: intervals)
+        var samples: [HKSample] = []
+        for index in intervals.indices {
+            let interval = intervals[index]
+            let suffix = intervals.count == 1 ? idSuffix : "\(idSuffix):\(index)"
+            let quantity = HKQuantity(unit: unit, doubleValue: shares[index])
+            samples.append(HKQuantitySample(type: type, quantity: quantity, start: interval.start, end: interval.end,
+                                            device: device, metadata: metadata(suffix)))
+        }
+        return samples
     }
 
     private static func objectMetadata(for input: WorkoutInput, idSuffix: String?, version: NSNumber) -> [String: Any] {

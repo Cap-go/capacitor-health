@@ -433,7 +433,7 @@ export interface WriteSampleOptions {
    * `<id>:systolic` and `<id>:diastolic`).
    *
    * Ids are unique per data type. Do not give a sample an id the plugin derives for another record:
-   * `<workout id>:distance`, `:energy`, `:hr`, `:hr:<n>` and `:route` belong to the records saved
+   * `<workout id>:distance`, `:distance:<n>`, `:energy`, `:energy:<n>`, `:hr`, `:hr:<n>` and `:route` belong to the records saved
    * with a workout (see {@link SaveWorkoutOptions.clientRecordId}).
    */
   clientRecordId?: string;
@@ -529,9 +529,11 @@ export interface SaveWorkoutOptions {
    *
    * On iOS it becomes the `HKMetadataKeySyncIdentifier` of the workout, and the other objects get
    * derived ids (`<id>:distance`, `<id>:energy`, `<id>:hr:<n>` per heart-rate reading,
-   * `<id>:route`), with the same kind of version as `HKMetadataKeySyncVersion`. HealthKit only
-   * replaces the objects a later save writes again: a distance, energy or route it leaves out, and
-   * heart-rate readings beyond its count, stay from the earlier save. Retry with the same data, or
+   * `<id>:route`), with the same kind of version as `HKMetadataKeySyncVersion`. When pauses split the
+   * workout into several active intervals, the distance and energy pieces get `<id>:distance:<n>` and
+   * `<id>:energy:<n>` (from 0, in time order) instead. HealthKit only replaces the objects a later save
+   * writes again: a distance, energy or route it leaves out, distance or energy pieces with another id
+   * (the pauses changed), and heart-rate readings beyond its count, stay from the earlier save. Retry with the same data, or
    * delete the workout with {@link HealthPlugin.deleteSamples} before saving different contents.
    *
    * Without it, every call inserts new records.
@@ -547,11 +549,15 @@ export interface SaveWorkoutOptions {
    * and hiking use `distanceWalkingRunning` (`distance` write access), cycling uses `distanceCycling`
    * (`distanceCycling` write access). Other workout types have no matching HealthKit distance type, so
    * the distance is not saved and is reported in {@link SaveWorkoutResult.skippedRecords}.
+   * With {@link SaveWorkoutOptions.pauses}, iOS writes one sample per active interval instead (each
+   * proportional to its duration, adding up to the total): HealthKit leaves paused time out of the
+   * workout's statistics, so a sample spanning a pause would only count in part.
    */
   totalDistance?: number;
   /**
    * Active energy burned in kilocalories (not total energy). Android writes it as an
-   * `ActiveCaloriesBurnedRecord` covering the workout, iOS as an `activeEnergyBurned` sample.
+   * `ActiveCaloriesBurnedRecord` covering the workout, iOS as an `activeEnergyBurned` sample (split
+   * per active interval when there are pauses, like {@link SaveWorkoutOptions.totalDistance}).
    */
   totalEnergyBurned?: number;
   /**
