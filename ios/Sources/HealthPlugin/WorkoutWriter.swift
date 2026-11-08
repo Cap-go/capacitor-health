@@ -203,8 +203,8 @@ final class WorkoutWriter {
     }
 
     /// The workout window minus the pauses (sorted, non-overlapping and inside the window, as
-    /// `WorkoutInput` validates them), leaving out empty gaps. A workout paused from start to end has
-    /// no active time: the whole window is returned so the total is still saved.
+    /// `WorkoutInput` validates them), leaving out empty gaps. Never empty: `WorkoutInput` rejects
+    /// pauses that cover the whole workout.
     private static func activeIntervals(start: Date, end: Date, pauses: [DateInterval]) -> [DateInterval] {
         var intervals: [DateInterval] = []
         var cursor = start
@@ -217,17 +217,19 @@ final class WorkoutWriter {
         if end > cursor {
             intervals.append(DateInterval(start: cursor, end: end))
         }
-        return intervals.isEmpty ? [DateInterval(start: start, end: end)] : intervals
+        return intervals
     }
 
     /// Splits `total` over `intervals` (non-empty, each longer than zero) in proportion to their
-    /// durations. The last share takes the floating-point remainder, so the shares add up to `total`.
+    /// durations. Each share is capped at what is still unassigned, so rounding never makes the earlier
+    /// shares exceed `total`, and the last share takes the remainder: the shares are never negative and
+    /// add up to `total`.
     private static func split(_ total: Double, over intervals: [DateInterval]) -> [Double] {
         let activeDuration = intervals.reduce(0) { $0 + $1.duration }
         var shares: [Double] = []
         var assigned = 0.0
         for interval in intervals.dropLast() {
-            let share = total * (interval.duration / activeDuration)
+            let share = min(total * (interval.duration / activeDuration), max(0, total - assigned))
             shares.append(share)
             assigned += share
         }
@@ -742,6 +744,20 @@ struct WorkoutInput {
         for (previous, next) in zip(sorted, sorted.dropFirst()) where previous.end > next.start {
             throw HealthWriteError.invalidOption(
                 "pauses must not overlap: the pause ending at \(isoString(previous.end)) overlaps the one starting at \(isoString(next.start))"
+            )
+        }
+        // HealthKit leaves paused time out of the workout, so a fully paused workout would have no time
+        // to attribute its duration, distance and energy to. Same rule on Android.
+        var coveredUntil = workout.start
+        for pause in sorted {
+            guard pause.start <= coveredUntil else {
+                break
+            }
+            coveredUntil = max(coveredUntil, pause.end)
+        }
+        guard coveredUntil < workout.end else {
+            throw HealthWriteError.invalidOption(
+                "pauses must not cover the whole workout: it needs active time between startDate and endDate"
             )
         }
         return sorted

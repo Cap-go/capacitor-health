@@ -579,7 +579,8 @@ export interface SaveWorkoutOptions {
    */
   route?: WorkoutRouteLocation[];
   /**
-   * Pauses inside the workout. They must lie within the workout and must not overlap.
+   * Pauses inside the workout. They must lie within the workout, must not overlap and must not cover
+   * the whole workout (it needs some active time).
    * Android stores each one as a Health Connect exercise segment of type pause
    * (`EXERCISE_SEGMENT_TYPE_PAUSE`, valid for every workout type). iOS adds a pause and a resume
    * workout event, and HealthKit leaves the time between them out of the workout duration.

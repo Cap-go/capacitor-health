@@ -204,6 +204,18 @@ class WorkoutWriter {
                 )
             }
         }
+        // Same rule as iOS, where HealthKit leaves paused time out of the workout: a workout needs some
+        // active time to attribute its duration, distance and energy to.
+        var coveredUntil = startTime
+        for (pause in pauses) {
+            if (pause.startTime.isAfter(coveredUntil)) break
+            coveredUntil = maxOf(coveredUntil, pause.endTime)
+        }
+        if (!coveredUntil.isBefore(endTime)) {
+            throw IllegalArgumentException(
+                "pauses must not cover the whole workout: it needs active time between startDate and endDate"
+            )
+        }
 
         return WorkoutInput(
             exerciseType = exerciseType,
