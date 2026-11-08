@@ -2,13 +2,11 @@ package app.capgo.plugin.health
 
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
-import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
-import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
-import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.Record
 import com.getcapacitor.JSObject
 import kotlin.reflect.KClass
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -18,7 +16,8 @@ import org.json.JSONObject
  *
  * Health Connect only lets an app delete its own records and needs the type's write permission.
  * `deleteRecords` does not report how many records it deleted, so the result is the number of ids
- * requested.
+ * requested. The requested ids are passed as given: Health Connect documents that an id matching
+ * no record fails the whole call (the platform on Android 14+ ignores it).
  */
 class SampleDeleter {
 
@@ -60,9 +59,10 @@ class SampleDeleter {
     /**
      * Deletes the records. Throws [SecurityException] when the type's write permission is missing.
      * For workouts, the companion records saveWorkout wrote for the given clientRecordIds
-     * (`<id>:distance`, `<id>:energy`, `<id>:hr`) are deleted too, for the types the app can still write.
+     * (`<id>:distance`, `<id>:energy`, `<id>:hr`) are deleted too, for the types the app can still
+     * write; a companion the workout was saved without is skipped.
      */
-    suspend fun delete(client: HealthConnectClient, input: DeleteInput): JSObject {
+    suspend fun delete(client: HealthConnectClient, input: DeleteInput): JSObject = WorkoutWriter.WRITE_LOCK.withLock {
         val granted = client.permissionController.getGrantedPermissions()
         if (HealthPermission.getWritePermission(input.recordClass) !in granted) {
             throw SecurityException(
@@ -74,14 +74,18 @@ class SampleDeleter {
         client.deleteRecords(input.recordClass, input.platformIds, input.clientRecordIds)
 
         if (input.isWorkout && input.clientRecordIds.isNotEmpty()) {
-            WORKOUT_COMPANIONS.forEach { (recordClass, idSuffix) ->
+            WorkoutWriter.COMPANION_RECORDS.forEach { (recordClass, idSuffix) ->
                 if (HealthPermission.getWritePermission(recordClass) in granted) {
-                    client.deleteRecords(recordClass, emptyList(), input.clientRecordIds.map { "$it:$idSuffix" })
+                    WorkoutWriter.deleteCompanionRecords(
+                        client,
+                        recordClass,
+                        input.clientRecordIds.map { WorkoutWriter.companionClientRecordId(it, idSuffix) },
+                    )
                 }
             }
         }
 
-        return JSObject().apply { put("deleted", input.clientRecordIds.size + input.platformIds.size) }
+        JSObject().apply { put("deleted", input.clientRecordIds.size + input.platformIds.size) }
     }
 
     /** A missing key or JSON `null` is an empty list; duplicates are dropped. */
@@ -99,12 +103,5 @@ class SampleDeleter {
 
     companion object {
         private const val MAX_IDS = 100
-
-        /** Records saveWorkout writes next to the exercise session, with their clientRecordId suffix. */
-        private val WORKOUT_COMPANIONS: List<Pair<KClass<out Record>, String>> = listOf(
-            DistanceRecord::class to WorkoutWriter.DISTANCE_ID_SUFFIX,
-            ActiveCaloriesBurnedRecord::class to WorkoutWriter.ENERGY_ID_SUFFIX,
-            HeartRateRecord::class to WorkoutWriter.HEART_RATE_ID_SUFFIX,
-        )
     }
 }
