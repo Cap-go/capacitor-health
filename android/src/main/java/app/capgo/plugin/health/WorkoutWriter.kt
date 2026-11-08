@@ -62,8 +62,8 @@ class WorkoutWriter {
      * (`startDate` inclusive, `endDate` exclusive, which is what Health Connect enforces for routes)
      * are dropped and counted instead: device clocks and GPS fix times routinely land a moment
      * outside the session, and failing the whole workout for that would lose it. Route locations
-     * that repeat an earlier timestamp are dropped too, since Health Connect requires strictly
-     * increasing route times.
+     * in the same millisecond as an earlier one are dropped too, since Health Connect stores route
+     * times in milliseconds and requires them to strictly increase.
      */
     fun parse(options: JSONObject): WorkoutInput {
         val workoutType = requiredString(options, "workoutType", "workoutType")
@@ -161,8 +161,10 @@ class WorkoutWriter {
                 )
             }
         }
-        // sortedBy is stable, so distinctBy keeps the first location given for a timestamp.
-        val route = locations.sortedBy { it.time }.distinctBy { it.time }
+        // Health Connect stores route times in milliseconds and needs them to strictly increase, so
+        // locations are deduplicated per millisecond. sortedBy is stable, so distinctBy keeps the
+        // first location given for a millisecond.
+        val route = locations.sortedBy { it.time }.distinctBy { it.time.toEpochMilli() }
         droppedRouteLocations += locations.size - route.size
 
         val pauses = mutableListOf<ExerciseSegment>()
