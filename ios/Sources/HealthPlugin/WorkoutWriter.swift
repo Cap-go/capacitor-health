@@ -63,8 +63,9 @@ enum HealthWriteError: LocalizedError {
 /// out and reported in `skippedRecords`; a route without share access is left out (`routeSaved: false`).
 ///
 /// Idempotency: with a `clientRecordId`, every object gets `HKMetadataKeySyncIdentifier` (the id for
-/// the workout, `<id>:distance`, `<id>:energy`, `<id>:hr:<n>` and `<id>:route` for the rest) and the
-/// save time in milliseconds as `HKMetadataKeySyncVersion`, so HealthKit replaces the earlier copy.
+/// the workout, `<id>:distance`, `<id>:energy`, `<id>:hr:<n>` and `<id>:route` for the rest) and an
+/// increasing `HKMetadataKeySyncVersion` (`SyncMetadata.currentVersion()`), so HealthKit replaces the
+/// earlier copy of each object written again.
 final class WorkoutWriter {
     private let healthStore: HKHealthStore
 
@@ -359,10 +360,14 @@ final class WorkoutWriter {
 
 /// Sync and recording metadata shared by `saveWorkout` and `saveSample`.
 enum SyncMetadata {
-    /// The save time in milliseconds, used as `HKMetadataKeySyncVersion`: HealthKit replaces an object
-    /// with the same `HKMetadataKeySyncIdentifier` when the new sync version is greater.
+    private static let versionCounter = SyncVersionCounter()
+
+    /// `HKMetadataKeySyncVersion` for a save: the save time in milliseconds, but always greater than the
+    /// previous version handed out, so two saves in the same millisecond, or after the clock moved back
+    /// while the app runs, still replace each other. HealthKit replaces an object with the same
+    /// `HKMetadataKeySyncIdentifier` only when the new sync version is greater.
     static func currentVersion() -> NSNumber {
-        return NSNumber(value: Int64((Date().timeIntervalSince1970 * 1000).rounded()))
+        return NSNumber(value: versionCounter.next(now: Int64((Date().timeIntervalSince1970 * 1000).rounded())))
     }
 
     static func metadata(syncIdentifier: String?, version: NSNumber, userEntered: Bool) -> [String: Any] {
@@ -392,6 +397,19 @@ enum SyncMetadata {
             )
         }
         return metadata(syncIdentifier: clientRecordId, version: currentVersion(), userEntered: recordingMethod == "manualEntry")
+    }
+}
+
+/// Hands out strictly increasing sync versions. Thread-safe, since plugin calls can run on different threads.
+private final class SyncVersionCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var last: Int64 = 0
+
+    func next(now: Int64) -> Int64 {
+        lock.lock()
+        defer { lock.unlock() }
+        last = max(now, last + 1)
+        return last
     }
 }
 
