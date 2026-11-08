@@ -493,7 +493,7 @@ extension WorkoutWriter {
 ///
 /// Invalid values throw `HealthWriteError.invalidOption` naming the field. Heart-rate readings and
 /// route locations outside the workout (`startDate` inclusive, `endDate` exclusive), and route
-/// locations repeating an earlier timestamp, are dropped and counted instead of failing the workout.
+/// locations in the same millisecond as an earlier one, are dropped and counted instead of failing the workout.
 struct WorkoutInput {
     struct HeartRateReading {
         let date: Date
@@ -607,12 +607,21 @@ struct WorkoutInput {
                 inWorkout.append(location)
             }
         }
-        // Keep the first location given for a timestamp, like Android (Health Connect needs increasing times).
+        // Keep the first location given for a millisecond, like Android (Health Connect stores route times in
+        // milliseconds and needs them to increase).
         var unique: [CLLocation] = []
-        for location in sortedByDate(inWorkout, { $0.timestamp }) where unique.last?.timestamp != location.timestamp {
+        for location in sortedByDate(inWorkout, { $0.timestamp }) {
+            if let previous = unique.last, epochMilliseconds(previous.timestamp) == epochMilliseconds(location.timestamp) {
+                continue
+            }
             unique.append(location)
         }
         return (unique, items.count - unique.count)
+    }
+
+    /// Whole milliseconds since 1970, rounded down like Java's `Instant.toEpochMilli()`.
+    private static func epochMilliseconds(_ date: Date) -> Int64 {
+        return Int64((date.timeIntervalSince1970 * 1000).rounded(.down))
     }
 
     private static func parseLocation(_ value: JSValue, path: String) throws -> CLLocation {
