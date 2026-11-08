@@ -530,7 +530,7 @@ class HealthManager {
         manualEntry: Boolean = true
     ): String? {
         // Without clientRecordId / recordingMethod this stays Metadata.manualEntry(), as before.
-        val recordMetadata = WorkoutWriter.recordMetadata(clientRecordId, manualEntry, System.currentTimeMillis())
+        val recordMetadata = WorkoutWriter.recordMetadata(clientRecordId, manualEntry, WorkoutWriter.nextRecordVersion())
 
         // Every branch ends with insertRecords, so the `when` yields its response.
         val response = when (dataType) {

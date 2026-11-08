@@ -32,8 +32,9 @@ import org.json.JSONObject
  * so the save is atomic. Steps are never written.
  *
  * Idempotency: when the caller passes a `clientRecordId`, the session uses it and the derived
- * records use `<id>:distance`, `<id>:energy` and `<id>:hr`. Every save uses the current time as
- * `clientRecordVersion`, so a retry replaces the earlier copy instead of duplicating it.
+ * records use `<id>:distance`, `<id>:energy` and `<id>:hr`. Every save gets a higher
+ * `clientRecordVersion` than the previous one ([nextRecordVersion]), so a retry replaces the earlier
+ * copy instead of duplicating it.
  */
 class WorkoutWriter {
 
@@ -245,7 +246,7 @@ class WorkoutWriter {
         }
 
         val routeSaved = input.route.isNotEmpty() && HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE in granted
-        val version = System.currentTimeMillis()
+        val version = nextRecordVersion()
         val startZoneOffset = zoneOffset(input.startTime)
         val endZoneOffset = zoneOffset(input.endTime)
 
@@ -392,6 +393,20 @@ class WorkoutWriter {
         internal const val DISTANCE_ID_SUFFIX = "distance"
         internal const val ENERGY_ID_SUFFIX = "energy"
         internal const val HEART_RATE_ID_SUFFIX = "hr"
+
+        private var lastRecordVersion = 0L
+
+        /**
+         * `clientRecordVersion` for a save (saveWorkout and saveSample): the current time in
+         * milliseconds, but always higher than the previous version handed out, so two saves in the
+         * same millisecond, or after the clock moved back while the app runs, still replace each
+         * other. Health Connect keeps the record with the highest version.
+         */
+        @Synchronized
+        internal fun nextRecordVersion(): Long {
+            lastRecordVersion = maxOf(System.currentTimeMillis(), lastRecordVersion + 1)
+            return lastRecordVersion
+        }
 
         /**
          * Health Connect metadata for a record this plugin writes (saveWorkout and saveSample).
