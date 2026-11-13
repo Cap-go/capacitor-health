@@ -27,7 +27,8 @@ export type HealthDataType =
   | 'dietaryWater'
   | 'dietaryEnergyConsumed'
   | 'stateOfMind'
-  | 'workouts';
+  | 'workouts'
+  | 'workoutRoute';
 
 export type HealthUnit =
   | 'count'
@@ -50,7 +51,14 @@ export type HealthUnit =
 export interface AuthorizationOptions {
   /** Data types that should be readable after authorization. */
   read?: HealthDataType[];
-  /** Data types that should be writable after authorization. */
+  /**
+   * Data types that should be writable after authorization.
+   *
+   * Include `workouts` to save workouts with {@link HealthPlugin.saveWorkout}, and `workoutRoute`
+   * to also save their GPS route (Health Connect `WRITE_EXERCISE_ROUTE`, HealthKit
+   * `HKSeriesType.workoutRoute()`). `workoutRoute` is write-only. On iOS it also requests read and
+   * share access to workouts and read access to routes, which Apple requires for route data.
+   */
   write?: HealthDataType[];
   /**
    * Android only: also request the `READ_HEALTH_DATA_HISTORY` permission in the same
@@ -391,6 +399,9 @@ export interface QueryWorkoutsResult {
   anchor?: string;
 }
 
+/** How a record was recorded: by the app while it happened, or typed in by the user. */
+export type RecordingMethod = 'activelyRecorded' | 'manualEntry';
+
 export interface WriteSampleOptions {
   dataType: HealthDataType;
   value: number;
@@ -411,6 +422,205 @@ export interface WriteSampleOptions {
   systolic?: number;
   /** For blood pressure data, the diastolic value in mmHg. Required when dataType is 'bloodPressure'. */
   diastolic?: number;
+  /**
+   * Idempotency key. Saving again with the same `clientRecordId` replaces the earlier sample instead
+   * of duplicating it, and {@link HealthPlugin.deleteSamples} can delete it later by this id.
+   *
+   * Android: the Health Connect `clientRecordId`, with the save time in milliseconds as
+   * `clientRecordVersion` (always higher than the previous save's).
+   * iOS: `HKMetadataKeySyncIdentifier`, with the same kind of version as `HKMetadataKeySyncVersion`
+   * (for blood pressure it is set on the correlation, and its systolic and diastolic samples get
+   * `<id>:systolic` and `<id>:diastolic`).
+   *
+   * Ids are unique per data type. Do not give a sample an id the plugin derives for another record:
+   * `<workout id>:distance`, `:distance:<n>`, `:energy`, `:energy:<n>`, `:hr`, `:hr:<n>` and `:route` belong to the records saved
+   * with a workout (see {@link SaveWorkoutOptions.clientRecordId}).
+   */
+  clientRecordId?: string;
+  /**
+   * How the sample was recorded. When omitted nothing changes: Android saves a manual entry and iOS sets
+   * no recording flag.
+   *
+   * `manualEntry`: Android manual entry; iOS `HKMetadataKeyWasUserEntered: true`.
+   * `activelyRecorded`: Android actively recorded on a phone device; iOS no recording flag.
+   */
+  recordingMethod?: RecordingMethod;
+}
+
+export interface DeleteSamplesOptions {
+  /**
+   * Type of the records to delete. Use `workouts` for workouts saved with
+   * {@link HealthPlugin.saveWorkout}; `workoutRoute` is not accepted (delete the workout instead).
+   */
+  dataType: HealthDataType;
+  /** `clientRecordId`s given when the records were saved. */
+  clientRecordIds?: string[];
+  /** `platformId`s of the records (as returned by `saveWorkout`, `readSamples` or `queryWorkouts`). */
+  platformIds?: string[];
+}
+
+export interface DeleteSamplesResult {
+  /**
+   * iOS: the number of records of `dataType` actually deleted (for `workouts`, the workouts, not their
+   * associated samples).
+   *
+   * Android: the number of ids requested, since Health Connect does not report how many records it
+   * deleted. Android 14 and later ignore ids that match nothing. Health Connect documents that such an
+   * id fails the whole call, so on Android 13 and lower (Health Connect app) the call can reject with
+   * `delete-samples-failed` and delete nothing.
+   */
+  deleted: number;
+}
+
+/** A heart-rate reading recorded during a workout. */
+export interface WorkoutHeartRateSample {
+  /** ISO 8601 timestamp of the reading. */
+  date: string;
+  /** Beats per minute, from 1 to 300. Android rounds it to the nearest integer (Health Connect stores whole bpm). */
+  bpm: number;
+}
+
+/** A GPS location recorded during a workout. */
+export interface WorkoutRouteLocation {
+  /** ISO 8601 timestamp of the location. */
+  date: string;
+  /** Latitude in degrees, from -90 to 90. */
+  latitude: number;
+  /** Longitude in degrees, from -180 to 180. */
+  longitude: number;
+  /** Altitude in meters. On iOS a location without altitude is stored with an invalid altitude (vertical accuracy -1). */
+  altitude?: number;
+  /** Horizontal accuracy in meters (0 or more). On iOS a missing value is stored as 0. */
+  horizontalAccuracy?: number;
+  /** Vertical accuracy in meters (0 or more). On iOS a missing value is stored as 0 when `altitude` is set. */
+  verticalAccuracy?: number;
+}
+
+/** A pause inside a workout. */
+export interface WorkoutPause {
+  /** ISO 8601 start of the pause. */
+  startDate: string;
+  /** ISO 8601 end of the pause. Must be after `startDate`. */
+  endDate: string;
+}
+
+/** Records saved alongside a workout by {@link HealthPlugin.saveWorkout}. */
+export type WorkoutCompanionRecord = 'distance' | 'energy' | 'heartRate';
+
+export interface SaveWorkoutOptions {
+  /**
+   * The type of workout. On iOS `swimmingPool` and `swimmingOpenWater` are saved as swimming workouts
+   * with a pool or open-water location, so {@link HealthPlugin.queryWorkouts} reports both as `swimming`.
+   */
+  workoutType: WorkoutType;
+  /** ISO 8601 start date of the workout. */
+  startDate: string;
+  /** ISO 8601 end date of the workout. Must be after `startDate`. */
+  endDate: string;
+  /**
+   * Idempotency key. Saving again with the same `clientRecordId` replaces the previously saved
+   * workout instead of creating a duplicate, so a failed or uncertain save can simply be retried.
+   *
+   * On Android it becomes the Health Connect `clientRecordId` of the exercise session, and the
+   * distance, energy and heart-rate records get derived ids (`<id>:distance`, `<id>:energy`,
+   * `<id>:hr`). Each save uses the save time in milliseconds as `clientRecordVersion` (always higher
+   * than the previous save's), so the latest save wins. Derived records a later save no longer
+   * writes are deleted, for the types the app can still write.
+   *
+   * On iOS it becomes the `HKMetadataKeySyncIdentifier` of the workout, and the other objects get
+   * derived ids (`<id>:distance`, `<id>:energy`, `<id>:hr:<n>` per heart-rate reading,
+   * `<id>:route`), with the same kind of version as `HKMetadataKeySyncVersion`. When pauses split the
+   * workout into several active intervals, the distance and energy pieces get `<id>:distance:<n>` and
+   * `<id>:energy:<n>` (from 0, in time order) instead. HealthKit only replaces the objects a later save
+   * writes again: a distance, energy or route it leaves out, distance or energy pieces with another id
+   * (the pauses changed), and heart-rate readings beyond its count, stay from the earlier save. Retry with the same data, or
+   * delete the workout with {@link HealthPlugin.deleteSamples} before saving different contents.
+   *
+   * Without it, every call inserts new records.
+   */
+  clientRecordId?: string;
+  /** Title of the workout. Not saved on iOS: HealthKit workouts have no title. */
+  title?: string;
+  /**
+   * Total distance in meters. Android writes it as a `DistanceRecord` covering the workout (needs
+   * `distance` write access).
+   *
+   * iOS writes a sample covering the workout with the distance type of the workout: walking, running
+   * and hiking use `distanceWalkingRunning` (`distance` write access), cycling uses `distanceCycling`
+   * (`distanceCycling` write access). Other workout types have no matching HealthKit distance type, so
+   * the distance is not saved and is reported in {@link SaveWorkoutResult.skippedRecords}.
+   * With {@link SaveWorkoutOptions.pauses}, iOS writes one sample per active interval instead (each
+   * proportional to its duration, adding up to the total): HealthKit leaves paused time out of the
+   * workout's statistics, so a sample spanning a pause would only count in part.
+   */
+  totalDistance?: number;
+  /**
+   * Active energy burned in kilocalories (not total energy). Android writes it as an
+   * `ActiveCaloriesBurnedRecord` covering the workout, iOS as an `activeEnergyBurned` sample (split
+   * per active interval when there are pauses, like {@link SaveWorkoutOptions.totalDistance}).
+   */
+  totalEnergyBurned?: number;
+  /**
+   * Heart-rate readings recorded during the workout. Android writes them as one `HeartRateRecord`,
+   * iOS as one `heartRate` sample per reading.
+   * Readings outside the workout (`startDate` inclusive, `endDate` exclusive) are dropped and
+   * counted in {@link SaveWorkoutResult.droppedHeartRateSamples}.
+   */
+  heartRateSamples?: WorkoutHeartRateSample[];
+  /**
+   * GPS route of the workout. Locations outside the workout (`startDate` inclusive, `endDate`
+   * exclusive) or in the same millisecond as an earlier location are dropped and counted in
+   * {@link SaveWorkoutResult.droppedRouteLocations}.
+   *
+   * The route is only saved when `workoutRoute` write access is granted; otherwise the workout is
+   * saved without it and {@link SaveWorkoutResult.routeSaved} is `false`. On iOS the route goes
+   * through `HKWorkoutRouteBuilder` after the workout is saved; if HealthKit refuses it, the workout
+   * stays saved and `routeSaved` is `false`.
+   */
+  route?: WorkoutRouteLocation[];
+  /**
+   * Pauses inside the workout. They must lie within the workout, must not overlap and must not cover
+   * the whole workout (it needs some active time).
+   * Android stores each one as a Health Connect exercise segment of type pause
+   * (`EXERCISE_SEGMENT_TYPE_PAUSE`, valid for every workout type). iOS adds a pause and a resume
+   * workout event, and HealthKit leaves the time between them out of the workout duration.
+   */
+  pauses?: WorkoutPause[];
+  /**
+   * How the workout was recorded (defaults to `'activelyRecorded'`).
+   * On Android this sets the Health Connect recording method; actively recorded workouts are
+   * attributed to a phone device. On iOS actively recorded workouts are attributed to this device,
+   * and manual entries get `HKMetadataKeyWasUserEntered` and no device.
+   */
+  recordingMethod?: RecordingMethod;
+  /**
+   * Metadata key-value pairs. Ignored on Android: Health Connect has no custom metadata.
+   * On iOS the string values are saved on the workout; keys starting with `HK` are reserved by
+   * HealthKit and rejected.
+   */
+  metadata?: Record<string, string>;
+}
+
+export interface SaveWorkoutResult {
+  /**
+   * Platform-specific identifier of the saved workout (HealthKit UUID on iOS, Health Connect metadata
+   * ID of the exercise session on Android). Matches `platformId` returned by
+   * {@link HealthPlugin.queryWorkouts}.
+   */
+  platformId: string;
+  /** Whether a route with at least one location was saved with the workout. */
+  routeSaved: boolean;
+  /**
+   * Companion records that were provided but not saved because their write permission is missing
+   * (`distance` for `totalDistance`, `energy` for `totalEnergyBurned`, `heartRate` for
+   * `heartRateSamples`), or, for `distance` on iOS, because the workout type has no HealthKit
+   * distance type. The workout itself is still saved. Empty when everything was written.
+   */
+  skippedRecords: WorkoutCompanionRecord[];
+  /** Number of route locations dropped because they were outside the workout or repeated an earlier location's millisecond. */
+  droppedRouteLocations: number;
+  /** Number of heart-rate readings dropped because they were outside the workout. */
+  droppedHeartRateSamples: number;
 }
 
 export type BucketType = 'hour' | 'day' | 'week' | 'month';
@@ -477,6 +687,36 @@ export interface HealthPlugin {
   saveSample(options: WriteSampleOptions): Promise<void>;
 
   /**
+   * Deletes records this app saved, by `clientRecordId` and/or `platformId`.
+   * Supported on iOS (HealthKit) and Android (Health Connect).
+   *
+   * Give at least one id, and at most 100 ids in total. Both platforms only let an app delete the
+   * records it wrote itself, and deleting needs write access to the type; without it the call rejects
+   * with code `permission-denied`. Other failures reject with code `delete-samples-failed`.
+   *
+   * With `dataType: 'workouts'` the workout's companion records are deleted too:
+   * - iOS: the distance, active-energy and heart-rate samples and the route associated with each
+   *   workout (for types the app can still write). Finding the workouts needs read access to
+   *   workouts: request `read: ['workouts']`, otherwise HealthKit may reject the lookup
+   *   (`permission-denied`).
+   * - Android: the distance, active-calories and heart-rate records saved by `saveWorkout` for the
+   *   given `clientRecordIds` (for types the app can still write). With `platformIds` only the exercise
+   *   session is deleted.
+   *
+   * iOS: `bloodPressure` is looked up first too (to delete the correlation with its systolic and
+   * diastolic samples), which needs read access: request `read: ['bloodPressure']`, otherwise the call
+   * can reject with `permission-denied`.
+   *
+   * Android: ids that match nothing are ignored on Android 14 and later; on Android 13 and lower the
+   * call can reject instead (see {@link DeleteSamplesResult.deleted}).
+   *
+   * @param options The record type and the ids to delete
+   * @returns A promise that resolves with the number of deleted records (see {@link DeleteSamplesResult.deleted})
+   * @throws An error if the options are invalid, the write permission is missing, or the delete fails
+   */
+  deleteSamples(options: DeleteSamplesOptions): Promise<DeleteSamplesResult>;
+
+  /**
    * Get the native Capacitor plugin version
    *
    * @returns {Promise<{ version: string }>} a Promise with version for this device
@@ -519,6 +759,35 @@ export interface HealthPlugin {
    * @throws An error if something went wrong
    */
   queryWorkouts(options: QueryWorkoutsOptions): Promise<QueryWorkoutsResult>;
+
+  /**
+   * Saves a completed workout to the native health store.
+   * Supported on iOS (HealthKit) and Android (Health Connect). Steps are never written.
+   *
+   * On Android the workout is written in a single atomic Health Connect insert: one
+   * `ExerciseSessionRecord` (with the optional route and pauses), plus a `DistanceRecord`, an
+   * `ActiveCaloriesBurnedRecord` and a `HeartRateRecord` when the matching options are provided.
+   *
+   * On iOS an `HKWorkoutBuilder` saves the workout with its distance, active energy and heart-rate
+   * samples and its pause / resume events; the route is then attached with the builder's
+   * `HKWorkoutRouteBuilder`.
+   *
+   * Requires write access to `workouts`; without it the call rejects with code `permission-denied`
+   * and writes nothing. Distance, active energy and heart rate need `distance` (`distanceCycling`
+   * for cycling on iOS), `calories` and `heartRate` write access: when one is missing the workout is
+   * still saved without that record, which is reported in {@link SaveWorkoutResult.skippedRecords}.
+   * The route needs `workoutRoute` write access; without it the workout is saved without the route
+   * (see {@link SaveWorkoutResult.routeSaved}). Other failures reject with code `save-workout-failed`.
+   *
+   * iOS only: code `workout-saved-unavailable` means HealthKit saved the workout but could not return
+   * it because the device is locked, so its route was not saved and no `platformId` is known. With a
+   * `clientRecordId` the call can be retried safely: the sync identifier replaces the saved copy.
+   *
+   * @param options The workout to save
+   * @returns A promise that resolves with the saved workout's platform id and what was written
+   * @throws An error if the options are invalid, a required permission is missing, or the save fails
+   */
+  saveWorkout(options: SaveWorkoutOptions): Promise<SaveWorkoutResult>;
 
   /**
    * Queries aggregated health data from the native health store.

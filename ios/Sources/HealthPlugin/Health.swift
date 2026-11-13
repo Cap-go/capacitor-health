@@ -826,7 +826,8 @@ struct AuthorizationStatusPayload {
 }
 
 final class Health {
-    private let healthStore = HKHealthStore()
+    /// Shared with WorkoutWriter so the plugin keeps a single store.
+    let healthStore = HKHealthStore()
     private let isoFormatter: ISO8601DateFormatter
     private let emptyWriteTypesSet = Set<HKSampleType>()
     
@@ -864,7 +865,9 @@ final class Health {
         do {
             // Separate "workouts" from regular health data types
             let (readTypes, includeWorkouts) = try parseTypesWithWorkouts(readIdentifiers)
-            let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
+            // `workouts` / `workoutRoute` write access (saveWorkout) is handled by WorkoutWriter
+            let (writeDataTypeIdentifiers, workoutWriteIdentifiers) = WorkoutWriter.splitWriteIdentifiers(writeIdentifiers)
+            let writeTypes = try HealthDataType.parseMany(writeDataTypeIdentifiers)
             try rejectReadOnlyWriteTypes(writeTypes)
 
             var readObjectTypes = try readAuthorizationObjectTypes(for: readTypes)
@@ -872,7 +875,10 @@ final class Health {
             if includeWorkouts {
                 readObjectTypes.insert(HKObjectType.workoutType())
             }
+            // Routes need read + share access to workouts and routes (Apple, "Creating a workout route")
+            readObjectTypes.formUnion(WorkoutWriter.readTypes(forWriteIdentifiers: workoutWriteIdentifiers))
             let writeSampleTypes = try sampleTypes(for: writeTypes)
+                .union(WorkoutWriter.shareTypes(forWriteIdentifiers: workoutWriteIdentifiers))
 
             healthStore.requestAuthorization(toShare: writeSampleTypes, read: readObjectTypes) { [weak self] success, error in
                 guard let self = self else { return }
@@ -883,8 +889,9 @@ final class Health {
                 }
 
                 if success {
+                    let healthStore = self.healthStore
                     self.evaluateAuthorizationStatus(readTypes: readTypes, includeWorkouts: includeWorkouts, writeTypes: writeTypes) { result in
-                        completion(.success(result))
+                        completion(.success(WorkoutWriter.addingWriteStatus(of: workoutWriteIdentifiers, to: result, healthStore: healthStore)))
                     }
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Authorization request was not granted.")))
@@ -898,11 +905,13 @@ final class Health {
     func checkAuthorization(readIdentifiers: [String], writeIdentifiers: [String], completion: @escaping (Result<AuthorizationStatusPayload, Error>) -> Void) {
         do {
             let (readTypes, includeWorkouts) = try parseTypesWithWorkouts(readIdentifiers)
-            let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
+            let (writeDataTypeIdentifiers, workoutWriteIdentifiers) = WorkoutWriter.splitWriteIdentifiers(writeIdentifiers)
+            let writeTypes = try HealthDataType.parseMany(writeDataTypeIdentifiers)
             try rejectReadOnlyWriteTypes(writeTypes)
 
+            let healthStore = self.healthStore
             evaluateAuthorizationStatus(readTypes: readTypes, includeWorkouts: includeWorkouts, writeTypes: writeTypes) { payload in
-                completion(.success(payload))
+                completion(.success(WorkoutWriter.addingWriteStatus(of: workoutWriteIdentifiers, to: payload, healthStore: healthStore)))
             }
         } catch {
             completion(.failure(error))
@@ -1245,7 +1254,7 @@ final class Health {
         }
     }
 
-    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, completion: @escaping (Result<Void, Error>) -> Void) throws {
+    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, clientRecordId: String?, recordingMethod: String?, completion: @escaping (Result<Void, Error>) -> Void) throws {
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthManagerError.healthDataUnavailable
         }
@@ -1264,6 +1273,11 @@ final class Health {
             metadataDictionary = metadata.reduce(into: [String: Any]()) { result, entry in
                 result[entry.key] = entry.value
             }
+        }
+        // clientRecordId / recordingMethod: sync identifier and user-entered flag (see SyncMetadata)
+        let syncMetadata = try SyncMetadata.forSample(clientRecordId: clientRecordId, recordingMethod: recordingMethod)
+        if !syncMetadata.isEmpty {
+            metadataDictionary = (metadataDictionary ?? [:]).merging(syncMetadata) { _, syncValue in syncValue }
         }
 
         // Handle sleep as a category sample
@@ -1328,8 +1342,11 @@ final class Health {
             let systolicQuantity = HKQuantity(unit: HKUnit.millimeterOfMercury(), doubleValue: systolicValue)
             let diastolicQuantity = HKQuantity(unit: HKUnit.millimeterOfMercury(), doubleValue: diastolicValue)
             
-            let systolicSample = HKQuantitySample(type: systolicType, quantity: systolicQuantity, start: startDate, end: endDate)
-            let diastolicSample = HKQuantitySample(type: diastolicType, quantity: diastolicQuantity, start: startDate, end: endDate)
+            // With a clientRecordId the two samples get derived sync identifiers too (see SyncMetadata.part)
+            let systolicSample = HKQuantitySample(type: systolicType, quantity: systolicQuantity, start: startDate, end: endDate,
+                                                  metadata: SyncMetadata.part("systolic", of: syncMetadata))
+            let diastolicSample = HKQuantitySample(type: diastolicType, quantity: diastolicQuantity, start: startDate, end: endDate,
+                                                   metadata: SyncMetadata.part("diastolic", of: syncMetadata))
             
             let correlation = HKCorrelation(type: correlationType, start: startDate, end: endDate, objects: [systolicSample, diastolicSample], metadata: metadataDictionary)
             
