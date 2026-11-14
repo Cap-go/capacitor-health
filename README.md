@@ -216,6 +216,9 @@ await Health.saveSample({
 | `exerciseTime`          | `minute`      | Apple Exercise Time (iOS only)                           |
 | `distanceCycling`       | `meter`       | Cycling distance                                         |
 | `bodyFat`               | `percent`     | Body fat percentage                                      |
+| `leanBodyMass`          | `kilogram`    | Lean body mass (Android only)                            |
+| `boneMass`              | `kilogram`    | Bone mass (Android only)                                 |
+| `bodyWaterMass`         | `kilogram`    | Body water mass (Android only)                           |
 | `basalBodyTemperature`  | `celsius`     | Basal body temperature                                   |
 | `basalCalories`         | `kilocalorie` | Basal metabolic rate / resting energy                    |
 | `totalCalories`         | `kilocalorie` | Total energy burned (active + basal)                     |
@@ -786,7 +789,7 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'appleSleepingWristTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'appleStandHour' | 'dietaryWater' | 'dietaryEnergyConsumed' | 'stateOfMind' | 'workouts'</code>
+<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'leanBodyMass' | 'boneMass' | 'bodyWaterMass' | 'basalBodyTemperature' | 'appleSleepingWristTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'appleStandHour' | 'dietaryWater' | 'dietaryEnergyConsumed' | 'stateOfMind' | 'workouts'</code>
 
 
 #### HealthUnit
