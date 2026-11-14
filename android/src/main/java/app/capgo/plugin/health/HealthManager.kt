@@ -440,6 +440,20 @@ class HealthManager {
                     samples.add(record.startTime to payload)
                 }
             }
+            // Same as DIETARY_ENERGY: NutritionRecord.protein is nullable, records without it are skipped.
+            HealthDataType.DIETARY_PROTEIN -> readRecords(client, NutritionRecord::class, startTime, endTime, 0) { record ->
+                val protein = record.protein
+                if (protein != null) {
+                    val payload = createSamplePayload(
+                        dataType,
+                        record.startTime,
+                        record.endTime,
+                        protein.inGrams,
+                        record.metadata
+                    )
+                    samples.add(record.startTime to payload)
+                }
+            }
         }
 
         val sorted = samples.sortedBy { it.first }
@@ -745,6 +759,17 @@ class HealthManager {
                 )
                 client.insertRecords(listOf(record))
             }
+            HealthDataType.DIETARY_PROTEIN -> {
+                val record = NutritionRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset(startTime),
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset(endTime),
+                    protein = Mass.grams(value),
+                    metadata = recordMetadata
+                )
+                client.insertRecords(listOf(record))
+            }
         }
     }
 
@@ -842,7 +867,8 @@ private fun createSamplePayload(
             HealthDataType.DISTANCE,
             HealthDataType.CALORIES,
             HealthDataType.HYDRATION,
-            HealthDataType.DIETARY_ENERGY -> setOf("sum")
+            HealthDataType.DIETARY_ENERGY,
+            HealthDataType.DIETARY_PROTEIN -> setOf("sum")
             HealthDataType.HEART_RATE,
             HealthDataType.WEIGHT,
             HealthDataType.RESTING_HEART_RATE -> setOf("average", "min", "max")
@@ -863,6 +889,7 @@ private fun createSamplePayload(
         HealthDataType.RESTING_HEART_RATE -> setOf(RestingHeartRateRecord.BPM_AVG, RestingHeartRateRecord.BPM_MAX, RestingHeartRateRecord.BPM_MIN)
         HealthDataType.HYDRATION -> setOf(HydrationRecord.VOLUME_TOTAL)
         HealthDataType.DIETARY_ENERGY -> setOf(NutritionRecord.ENERGY_TOTAL)
+        HealthDataType.DIETARY_PROTEIN -> setOf(NutritionRecord.PROTEIN_TOTAL)
         else -> throw IllegalArgumentException("Unsupported data type for aggregation: ${dataType.identifier}")
     }
 
@@ -891,6 +918,7 @@ private fun createSamplePayload(
             }
             HealthDataType.HYDRATION -> result[HydrationRecord.VOLUME_TOTAL]?.inLiters
             HealthDataType.DIETARY_ENERGY -> result[NutritionRecord.ENERGY_TOTAL]?.inKilocalories
+            HealthDataType.DIETARY_PROTEIN -> result[NutritionRecord.PROTEIN_TOTAL]?.inGrams
             else -> null
         }
     }
