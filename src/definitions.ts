@@ -88,8 +88,8 @@ export interface AuthorizationOptions {
 export interface AuthorizationStatus {
   readAuthorized: HealthDataType[];
   readDenied: HealthDataType[];
-  writeAuthorized: HealthDataType[];
-  writeDenied: HealthDataType[];
+  writeAuthorized: HealthWriteAuthorizationType[];
+  writeDenied: HealthWriteAuthorizationType[];
   /**
    * Android only: whether the `READ_HEALTH_DATA_HISTORY` permission is granted. Only
    * present when `requestHistoryAccess` was set on the request; omitted otherwise and
