@@ -35,6 +35,7 @@ We build, improve and fix our plugins with heavy use of AI, so issues usually ge
 - **Workouts and aggregates**: `queryWorkouts()` and `queryAggregated()` for summaries.
 - **Authorization**: `requestAuthorization()` and `checkAuthorization()` per data type.
 - **Health Connect helpers**: `openHealthConnectSettings()` and `showPrivacyPolicy()` on Android.
+- **Android body composition**: Read and write `leanBodyMass`, `boneMass`, and `bodyWaterMass` via Health Connect (Android only).
 - **Platforms**: iOS and Android. A few data types and units differ between iOS and Android, see the Supported data types table below. Not available on web.
 
 ## Why Capacitor Health?
@@ -226,6 +227,7 @@ await Health.saveSample({
 | `appleStandHour`        | `count`       | Apple Watch stand hours (iOS only, read-only; 1 = stood) |
 | `dietaryWater`          | `liter`       | Water consumed                                           |
 | `dietaryEnergyConsumed` | `kilocalorie` | Dietary energy (calories) consumed                       |
+| `dietaryProtein`        | `gram`        | Dietary protein consumed (Android only)                  |
 | `stateOfMind`           | `valence`     | State of Mind (iOS 18+, read-only; value = valence -1...1) |
 | `workouts`              | N/A           | Workout sessions (read-only, use with `queryWorkouts()`) |
 
@@ -358,6 +360,26 @@ samples.forEach(sample => {
 });
 ```
 
+**Android body composition (lean mass, bone mass, body water):**
+```ts
+// Android only: Health Connect body composition metrics (kilograms)
+await Health.requestAuthorization({
+  read: ['leanBodyMass', 'boneMass', 'bodyWaterMass', 'bodyFat'],
+  write: ['leanBodyMass', 'boneMass', 'bodyWaterMass'],
+});
+
+const { samples: leanMass } = await Health.readSamples({
+  dataType: 'leanBodyMass',
+  startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+});
+
+await Health.saveSample({
+  dataType: 'bodyWaterMass',
+  value: 42.5,
+});
+```
+
 **Respiratory rate, oxygen saturation, and HRV:**
 ```ts
 // Request permission
@@ -413,7 +435,7 @@ hr.forEach(sample => {
 });
 ```
 
-**Note:** Aggregated queries are not supported for sleep, respiratory rate, oxygen saturation, heart rate variability, and VO2 max data types. These measurements should use `readSamples()`, not `queryAggregated()`. Aggregation is supported for: steps, distance, calories, dietary water, dietary energy consumed, heart rate, weight, and resting heart rate.
+**Note:** Aggregated queries are not supported for sleep, respiratory rate, oxygen saturation, heart rate variability, and VO2 max data types. These measurements should use `readSamples()`, not `queryAggregated()`. Aggregation is supported for: steps, distance, calories, dietary water, dietary energy consumed, dietary protein (Android only), heart rate, weight, and resting heart rate.
 
 ## API
 
@@ -789,12 +811,12 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'leanBodyMass' | 'boneMass' | 'bodyWaterMass' | 'basalBodyTemperature' | 'appleSleepingWristTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'appleStandHour' | 'dietaryWater' | 'dietaryEnergyConsumed' | 'stateOfMind' | 'workouts'</code>
+<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'leanBodyMass' | 'boneMass' | 'bodyWaterMass' | 'basalBodyTemperature' | 'appleSleepingWristTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'appleStandHour' | 'dietaryWater' | 'dietaryEnergyConsumed' | 'dietaryProtein' | 'stateOfMind' | 'workouts'</code>
 
 
 #### HealthUnit
 
-<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond' | 'mL/min/kg' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter' | 'liter' | 'valence'</code>
+<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'gram' | 'minute' | 'percent' | 'millisecond' | 'mL/min/kg' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter' | 'liter' | 'valence'</code>
 
 
 #### SleepState
