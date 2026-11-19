@@ -18,7 +18,7 @@ cd "$ROOT_DIR"
 if [[ "$SKIP_BUILD" != "1" ]]; then
   bun run build
   cd "$EXAMPLE_DIR"
-  bun install
+  bun install --frozen-lockfile
   bun run build
   bunx cap sync ios
   xcodebuild \
@@ -26,7 +26,8 @@ if [[ "$SKIP_BUILD" != "1" ]]; then
     -scheme App \
     -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
     -derivedDataPath "$DERIVED_DATA_PATH" \
-  CODE_SIGNING_ALLOWED=NO \
+    -configuration Debug \
+    CODE_SIGNING_ALLOWED=NO \
     build
 fi
 

@@ -15,7 +15,7 @@ cd "$ROOT_DIR"
 if [[ "$SKIP_BUILD" != "1" ]]; then
   bun run build
   cd "$EXAMPLE_DIR"
-  bun install
+  bun install --frozen-lockfile
   bun run build
   bunx cap sync android
   cd android
@@ -28,6 +28,9 @@ if [[ ! -f "$APK_PATH" ]]; then
 fi
 
 adb wait-for-device
+until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; do
+  sleep 1
+done
 adb install -r "$APK_PATH"
 
 maestro test --config "$ROOT_DIR/.maestro/config.yaml" "$FLOW_PATH"
