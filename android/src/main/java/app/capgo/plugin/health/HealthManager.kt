@@ -170,7 +170,7 @@ class HealthManager {
     ): JSArray {
         val samples = mutableListOf<Pair<Instant, JSObject>>()
         when (dataType) {
-            HealthDataType.STEPS -> readRecords(client, StepsRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.STEPS -> readRecords(client, StepsRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.startTime,
@@ -180,7 +180,7 @@ class HealthManager {
                 )
                 samples.add(record.startTime to payload)
             }
-            HealthDataType.DISTANCE -> readRecords(client, DistanceRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.DISTANCE -> readRecords(client, DistanceRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.startTime,
@@ -190,7 +190,7 @@ class HealthManager {
                 )
                 samples.add(record.startTime to payload)
             }
-            HealthDataType.CALORIES -> readRecords(client, ActiveCaloriesBurnedRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.CALORIES -> readRecords(client, ActiveCaloriesBurnedRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.startTime,
@@ -200,7 +200,7 @@ class HealthManager {
                 )
                 samples.add(record.startTime to payload)
             }
-            HealthDataType.WEIGHT -> readRecords(client, WeightRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.WEIGHT -> readRecords(client, WeightRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -210,7 +210,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.HEART_RATE -> readRecords(client, HeartRateRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.HEART_RATE -> readRecords(client, HeartRateRecord::class, startTime, endTime, limit, ascending) { record ->
                 record.samples.forEach { sample ->
                     val payload = createSamplePayload(
                         dataType,
@@ -222,7 +222,7 @@ class HealthManager {
                     samples.add(sample.time to payload)
                 }
             }
-            HealthDataType.SLEEP -> readRecords(client, SleepSessionRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.SLEEP -> readRecords(client, SleepSessionRecord::class, startTime, endTime, limit, ascending) { record ->
                 val durationMinutes = Duration.between(record.startTime, record.endTime).toMinutes().toDouble()
                 val payload = createSamplePayload(
                     dataType,
@@ -251,7 +251,7 @@ class HealthManager {
 
                 samples.add(record.startTime to payload)
             }
-            HealthDataType.RESPIRATORY_RATE -> readRecords(client, RespiratoryRateRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.RESPIRATORY_RATE -> readRecords(client, RespiratoryRateRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -261,7 +261,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.OXYGEN_SATURATION -> readRecords(client, OxygenSaturationRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.OXYGEN_SATURATION -> readRecords(client, OxygenSaturationRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -271,7 +271,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.RESTING_HEART_RATE -> readRecords(client, RestingHeartRateRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.RESTING_HEART_RATE -> readRecords(client, RestingHeartRateRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -281,7 +281,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.HEART_RATE_VARIABILITY -> readRecords(client, HeartRateVariabilityRmssdRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.HEART_RATE_VARIABILITY -> readRecords(client, HeartRateVariabilityRmssdRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -291,7 +291,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.VO2_MAX -> readRecords(client, Vo2MaxRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.VO2_MAX -> readRecords(client, Vo2MaxRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -302,7 +302,7 @@ class HealthManager {
                 payload.put("measurementMethod", record.measurementMethod)
                 samples.add(record.time to payload)
             }
-            HealthDataType.BLOOD_PRESSURE -> readRecords(client, BloodPressureRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.BLOOD_PRESSURE -> readRecords(client, BloodPressureRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -314,7 +314,7 @@ class HealthManager {
                 payload.put("diastolic", record.diastolic.inMillimetersOfMercury)
                 samples.add(record.time to payload)
             }
-            HealthDataType.BLOOD_GLUCOSE -> readRecords(client, BloodGlucoseRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.BLOOD_GLUCOSE -> readRecords(client, BloodGlucoseRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -324,7 +324,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.BODY_TEMPERATURE -> readRecords(client, BodyTemperatureRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.BODY_TEMPERATURE -> readRecords(client, BodyTemperatureRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -334,7 +334,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.HEIGHT -> readRecords(client, HeightRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.HEIGHT -> readRecords(client, HeightRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -344,7 +344,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.FLIGHTS_CLIMBED -> readRecords(client, FloorsClimbedRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.FLIGHTS_CLIMBED -> readRecords(client, FloorsClimbedRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.startTime,
@@ -354,7 +354,7 @@ class HealthManager {
                 )
                 samples.add(record.startTime to payload)
             }
-            HealthDataType.DISTANCE_CYCLING -> readRecords(client, DistanceRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.DISTANCE_CYCLING -> readRecords(client, DistanceRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.startTime,
@@ -364,7 +364,7 @@ class HealthManager {
                 )
                 samples.add(record.startTime to payload)
             }
-            HealthDataType.BODY_FAT -> readRecords(client, BodyFatRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.BODY_FAT -> readRecords(client, BodyFatRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -374,7 +374,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.LEAN_BODY_MASS -> readRecords(client, LeanBodyMassRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.LEAN_BODY_MASS -> readRecords(client, LeanBodyMassRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -384,7 +384,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.BONE_MASS -> readRecords(client, BoneMassRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.BONE_MASS -> readRecords(client, BoneMassRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -394,7 +394,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.BODY_WATER_MASS -> readRecords(client, BodyWaterMassRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.BODY_WATER_MASS -> readRecords(client, BodyWaterMassRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -404,7 +404,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.BASAL_BODY_TEMPERATURE -> readRecords(client, BasalBodyTemperatureRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.BASAL_BODY_TEMPERATURE -> readRecords(client, BasalBodyTemperatureRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -414,7 +414,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.BASAL_CALORIES -> readRecords(client, BasalMetabolicRateRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.BASAL_CALORIES -> readRecords(client, BasalMetabolicRateRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.time,
@@ -424,7 +424,7 @@ class HealthManager {
                 )
                 samples.add(record.time to payload)
             }
-            HealthDataType.TOTAL_CALORIES -> readRecords(client, TotalCaloriesBurnedRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.TOTAL_CALORIES -> readRecords(client, TotalCaloriesBurnedRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.startTime,
@@ -434,7 +434,7 @@ class HealthManager {
                 )
                 samples.add(record.startTime to payload)
             }
-            HealthDataType.MINDFULNESS -> readRecords(client, MindfulnessSessionRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.MINDFULNESS -> readRecords(client, MindfulnessSessionRecord::class, startTime, endTime, limit, ascending) { record ->
                 val durationMinutes = Duration.between(record.startTime, record.endTime).toMinutes().toDouble()
                 val payload = createSamplePayload(
                     dataType,
@@ -445,7 +445,7 @@ class HealthManager {
                 )
                 samples.add(record.startTime to payload)
             }
-            HealthDataType.HYDRATION -> readRecords(client, HydrationRecord::class, startTime, endTime, limit) { record ->
+            HealthDataType.HYDRATION -> readRecords(client, HydrationRecord::class, startTime, endTime, limit, ascending) { record ->
                 val payload = createSamplePayload(
                     dataType,
                     record.startTime,
@@ -459,7 +459,7 @@ class HealthManager {
             // records are skipped below, so counting FETCHED records against the
             // limit could under-deliver; the shared sort/take(limit) at the end of
             // readSamples still enforces the requested cap on emitted samples.
-            HealthDataType.DIETARY_ENERGY -> readRecords(client, NutritionRecord::class, startTime, endTime, 0) { record ->
+            HealthDataType.DIETARY_ENERGY -> readRecords(client, NutritionRecord::class, startTime, endTime, 0, ascending) { record ->
                 // NutritionRecord.energy is nullable — skip records without it.
                 val energy = record.energy
                 if (energy != null) {
@@ -474,7 +474,7 @@ class HealthManager {
                 }
             }
             // Same as DIETARY_ENERGY: NutritionRecord.protein is nullable, records without it are skipped.
-            HealthDataType.DIETARY_PROTEIN -> readRecords(client, NutritionRecord::class, startTime, endTime, 0) { record ->
+            HealthDataType.DIETARY_PROTEIN -> readRecords(client, NutritionRecord::class, startTime, endTime, 0, ascending) { record ->
                 val protein = record.protein
                 if (protein != null) {
                     val payload = createSamplePayload(
@@ -504,6 +504,7 @@ class HealthManager {
         startTime: Instant,
         endTime: Instant,
         limit: Int,
+        ascending: Boolean,
         consumer: (record: T) -> Unit
     ) {
         var pageToken: String? = null
@@ -515,7 +516,8 @@ class HealthManager {
                 recordType = recordClass,
                 timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
                 pageSize = pageSize,
-                pageToken = pageToken
+                pageToken = pageToken,
+                ascendingOrder = ascending
             )
             val response = client.readRecords(request)
             response.records.forEach { record ->
@@ -1144,7 +1146,8 @@ private fun createSamplePayload(
                 recordType = ExerciseSessionRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
                 pageSize = pageSize,
-                pageToken = pageToken
+                pageToken = pageToken,
+                ascendingOrder = ascending
             )
             val response = client.readRecords(request)
             
