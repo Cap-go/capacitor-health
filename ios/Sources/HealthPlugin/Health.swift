@@ -1246,11 +1246,11 @@ final class Health {
     }
 
     func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, completion: @escaping (Result<Void, Error>) -> Void) throws {
+        let dataType = try parseDataType(identifier: dataTypeIdentifier)
+
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthManagerError.healthDataUnavailable
         }
-
-        let dataType = try parseDataType(identifier: dataTypeIdentifier)
 
         let startDate = try parseDate(startDateString, defaultValue: Date())
         let endDate = try parseDate(endDateString, defaultValue: startDate)
