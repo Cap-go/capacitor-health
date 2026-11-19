@@ -44,15 +44,21 @@ final class SampleDeleter {
             return
         }
 
+        WorkoutWriter.writeLock.lock()
+        let finish: (Result<[String: Any], Error>) -> Void = { result in
+            WorkoutWriter.writeLock.unlock()
+            completion(result)
+        }
+
         switch request.target {
         case .workouts:
-            deleteWorkouts(matching: request.predicate, completion: completion)
+            deleteWorkouts(matching: request.predicate, completion: finish)
         case let .correlations(type):
-            deleteCorrelations(of: type, matching: request.predicate, completion: completion)
+            deleteCorrelations(of: type, matching: request.predicate, completion: finish)
         case let .samples(type):
             healthStore.deleteObjects(of: type, predicate: request.predicate) { success, deletedCount, error in
                 SampleDeleter.finish(success: success, count: deletedCount, error: error, dataType: request.dataType,
-                                     completion: completion)
+                                     completion: finish)
             }
         }
     }

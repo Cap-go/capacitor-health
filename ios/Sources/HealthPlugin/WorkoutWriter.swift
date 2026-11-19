@@ -68,7 +68,11 @@ enum HealthWriteError: LocalizedError {
 /// increasing `HKMetadataKeySyncVersion` (`SyncMetadata.currentVersion()`), so HealthKit replaces the
 /// earlier copy of each object written again.
 final class WorkoutWriter {
-    private static let saveLock = NSLock()
+    /// Serializes `saveWorkout` and workout-related `deleteSamples` work so companion cleanup cannot interleave.
+    static let writeLock = NSLock()
+
+    /// Exact workout `clientRecordId` stored on companion samples and routes for cleanup (not a sync-id prefix).
+    static let workoutParentClientRecordIdKey = "capgoWorkoutClientRecordId"
 
     private let healthStore: HKHealthStore
 
@@ -100,33 +104,32 @@ final class WorkoutWriter {
             return
         }
 
-        WorkoutWriter.saveLock.lock()
+        WorkoutWriter.writeLock.lock()
         let plan = makePlan(for: input)
         reconcileOmittedCompanions(for: input, plan: plan) { [weak self] error in
             guard let self = self else {
-                WorkoutWriter.saveLock.unlock()
+                WorkoutWriter.writeLock.unlock()
                 return
             }
             if let error = error {
-                WorkoutWriter.saveLock.unlock()
+                WorkoutWriter.writeLock.unlock()
                 completion(.failure(error))
                 return
             }
             self.save(input, plan: plan) { result in
-                WorkoutWriter.saveLock.unlock()
+                WorkoutWriter.writeLock.unlock()
                 completion(result)
             }
         }
     }
 
-    /// Deletes derived records from an earlier save that this payload no longer writes (same `clientRecordId` prefix).
+    /// Deletes derived records from an earlier save that this payload no longer writes for this workout id.
     private func reconcileOmittedCompanions(for input: WorkoutInput, plan: SavePlan, completion: @escaping (Error?) -> Void) {
         guard let clientRecordId = input.clientRecordId else {
             completion(nil)
             return
         }
         let expected = WorkoutWriter.expectedSyncIdentifiers(for: input, plan: plan)
-        let prefix = "\(clientRecordId):"
         var types: [HKSampleType] = [
             HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning),
             HKObjectType.quantityType(forIdentifier: .distanceCycling),
@@ -137,10 +140,31 @@ final class WorkoutWriter {
         deleteStaleCompanions(
             types: types.filter { isSharingAuthorized($0) }[...],
             clientRecordId: clientRecordId,
-            prefix: prefix,
             expected: expected,
             completion: completion
         )
+    }
+
+    /// True when [syncId] is a companion of [clientRecordId] (not another workout whose id merely shares a prefix).
+    static func isCompanionSyncIdentifier(_ syncId: String, clientRecordId: String) -> Bool {
+        guard syncId != clientRecordId, syncId.hasPrefix("\(clientRecordId):") else {
+            return false
+        }
+        let remainder = String(syncId.dropFirst(clientRecordId.count + 1))
+        return remainder.range(
+            of: #"^(distance|energy|hr|route)(:\d+)?$"#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    static func belongsToWorkout(_ sample: HKSample, clientRecordId: String) -> Bool {
+        if let parent = sample.metadata?[WorkoutWriter.workoutParentClientRecordIdKey] as? String {
+            return parent == clientRecordId
+        }
+        guard let sync = sample.metadata?[HKMetadataKeySyncIdentifier] as? String else {
+            return false
+        }
+        return isCompanionSyncIdentifier(sync, clientRecordId: clientRecordId)
     }
 
     private static func expectedSyncIdentifiers(for input: WorkoutInput, plan: SavePlan) -> Set<String> {
@@ -160,12 +184,13 @@ final class WorkoutWriter {
         return ids
     }
 
-    private func deleteStaleCompanions(types: ArraySlice<HKSampleType>, clientRecordId: String, prefix: String, expected: Set<String>,
+    private func deleteStaleCompanions(types: ArraySlice<HKSampleType>, clientRecordId: String, expected: Set<String>,
                                        completion: @escaping (Error?) -> Void) {
         guard let type = types.first else {
             completion(nil)
             return
         }
+        let prefix = "\(clientRecordId):"
         let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             HKQuery.predicateForObjects(from: HKSource.default()),
             NSPredicate(format: "metadata.%K BEGINSWITH %@", HKMetadataKeySyncIdentifier, prefix),
@@ -181,14 +206,14 @@ final class WorkoutWriter {
                 return
             }
             let stale = (samples ?? []).filter { sample in
-                guard let sync = sample.metadata?[HKMetadataKeySyncIdentifier] as? String,
-                      sync.hasPrefix(prefix), sync != clientRecordId else {
+                guard WorkoutWriter.belongsToWorkout(sample, clientRecordId: clientRecordId),
+                      let sync = sample.metadata?[HKMetadataKeySyncIdentifier] as? String else {
                     return false
                 }
                 return !expected.contains(sync)
             }
             if stale.isEmpty {
-                self.deleteStaleCompanions(types: types.dropFirst(), clientRecordId: clientRecordId, prefix: prefix, expected: expected, completion: completion)
+                self.deleteStaleCompanions(types: types.dropFirst(), clientRecordId: clientRecordId, expected: expected, completion: completion)
                 return
             }
             self.healthStore.delete(stale) { _, error in
@@ -196,7 +221,7 @@ final class WorkoutWriter {
                     completion(error)
                     return
                 }
-                self.deleteStaleCompanions(types: types.dropFirst(), clientRecordId: clientRecordId, prefix: prefix, expected: expected, completion: completion)
+                self.deleteStaleCompanions(types: types.dropFirst(), clientRecordId: clientRecordId, expected: expected, completion: completion)
             }
         }
         healthStore.execute(query)
@@ -361,7 +386,11 @@ final class WorkoutWriter {
         let syncIdentifier = input.clientRecordId.map { clientRecordId in
             idSuffix.map { "\(clientRecordId):\($0)" } ?? clientRecordId
         }
-        return SyncMetadata.metadata(syncIdentifier: syncIdentifier, version: version, userEntered: input.manualEntry)
+        var metadata = SyncMetadata.metadata(syncIdentifier: syncIdentifier, version: version, userEntered: input.manualEntry)
+        if let clientRecordId = input.clientRecordId, idSuffix != nil {
+            metadata[WorkoutWriter.workoutParentClientRecordIdKey] = clientRecordId
+        }
+        return metadata
     }
 
     /// Each pause becomes a zero-length pause event and a resume event; HealthKit excludes the time
