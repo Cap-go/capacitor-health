@@ -7,11 +7,11 @@ appId: app.capgo.health
     timeout: 120000
 - scrollUntilVisible:
     element:
-      id: e2e-body-composition-ios-unsupported
+      text: Run iOS unsupported types E2E
     direction: DOWN
     timeout: 120000
 - tapOn:
-    id: e2e-body-composition-ios-unsupported
+    text: Run iOS unsupported types E2E
 - extendedWaitUntil:
     visible: 'E2E:ios-unsupported:success'
     timeout: 120000

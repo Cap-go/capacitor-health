@@ -33,7 +33,7 @@ download_maestro_asset() {
     echo "Authenticated Maestro release download failed for ${asset_name}; falling back to direct curl." >&2
   fi
 
-  curl --retry 5 --retry-all-errors --retry-delay 5 -fsSL \
+  curl --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 30 --speed-limit 1024 --speed-time 60 -fsSL \
     -o "$output_path" \
     "${BASE_URL}/${asset_name}"
 }

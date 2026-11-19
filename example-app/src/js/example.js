@@ -37,7 +37,6 @@ const setE2eMarker = (message) => {
   if (e2eMarkerPane) {
     e2eMarkerPane.textContent = message;
   }
-  setOutput({ e2eMarker: message });
 };
 
 const setStatus = (message) => {
@@ -244,12 +243,19 @@ e2eAndroidButton?.addEventListener('click', async () => {
       });
     }
 
-    const readBack = await Health.readSamples({
-      dataType: 'leanBodyMass',
-      startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      endDate: now,
-      limit: 5,
-    });
+    const readBack = {};
+    for (const sample of samplesToSave) {
+      const result = await Health.readSamples({
+        dataType: sample.dataType,
+        startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: now,
+        limit: 5,
+      });
+      if (!result.samples.some((row) => row.dataType === sample.dataType && row.value === sample.value)) {
+        throw new Error(`Could not read back ${sample.dataType}`);
+      }
+      readBack[sample.dataType] = result;
+    }
 
     setOutput({ auth, readBack, saved: samplesToSave });
     setE2eMarker('E2E:body-composition:success');

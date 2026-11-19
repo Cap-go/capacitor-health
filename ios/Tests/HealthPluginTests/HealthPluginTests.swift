@@ -71,18 +71,15 @@ class HealthTests: XCTestCase {
         XCTAssertNil(payload)
     }
 
-    func testSaveSampleRejectsLeanBodyMassAsUnsupported() {
+    func testReadSamplesRejectsLeanBodyMassAsUnsupported() {
         let implementation = Health()
         XCTAssertThrowsError(
-            try implementation.saveSample(
+            try implementation.readSamples(
                 dataTypeIdentifier: "leanBodyMass",
-                value: 60,
-                unitIdentifier: nil,
                 startDateString: nil,
                 endDateString: nil,
-                metadata: nil,
-                systolic: nil,
-                diastolic: nil
+                limit: nil,
+                ascending: false
             ) { _ in }
         ) { error in
             guard let healthError = error as? HealthManagerError else {
@@ -96,18 +93,15 @@ class HealthTests: XCTestCase {
         }
     }
 
-    func testSaveSampleRejectsBoneMassAsUnsupported() {
+    func testReadSamplesRejectsBoneMassAsUnsupported() {
         let implementation = Health()
         XCTAssertThrowsError(
-            try implementation.saveSample(
+            try implementation.readSamples(
                 dataTypeIdentifier: "boneMass",
-                value: 2.8,
-                unitIdentifier: nil,
                 startDateString: nil,
                 endDateString: nil,
-                metadata: nil,
-                systolic: nil,
-                diastolic: nil
+                limit: nil,
+                ascending: false
             ) { _ in }
         ) { error in
             guard let healthError = error as? HealthManagerError else {
