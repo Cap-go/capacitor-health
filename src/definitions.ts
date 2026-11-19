@@ -454,15 +454,6 @@ export interface WriteSampleOptions {
   recordingMethod?: RecordingMethod;
 }
 
-export interface SaveSampleResult {
-  /**
-   * Optional platform-specific identifier of the saved sample (Health Connect record id on Android,
-   * HealthKit UUID on iOS; the correlation's UUID for blood pressure). Usable with
-   * {@link HealthPlugin.deleteSamples}.
-   */
-  platformId?: string;
-}
-
 export interface DeleteSamplesOptions {
   /**
    * Type of the records to delete. Use `workouts` for workouts saved with
@@ -696,7 +687,7 @@ export interface HealthPlugin {
   /** Reads samples for the given data type within the specified time frame. */
   readSamples(options: QueryOptions): Promise<ReadSamplesResult>;
   /** Writes a single sample to the native health store. */
-  saveSample(options: WriteSampleOptions): Promise<SaveSampleResult>;
+  saveSample(options: WriteSampleOptions): Promise<void>;
 
   /**
    * Deletes records this app saved, by `clientRecordId` and/or `platformId`.

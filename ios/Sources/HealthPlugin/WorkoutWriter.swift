@@ -68,6 +68,8 @@ enum HealthWriteError: LocalizedError {
 /// increasing `HKMetadataKeySyncVersion` (`SyncMetadata.currentVersion()`), so HealthKit replaces the
 /// earlier copy of each object written again.
 final class WorkoutWriter {
+    private static let saveLock = NSLock()
+
     private let healthStore: HKHealthStore
 
     /// Uses the plugin's existing store (one `HKHealthStore` per app, as Apple recommends).
@@ -98,14 +100,22 @@ final class WorkoutWriter {
             return
         }
 
+        WorkoutWriter.saveLock.lock()
         let plan = makePlan(for: input)
         reconcileOmittedCompanions(for: input, plan: plan) { [weak self] error in
-            guard let self = self else { return }
+            guard let self = self else {
+                WorkoutWriter.saveLock.unlock()
+                return
+            }
             if let error = error {
+                WorkoutWriter.saveLock.unlock()
                 completion(.failure(error))
                 return
             }
-            self.save(input, plan: plan, completion: completion)
+            self.save(input, plan: plan) { result in
+                WorkoutWriter.saveLock.unlock()
+                completion(result)
+            }
         }
     }
 
@@ -126,6 +136,7 @@ final class WorkoutWriter {
         types.append(HKSeriesType.workoutRoute())
         deleteStaleCompanions(
             types: types.filter { isSharingAuthorized($0) }[...],
+            clientRecordId: clientRecordId,
             prefix: prefix,
             expected: expected,
             completion: completion
@@ -149,7 +160,7 @@ final class WorkoutWriter {
         return ids
     }
 
-    private func deleteStaleCompanions(types: ArraySlice<HKSampleType>, prefix: String, expected: Set<String>,
+    private func deleteStaleCompanions(types: ArraySlice<HKSampleType>, clientRecordId: String, prefix: String, expected: Set<String>,
                                        completion: @escaping (Error?) -> Void) {
         guard let type = types.first else {
             completion(nil)
@@ -170,13 +181,14 @@ final class WorkoutWriter {
                 return
             }
             let stale = (samples ?? []).filter { sample in
-                guard let sync = sample.metadata?[HKMetadataKeySyncIdentifier] as? String else {
+                guard let sync = sample.metadata?[HKMetadataKeySyncIdentifier] as? String,
+                      sync.hasPrefix(prefix), sync != clientRecordId else {
                     return false
                 }
                 return !expected.contains(sync)
             }
             if stale.isEmpty {
-                self.deleteStaleCompanions(types: types.dropFirst(), prefix: prefix, expected: expected, completion: completion)
+                self.deleteStaleCompanions(types: types.dropFirst(), clientRecordId: clientRecordId, prefix: prefix, expected: expected, completion: completion)
                 return
             }
             self.healthStore.delete(stale) { _, error in
@@ -184,7 +196,7 @@ final class WorkoutWriter {
                     completion(error)
                     return
                 }
-                self.deleteStaleCompanions(types: types.dropFirst(), prefix: prefix, expected: expected, completion: completion)
+                self.deleteStaleCompanions(types: types.dropFirst(), clientRecordId: clientRecordId, prefix: prefix, expected: expected, completion: completion)
             }
         }
         healthStore.execute(query)
@@ -682,6 +694,9 @@ struct WorkoutInput {
         let recordId = try WorkoutInput.optionalString(options["clientRecordId"], path: "clientRecordId")
         if let recordId = recordId, recordId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw HealthWriteError.invalidOption("clientRecordId must not be blank")
+        }
+        if let recordId = recordId, recordId.contains(":") {
+            throw HealthWriteError.invalidOption("clientRecordId must not contain ':'")
         }
         // HealthKit workouts have no title: the option is validated like on Android, then not saved.
         _ = try WorkoutInput.optionalString(options["title"], path: "title")

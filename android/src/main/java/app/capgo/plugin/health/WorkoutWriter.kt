@@ -1,5 +1,6 @@
 package app.capgo.plugin.health
 
+import android.os.RemoteException
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
@@ -87,6 +88,9 @@ class WorkoutWriter {
         if (clientRecordId != null) {
             if (clientRecordId.isBlank()) {
                 throw IllegalArgumentException("clientRecordId must not be blank")
+            }
+            if (clientRecordId.contains(':')) {
+                throw IllegalArgumentException("clientRecordId must not contain ':'")
             }
             validateClientRecordIdLength(clientRecordId)
         }
@@ -341,7 +345,13 @@ class WorkoutWriter {
             )
             COMPANION_RECORDS.forEach { (recordClass, idSuffix) ->
                 if (recordClass !in written && HealthPermission.getWritePermission(recordClass) in granted) {
-                    deleteCompanionRecords(client, recordClass, listOf(companionClientRecordId(id, idSuffix)))
+                    try {
+                        deleteCompanionRecords(client, recordClass, listOf(companionClientRecordId(id, idSuffix)))
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.d(TAG, "Skipped deleting omitted ${recordClass.simpleName} companion after save: ${e.message}")
+                    }
                 }
             }
         }
@@ -494,6 +504,26 @@ class WorkoutWriter {
             } catch (e: IllegalArgumentException) {
                 Log.d(TAG, "Skipped deleting ${recordClass.simpleName} $clientRecordIds (it may not exist): ${e.message}")
                 false
+            } catch (e: RemoteException) {
+                if (isMissingRecord(e)) {
+                    Log.d(TAG, "Skipped deleting ${recordClass.simpleName} $clientRecordIds (it may not exist): ${e.message}")
+                    false
+                } else {
+                    throw e
+                }
+            }
+        }
+
+        private fun isMissingRecord(error: RemoteException): Boolean {
+            val message = error.message?.lowercase() ?: return false
+            return message.contains("not found") || message.contains("does not exist") || message.contains("no record")
+        }
+
+        /** Scopes ids for record classes that share one Health Connect type (for example nutrition). */
+        internal fun scopeClientRecordId(dataType: HealthDataType, clientRecordId: String): String {
+            return when (dataType) {
+                HealthDataType.DIETARY_ENERGY, HealthDataType.DIETARY_PROTEIN -> "${dataType.identifier}:$clientRecordId"
+                else -> clientRecordId
             }
         }
 

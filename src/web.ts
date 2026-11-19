@@ -14,7 +14,6 @@ import type {
   QueryWorkoutsResult,
   ReadSamplesResult,
   SaveWorkoutOptions,
-  SaveSampleResult,
   SaveWorkoutResult,
   WriteSampleOptions,
 } from './definitions';
@@ -40,7 +39,7 @@ export class HealthWeb extends WebPlugin implements HealthPlugin {
     throw this.unimplemented('Reading health data is only available on native platforms.');
   }
 
-  async saveSample(_options: WriteSampleOptions): Promise<SaveSampleResult> {
+  async saveSample(_options: WriteSampleOptions): Promise<void> {
     throw this.unimplemented('Writing health data is only available on native platforms.');
   }
 

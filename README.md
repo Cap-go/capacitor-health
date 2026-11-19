@@ -613,7 +613,7 @@ Reads samples for the given data type within the specified time frame.
 ### saveSample(...)
 
 ```typescript
-saveSample(options: WriteSampleOptions) => Promise<SaveSampleResult>
+saveSample(options: WriteSampleOptions) => Promise<void>
 ```
 
 Writes a single sample to the native health store.
@@ -621,8 +621,6 @@ Writes a single sample to the native health store.
 | Param         | Type                                                              |
 | ------------- | ----------------------------------------------------------------- |
 | **`options`** | <code><a href="#writesampleoptions">WriteSampleOptions</a></code> |
-
-**Returns:** <code>Promise&lt;<a href="#savesampleresult">SaveSampleResult</a>&gt;</code>
 
 --------------------
 
@@ -872,13 +870,6 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 | **`endDate`**   | <code>string</code>                                       | Exclusive ISO 8601 end date (defaults to now).                     |
 | **`limit`**     | <code>number</code>                                       | Maximum number of samples to return (defaults to 100).             |
 | **`ascending`** | <code>boolean</code>                                      | Return results sorted ascending by start date (defaults to false). |
-
-
-#### SaveSampleResult
-
-| Prop             | Type                | Description                                                                                                                                                                                                        |
-| ---------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **`platformId`** | <code>string</code> | Optional platform-specific identifier of the saved sample (Health Connect record id on Android, HealthKit UUID on iOS; the correlation's UUID for blood pressure). Usable with {@link HealthPlugin.deleteSamples}. |
 
 
 #### WriteSampleOptions

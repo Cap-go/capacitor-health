@@ -319,16 +319,12 @@ class HealthPlugin : Plugin() {
         call.launchSafely {
             val client = getClientOrReject(this) ?: return@launchSafely
             try {
-                val platformId = manager.saveSample(
+                manager.saveSample(
                     client, dataType, value, startInstant, endInstant, metadata, systolic, diastolic, mindfulnessSessionType,
                     clientRecordId = clientRecordId,
                     manualEntry = manualEntry,
                 )
-                if (platformId != null) {
-                    resolve(JSObject().put("platformId", platformId))
-                } else {
-                    resolve()
-                }
+                resolve()
             } catch (e: Exception) {
                 reject(e.message ?: "Failed to save sample.", null, e)
             }

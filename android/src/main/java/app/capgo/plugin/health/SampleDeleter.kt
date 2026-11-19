@@ -72,7 +72,8 @@ class SampleDeleter {
             )
         }
 
-        deleteIds(client, input.recordClass, input.platformIds, input.clientRecordIds)
+        val scopedClientRecordIds = input.clientRecordIds.map { scopeClientRecordId(input.dataType, it) }
+        deleteIds(client, input.recordClass, input.platformIds, scopedClientRecordIds)
 
         if (input.isWorkout && input.clientRecordIds.isNotEmpty()) {
             WorkoutWriter.COMPANION_RECORDS.forEach { (recordClass, idSuffix) ->
@@ -102,15 +103,31 @@ class SampleDeleter {
         }.distinct()
     }
 
-    /** Deletes each id on its own so missing ids do not fail the whole call. */
+    /** Batch delete first; per-id fallback only when the batch fails on missing records. */
     private suspend fun deleteIds(
         client: HealthConnectClient,
         recordClass: KClass<out Record>,
         platformIds: List<String>,
         clientRecordIds: List<String>,
     ) {
-        platformIds.forEach { id -> deleteId(client, recordClass, platformId = id, clientRecordId = null) }
-        clientRecordIds.forEach { id -> deleteId(client, recordClass, platformId = null, clientRecordId = id) }
+        if (platformIds.isEmpty() && clientRecordIds.isEmpty()) {
+            return
+        }
+        try {
+            client.deleteRecords(recordClass, platformIds, clientRecordIds)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: IllegalArgumentException) {
+            platformIds.forEach { id -> deleteId(client, recordClass, platformId = id, clientRecordId = null) }
+            clientRecordIds.forEach { id -> deleteId(client, recordClass, platformId = null, clientRecordId = id) }
+        }
+    }
+
+    private fun scopeClientRecordId(dataType: String, clientRecordId: String): String {
+        return when (dataType) {
+            "dietaryEnergyConsumed", "dietaryProtein" -> "$dataType:$clientRecordId"
+            else -> clientRecordId
+        }
     }
 
     private suspend fun deleteId(

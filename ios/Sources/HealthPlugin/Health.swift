@@ -378,10 +378,11 @@ enum WorkoutType: String, CaseIterable {
 
     static func from(workout: HKWorkout) -> WorkoutType {
         if workout.workoutActivityType == .swimming {
-            switch workout.swimmingLocationType {
-            case .pool:
+            let rawLocation = (workout.metadata?[HKMetadataKeySwimmingLocationType] as? NSNumber)?.intValue
+            switch rawLocation.flatMap(HKWorkoutSwimmingLocationType.init(rawValue:)) {
+            case .pool?:
                 return .swimmingPool
-            case .openWater:
+            case .openWater?:
                 return .swimmingOpenWater
             default:
                 return .swimming
@@ -1266,7 +1267,7 @@ final class Health {
         }
     }
 
-    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, clientRecordId: String?, recordingMethod: String?, completion: @escaping (Result<String?, Error>) -> Void) throws {
+    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, clientRecordId: String?, recordingMethod: String?, completion: @escaping (Result<Void, Error>) -> Void) throws {
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthManagerError.healthDataUnavailable
         }
@@ -1309,7 +1310,7 @@ final class Health {
                 }
                 
                 if success {
-                    completion(.success(sample.uuid.uuidString))
+                    completion(.success(()))
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
                 }
@@ -1331,7 +1332,7 @@ final class Health {
                 }
                 
                 if success {
-                    completion(.success(sample.uuid.uuidString))
+                    completion(.success(()))
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
                 }
@@ -1369,7 +1370,7 @@ final class Health {
                 }
                 
                 if success {
-                    completion(.success(correlation.uuid.uuidString))
+                    completion(.success(()))
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
                 }
@@ -1390,7 +1391,7 @@ final class Health {
             }
 
             if success {
-                completion(.success(sample.uuid.uuidString))
+                completion(.success(()))
             } else {
                 completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
             }
@@ -1842,17 +1843,17 @@ final class Health {
             } else if workoutType == .swimmingPool {
                 typePredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
                     HKQuery.predicateForWorkouts(with: .swimming),
-                    NSPredicate(
-                        format: "swimmingLocationType == %d",
-                        HKWorkoutSwimmingLocationType.pool.rawValue
+                    HKQuery.predicateForObjects(
+                        withMetadataKey: HKMetadataKeySwimmingLocationType,
+                        allowedValues: [NSNumber(value: HKWorkoutSwimmingLocationType.pool.rawValue)]
                     ),
                 ])
             } else if workoutType == .swimmingOpenWater {
                 typePredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
                     HKQuery.predicateForWorkouts(with: .swimming),
-                    NSPredicate(
-                        format: "swimmingLocationType == %d",
-                        HKWorkoutSwimmingLocationType.openWater.rawValue
+                    HKQuery.predicateForObjects(
+                        withMetadataKey: HKMetadataKeySwimmingLocationType,
+                        allowedValues: [NSNumber(value: HKWorkoutSwimmingLocationType.openWater.rawValue)]
                     ),
                 ])
             } else {

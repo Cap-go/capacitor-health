@@ -138,12 +138,8 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
             ) { result in
                 DispatchQueue.main.async {
                     switch result {
-                    case let .success(platformId):
-                        if let platformId = platformId {
-                            call.resolve(["platformId": platformId])
-                        } else {
-                            call.resolve()
-                        }
+                    case .success:
+                        call.resolve()
                     case let .failure(error):
                         call.reject(error.localizedDescription, nil, error)
                     }

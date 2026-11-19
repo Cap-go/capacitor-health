@@ -542,9 +542,10 @@ class HealthManager {
         mindfulnessSessionType: String?,
         clientRecordId: String? = null,
         manualEntry: Boolean = true,
-    ): String? {
+    ) {
         // Without clientRecordId / recordingMethod this stays Metadata.manualEntry(), as before.
-        val recordMetadata = WorkoutWriter.recordMetadata(clientRecordId, manualEntry, WorkoutWriter.nextRecordVersion())
+        val scopedClientRecordId = clientRecordId?.let { WorkoutWriter.scopeClientRecordId(dataType, it) }
+        val recordMetadata = WorkoutWriter.recordMetadata(scopedClientRecordId, manualEntry, WorkoutWriter.nextRecordVersion())
 
         when (dataType) {
             HealthDataType.STEPS -> {
@@ -556,7 +557,7 @@ class HealthManager {
                     count = value.toLong().coerceAtLeast(0),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.DISTANCE -> {
                 val record = DistanceRecord(
@@ -567,7 +568,7 @@ class HealthManager {
                     distance = Length.meters(value),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.CALORIES -> {
                 val record = ActiveCaloriesBurnedRecord(
@@ -578,7 +579,7 @@ class HealthManager {
                     energy = Energy.kilocalories(value),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.WEIGHT -> {
                 val record = WeightRecord(
@@ -587,7 +588,7 @@ class HealthManager {
                     weight = Mass.kilograms(value),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.HEART_RATE -> {
                 val samples = listOf(HeartRateRecord.Sample(time = startTime, beatsPerMinute = value.toBpmLong()))
@@ -599,7 +600,7 @@ class HealthManager {
                     samples = samples,
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.SLEEP -> {
                 val record = SleepSessionRecord(
@@ -609,7 +610,7 @@ class HealthManager {
                     endZoneOffset = zoneOffset(endTime),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.RESPIRATORY_RATE -> {
                 val record = RespiratoryRateRecord(
@@ -618,7 +619,7 @@ class HealthManager {
                     rate = value,
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.OXYGEN_SATURATION -> {
                 val record = OxygenSaturationRecord(
@@ -627,7 +628,7 @@ class HealthManager {
                     percentage = Percentage(value),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.RESTING_HEART_RATE -> {
                 val record = RestingHeartRateRecord(
@@ -636,7 +637,7 @@ class HealthManager {
                     beatsPerMinute = value.toBpmLong(),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.HEART_RATE_VARIABILITY -> {
                 val record = HeartRateVariabilityRmssdRecord(
@@ -645,7 +646,7 @@ class HealthManager {
                     heartRateVariabilityMillis = value,
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.VO2_MAX -> {
                 val record = Vo2MaxRecord(
@@ -654,7 +655,7 @@ class HealthManager {
                     metadata = recordMetadata,
                     vo2MillilitersPerMinuteKilogram = value
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.BLOOD_PRESSURE -> {
                 if (systolic == null || diastolic == null) {
@@ -667,7 +668,7 @@ class HealthManager {
                     systolic = androidx.health.connect.client.units.Pressure.millimetersOfMercury(systolic),
                     diastolic = androidx.health.connect.client.units.Pressure.millimetersOfMercury(diastolic)
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.BLOOD_GLUCOSE -> {
                 val record = BloodGlucoseRecord(
@@ -676,7 +677,7 @@ class HealthManager {
                     metadata = recordMetadata,
                     level = androidx.health.connect.client.units.BloodGlucose.milligramsPerDeciliter(value)
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.BODY_TEMPERATURE -> {
                 val record = BodyTemperatureRecord(
@@ -685,7 +686,7 @@ class HealthManager {
                     metadata = recordMetadata,
                     temperature = androidx.health.connect.client.units.Temperature.celsius(value)
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.HEIGHT -> {
                 val record = HeightRecord(
@@ -694,7 +695,7 @@ class HealthManager {
                     height = Length.meters(value / 100.0), // Convert from centimeters to meters
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.FLIGHTS_CLIMBED -> {
                 val record = FloorsClimbedRecord(
@@ -705,7 +706,7 @@ class HealthManager {
                     floors = value,
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.DISTANCE_CYCLING -> {
                 val record = DistanceRecord(
@@ -716,7 +717,7 @@ class HealthManager {
                     distance = Length.meters(value),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.BODY_FAT -> {
                 val record = BodyFatRecord(
@@ -725,7 +726,7 @@ class HealthManager {
                     percentage = Percentage(value),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.BASAL_BODY_TEMPERATURE -> {
                 val record = BasalBodyTemperatureRecord(
@@ -734,7 +735,7 @@ class HealthManager {
                     metadata = recordMetadata,
                     temperature = androidx.health.connect.client.units.Temperature.celsius(value)
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.BASAL_CALORIES -> {
                 val record = BasalMetabolicRateRecord(
@@ -743,7 +744,7 @@ class HealthManager {
                     basalMetabolicRate = Power.kilocaloriesPerDay(value),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.TOTAL_CALORIES -> {
                 val record = TotalCaloriesBurnedRecord(
@@ -754,7 +755,7 @@ class HealthManager {
                     energy = Energy.kilocalories(value),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.MINDFULNESS -> {
                 val record = MindfulnessSessionRecord(
@@ -765,7 +766,7 @@ class HealthManager {
                     metadata = recordMetadata,
                     mindfulnessSessionType = mindfulnessSessionType.toMindfulnessSessionType()
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.HYDRATION -> {
                 val record = HydrationRecord(
@@ -776,7 +777,7 @@ class HealthManager {
                     volume = Volume.liters(value),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.DIETARY_ENERGY -> {
                 val record = NutritionRecord(
@@ -787,7 +788,7 @@ class HealthManager {
                     energy = Energy.kilocalories(value),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
             HealthDataType.DIETARY_PROTEIN -> {
                 val record = NutritionRecord(
@@ -798,13 +799,9 @@ class HealthManager {
                     protein = Mass.grams(value),
                     metadata = recordMetadata
                 )
-                return insertSavedRecord(client, record)
+                client.insertRecords(listOf(record))
             }
         }
-    }
-
-    private suspend fun insertSavedRecord(client: HealthConnectClient, record: Record): String? {
-        return client.insertRecords(listOf(record)).recordIdsList.firstOrNull()
     }
 
     fun parseInstant(value: String?, defaultInstant: Instant): Instant {
