@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+EXAMPLE_DIR="$ROOT_DIR/example-app"
+FLOW_PATH="$ROOT_DIR/.maestro/ios/body-composition-unsupported.yaml"
+SKIP_BUILD="${CAPGO_MAESTRO_SKIP_BUILD:-0}"
+DERIVED_DATA_PATH="${CAPGO_MAESTRO_IOS_DERIVED_DATA_PATH:-$ROOT_DIR/maestro-ios-derived-data}"
+APP_PATH="$DERIVED_DATA_PATH/Build/Products/Debug-iphonesimulator/App.app"
+
+export PATH="$HOME/.maestro/bin:${PATH:-}"
+export MAESTRO_DRIVER_STARTUP_TIMEOUT="${MAESTRO_DRIVER_STARTUP_TIMEOUT:-600000}"
+
+SIMULATOR_ID="${CAPGO_MAESTRO_IOS_SIMULATOR_ID:-$("$ROOT_DIR/scripts/select-ios-simulator.sh")}"
+
+cd "$ROOT_DIR"
+
+if [[ "$SKIP_BUILD" != "1" ]]; then
+  bun run build
+  cd "$EXAMPLE_DIR"
+  bun install
+  bun run build
+  bunx cap sync ios
+  xcodebuild \
+    -project ios/App/App.xcodeproj \
+    -scheme App \
+    -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+    -derivedDataPath "$DERIVED_DATA_PATH" \
+  CODE_SIGNING_ALLOWED=NO \
+    build
+fi
+
+if [[ ! -d "$APP_PATH" ]]; then
+  echo "Missing simulator app at $APP_PATH" >&2
+  exit 1
+fi
+
+xcrun simctl boot "$SIMULATOR_ID" 2>/dev/null || true
+xcrun simctl bootstatus "$SIMULATOR_ID" -b
+xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
+
+maestro test --config "$ROOT_DIR/.maestro/config.yaml" "$FLOW_PATH"

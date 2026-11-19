@@ -70,4 +70,76 @@ class HealthTests: XCTestCase {
 
         XCTAssertNil(payload)
     }
+
+    func testSaveSampleRejectsLeanBodyMassAsUnsupported() {
+        let implementation = Health()
+        XCTAssertThrowsError(
+            try implementation.saveSample(
+                dataTypeIdentifier: "leanBodyMass",
+                value: 60,
+                unitIdentifier: nil,
+                startDateString: nil,
+                endDateString: nil,
+                metadata: nil,
+                systolic: nil,
+                diastolic: nil
+            ) { _ in }
+        ) { error in
+            guard let healthError = error as? HealthManagerError else {
+                return XCTFail("Expected HealthManagerError, got \(error)")
+            }
+            if case let .invalidDataType(identifier) = healthError {
+                XCTAssertEqual(identifier, "leanBodyMass")
+            } else {
+                XCTFail("Expected invalidDataType, got \(healthError)")
+            }
+        }
+    }
+
+    func testSaveSampleRejectsBoneMassAsUnsupported() {
+        let implementation = Health()
+        XCTAssertThrowsError(
+            try implementation.saveSample(
+                dataTypeIdentifier: "boneMass",
+                value: 2.8,
+                unitIdentifier: nil,
+                startDateString: nil,
+                endDateString: nil,
+                metadata: nil,
+                systolic: nil,
+                diastolic: nil
+            ) { _ in }
+        ) { error in
+            guard let healthError = error as? HealthManagerError else {
+                return XCTFail("Expected HealthManagerError, got \(error)")
+            }
+            if case let .invalidDataType(identifier) = healthError {
+                XCTAssertEqual(identifier, "boneMass")
+            } else {
+                XCTFail("Expected invalidDataType, got \(healthError)")
+            }
+        }
+    }
+
+    func testReadSamplesRejectsBodyWaterMassAsUnsupported() throws {
+        let implementation = Health()
+        XCTAssertThrowsError(
+            try implementation.readSamples(
+                dataTypeIdentifier: "bodyWaterMass",
+                startDateString: nil,
+                endDateString: nil,
+                limit: nil,
+                ascending: false
+            ) { _ in }
+        ) { error in
+            guard let healthError = error as? HealthManagerError else {
+                return XCTFail("Expected HealthManagerError, got \(error)")
+            }
+            if case let .invalidDataType(identifier) = healthError {
+                XCTAssertEqual(identifier, "bodyWaterMass")
+            } else {
+                XCTFail("Expected invalidDataType, got \(healthError)")
+            }
+        }
+    }
 }

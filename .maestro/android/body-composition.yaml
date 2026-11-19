@@ -1,0 +1,17 @@
+appId: app.capgo.health
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: '@capgo/capacitor-health Demo'
+    timeout: 120000
+- scrollUntilVisible:
+    element:
+      id: e2e-body-composition-android
+    direction: DOWN
+    timeout: 120000
+- tapOn:
+    id: e2e-body-composition-android
+- extendedWaitUntil:
+    visible: 'E2E:body-composition:success'
+    timeout: 300000
