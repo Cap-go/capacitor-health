@@ -84,8 +84,11 @@ class WorkoutWriter {
         val isInWorkout = { time: Instant -> !time.isBefore(startTime) && time.isBefore(endTime) }
 
         val clientRecordId = optionalString(options, "clientRecordId", "clientRecordId")
-        if (clientRecordId != null && clientRecordId.isBlank()) {
-            throw IllegalArgumentException("clientRecordId must not be blank")
+        if (clientRecordId != null) {
+            if (clientRecordId.isBlank()) {
+                throw IllegalArgumentException("clientRecordId must not be blank")
+            }
+            validateClientRecordIdLength(clientRecordId)
         }
         val title = optionalString(options, "title", "title")
 
@@ -353,8 +356,19 @@ class WorkoutWriter {
     }
 
     private fun metadata(input: WorkoutInput, idSuffix: String?, version: Long): Metadata {
-        val clientRecordId = input.clientRecordId?.let { id -> if (idSuffix == null) id else companionClientRecordId(id, idSuffix) }
+        val clientRecordId = input.clientRecordId?.let { id ->
+            if (idSuffix == null) id else companionClientRecordId(id, idSuffix)
+        }
+        clientRecordId?.let { validateClientRecordIdLength(it) }
         return recordMetadata(clientRecordId, input.manualEntry, version)
+    }
+
+    private fun validateClientRecordIdLength(clientRecordId: String) {
+        if (clientRecordId.length > MAX_CLIENT_RECORD_ID_LENGTH) {
+            throw IllegalArgumentException(
+                "clientRecordId must be at most $MAX_CLIENT_RECORD_ID_LENGTH characters, got ${clientRecordId.length}"
+            )
+        }
     }
 
     private fun zoneOffset(instant: Instant): ZoneOffset? {
@@ -423,6 +437,8 @@ class WorkoutWriter {
         private const val MAX_BPM = 300.0
         private const val MAX_DISTANCE_METERS = 1_000_000.0
         private const val MAX_ENERGY_KILOCALORIES = 1_000_000.0
+        /** Health Connect `clientRecordId` limit; companion ids add suffixes such as `:distance`. */
+        private const val MAX_CLIENT_RECORD_ID_LENGTH = 191
 
         private val PHONE_DEVICE = Device(type = Device.TYPE_PHONE)
 
@@ -475,7 +491,7 @@ class WorkoutWriter {
                 true
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception) {
+            } catch (e: IllegalArgumentException) {
                 Log.d(TAG, "Skipped deleting ${recordClass.simpleName} $clientRecordIds (it may not exist): ${e.message}")
                 false
             }
@@ -501,6 +517,13 @@ class WorkoutWriter {
          * recorded records are attributed to a phone device; manual entries have no device.
          */
         internal fun recordMetadata(clientRecordId: String?, manualEntry: Boolean, version: Long): Metadata {
+            clientRecordId?.let {
+                if (it.length > MAX_CLIENT_RECORD_ID_LENGTH) {
+                    throw IllegalArgumentException(
+                        "clientRecordId must be at most $MAX_CLIENT_RECORD_ID_LENGTH characters, got ${it.length}"
+                    )
+                }
+            }
             return if (manualEntry) {
                 if (clientRecordId != null) Metadata.manualEntry(clientRecordId, version) else Metadata.manualEntry()
             } else {

@@ -98,7 +98,96 @@ final class WorkoutWriter {
             return
         }
 
-        save(input, plan: makePlan(for: input), completion: completion)
+        let plan = makePlan(for: input)
+        reconcileOmittedCompanions(for: input, plan: plan) { [weak self] error in
+            guard let self = self else { return }
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            self.save(input, plan: plan, completion: completion)
+        }
+    }
+
+    /// Deletes derived records from an earlier save that this payload no longer writes (same `clientRecordId` prefix).
+    private func reconcileOmittedCompanions(for input: WorkoutInput, plan: SavePlan, completion: @escaping (Error?) -> Void) {
+        guard let clientRecordId = input.clientRecordId else {
+            completion(nil)
+            return
+        }
+        let expected = WorkoutWriter.expectedSyncIdentifiers(for: input, plan: plan)
+        let prefix = "\(clientRecordId):"
+        var types: [HKSampleType] = [
+            HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning),
+            HKObjectType.quantityType(forIdentifier: .distanceCycling),
+            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned),
+            HKObjectType.quantityType(forIdentifier: .heartRate),
+        ].compactMap { $0 }
+        types.append(HKSeriesType.workoutRoute())
+        deleteStaleCompanions(
+            types: types.filter { isSharingAuthorized($0) }[...],
+            prefix: prefix,
+            expected: expected,
+            completion: completion
+        )
+    }
+
+    private static func expectedSyncIdentifiers(for input: WorkoutInput, plan: SavePlan) -> Set<String> {
+        var ids = Set<String>()
+        if let clientRecordId = input.clientRecordId {
+            ids.insert(clientRecordId)
+        }
+        for sample in plan.samples {
+            if let sync = sample.metadata?[HKMetadataKeySyncIdentifier] as? String {
+                ids.insert(sync)
+            }
+        }
+        if let routeMetadata = plan.routeMetadata,
+           let sync = routeMetadata[HKMetadataKeySyncIdentifier] as? String {
+            ids.insert(sync)
+        }
+        return ids
+    }
+
+    private func deleteStaleCompanions(types: ArraySlice<HKSampleType>, prefix: String, expected: Set<String>,
+                                       completion: @escaping (Error?) -> Void) {
+        guard let type = types.first else {
+            completion(nil)
+            return
+        }
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            HKQuery.predicateForObjects(from: HKSource.default()),
+            NSPredicate(format: "metadata.%K BEGINSWITH %@", HKMetadataKeySyncIdentifier, prefix),
+        ])
+        let query = HKSampleQuery(
+            sampleType: type,
+            predicate: predicate,
+            limit: HKObjectQueryNoLimit,
+            sortDescriptors: nil
+        ) { _, samples, error in
+            if let error = error {
+                completion(error)
+                return
+            }
+            let stale = (samples ?? []).filter { sample in
+                guard let sync = sample.metadata?[HKMetadataKeySyncIdentifier] as? String else {
+                    return false
+                }
+                return !expected.contains(sync)
+            }
+            if stale.isEmpty {
+                self.deleteStaleCompanions(types: types.dropFirst(), prefix: prefix, expected: expected, completion: completion)
+                return
+            }
+            self.healthStore.delete(stale) { _, error in
+                if let error = error {
+                    completion(error)
+                    return
+                }
+                self.deleteStaleCompanions(types: types.dropFirst(), prefix: prefix, expected: expected, completion: completion)
+            }
+        }
+        healthStore.execute(query)
     }
 
     // MARK: - Plan
@@ -291,8 +380,6 @@ final class WorkoutWriter {
         case .swimmingPool:
             configuration.swimmingLocationType = .pool
         case .swimmingOpenWater:
-            // The shared mapping (used by queryWorkouts filters) turns swimmingOpenWater into waterSports;
-            // HealthKit records an open-water swim as a swimming workout with an open-water location.
             configuration.activityType = .swimming
             configuration.swimmingLocationType = .openWater
         default:

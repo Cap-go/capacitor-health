@@ -16,6 +16,18 @@ Read and write health data with Apple HealthKit on iOS and Health Connect on And
   <img src="https://raw.githubusercontent.com/Cap-go/capacitor-health/main/assets/github-social-preview.png" alt="@capgo/capacitor-health for Capacitor apps" width="300" />
 </p>
 
+## Built and maintained with AI
+
+We build, improve and fix our plugins with heavy use of AI, so issues usually get fixed in under a day and pull requests get feedback the same day. A human still reviews, tests and merges 50+ pull requests daily.
+
+- Most plugin issues get a fix pull request the same day, often within a couple of hours, and are usually resolved in one to two days.
+- Every pull request goes through our AI review system, usually within minutes.
+- Our AI pre-checks tests, code review, conventions and security, then a human reviews, tests and merges.
+- A human, Martin, reviews, tests and merges 50+ pull requests every day.
+- In the last 90 days, 95% of plugin issues were resolved.
+
+[Learn more about how we build with AI](https://capgo.app/docs/plugins/ai-engineering/)
+
 ## Key features
 
 - **Read samples**: `readSamples()` for steps, heart rate, sleep and other types over a time range.
@@ -213,6 +225,7 @@ await Health.saveSample({
 | `appleStandHour`        | `count`       | Apple Watch stand hours (iOS only, read-only; 1 = stood) |
 | `dietaryWater`          | `liter`       | Water consumed                                           |
 | `dietaryEnergyConsumed` | `kilocalorie` | Dietary energy (calories) consumed                       |
+| `dietaryProtein`        | `gram`        | Dietary protein consumed (Android only)                  |
 | `stateOfMind`           | `valence`     | State of Mind (iOS 18+, read-only; value = valence -1...1) |
 | `workouts`              | N/A           | Workout sessions (read with `queryWorkouts()`, write with `saveWorkout()`) |
 | `workoutRoute`          | N/A           | Workout GPS routes (write-only, use with `saveWorkout()`) |
@@ -297,10 +310,9 @@ const { platformId, routeSaved, skippedRecords } = await Health.saveWorkout({
   matching HealthKit distance type: the distance is not saved and `skippedRecords` lists `'distance'`.
 - **Retries:** pass a stable `clientRecordId` so retrying an uncertain save replaces the earlier copy
   instead of duplicating it (Health Connect `clientRecordId`, HealthKit `HKMetadataKeySyncIdentifier`
-  plus a sync version). On Android a later save also deletes the derived records it no longer writes.
-  On iOS HealthKit only replaces the objects saved again: a distance, energy or route the later save
-  leaves out, and heart-rate readings beyond its count, stay. Retry with the same data, or delete the
-  workout before saving different contents.
+  plus a sync version). On Android a later save deletes derived records it no longer writes when the
+  app still has the matching write permission. On iOS stale derived records are removed before the
+  replacement save.
 - **Samples outside the workout:** heart-rate readings and route locations outside the workout window
   (`startDate` inclusive, `endDate` exclusive) are dropped, as are route locations in the same
   millisecond as an earlier one. The result reports how many in `droppedHeartRateSamples` and
@@ -503,7 +515,7 @@ hr.forEach(sample => {
 });
 ```
 
-**Note:** Aggregated queries are not supported for sleep, respiratory rate, oxygen saturation, heart rate variability, and VO2 max data types. These measurements should use `readSamples()`, not `queryAggregated()`. Aggregation is supported for: steps, distance, calories, dietary water, dietary energy consumed, heart rate, weight, and resting heart rate.
+**Note:** Aggregated queries are not supported for sleep, respiratory rate, oxygen saturation, heart rate variability, and VO2 max data types. These measurements should use `readSamples()`, not `queryAggregated()`. Aggregation is supported for: steps, distance, calories, dietary water, dietary energy consumed, dietary protein (Android only), heart rate, weight, and resting heart rate.
 
 ## API
 
@@ -1037,12 +1049,12 @@ A pause inside a workout.
 
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'appleSleepingWristTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'appleStandHour' | 'dietaryWater' | 'dietaryEnergyConsumed' | 'stateOfMind' | 'workouts' | 'workoutRoute'</code>
+<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'appleSleepingWristTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'appleStandHour' | 'dietaryWater' | 'dietaryEnergyConsumed' | 'dietaryProtein' | 'stateOfMind' | 'workouts'</code>
 
 
 #### HealthUnit
 
-<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'minute' | 'percent' | 'millisecond' | 'mL/min/kg' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter' | 'liter' | 'valence'</code>
+<code>'count' | 'meter' | 'kilocalorie' | 'bpm' | 'kilogram' | 'gram' | 'minute' | 'percent' | 'millisecond' | 'mL/min/kg' | 'mmHg' | 'mg/dL' | 'celsius' | 'fahrenheit' | 'centimeter' | 'liter' | 'valence'</code>
 
 
 #### SleepState

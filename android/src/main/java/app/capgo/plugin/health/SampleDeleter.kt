@@ -6,6 +6,7 @@ import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.Record
 import com.getcapacitor.JSObject
 import kotlin.reflect.KClass
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
@@ -71,7 +72,7 @@ class SampleDeleter {
             )
         }
 
-        client.deleteRecords(input.recordClass, input.platformIds, input.clientRecordIds)
+        deleteIds(client, input.recordClass, input.platformIds, input.clientRecordIds)
 
         if (input.isWorkout && input.clientRecordIds.isNotEmpty()) {
             WorkoutWriter.COMPANION_RECORDS.forEach { (recordClass, idSuffix) ->
@@ -99,6 +100,36 @@ class SampleDeleter {
             (array.opt(index) as? String)?.takeIf { it.isNotBlank() }
                 ?: throw IllegalArgumentException("$key[$index] must be a non-empty string")
         }.distinct()
+    }
+
+    /** Deletes each id on its own so missing ids do not fail the whole call. */
+    private suspend fun deleteIds(
+        client: HealthConnectClient,
+        recordClass: KClass<out Record>,
+        platformIds: List<String>,
+        clientRecordIds: List<String>,
+    ) {
+        platformIds.forEach { id -> deleteId(client, recordClass, platformId = id, clientRecordId = null) }
+        clientRecordIds.forEach { id -> deleteId(client, recordClass, platformId = null, clientRecordId = id) }
+    }
+
+    private suspend fun deleteId(
+        client: HealthConnectClient,
+        recordClass: KClass<out Record>,
+        platformId: String?,
+        clientRecordId: String?,
+    ) {
+        try {
+            client.deleteRecords(
+                recordClass,
+                listOfNotNull(platformId),
+                listOfNotNull(clientRecordId),
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IllegalArgumentException) {
+            // Health Connect documents missing ids as an argument error (Android 14+ ignores them in batch calls).
+        }
     }
 
     companion object {

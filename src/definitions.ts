@@ -26,9 +26,15 @@ export type HealthDataType =
   | 'appleStandHour'
   | 'dietaryWater'
   | 'dietaryEnergyConsumed'
+  | 'dietaryProtein'
   | 'stateOfMind'
-  | 'workouts'
-  | 'workoutRoute';
+  | 'workouts';
+
+/**
+ * Extra write-only authorization identifier for workout GPS routes (not a {@link HealthDataType}:
+ * do not pass it to `readSamples`, `saveSample`, `queryAggregated` or `deleteSamples`).
+ */
+export type HealthWriteAuthorizationType = HealthDataType | 'workoutRoute';
 
 export type HealthUnit =
   | 'count'
@@ -36,6 +42,7 @@ export type HealthUnit =
   | 'kilocalorie'
   | 'bpm'
   | 'kilogram'
+  | 'gram'
   | 'minute'
   | 'percent'
   | 'millisecond'
@@ -59,7 +66,7 @@ export interface AuthorizationOptions {
    * `HKSeriesType.workoutRoute()`). `workoutRoute` is write-only. On iOS it also requests read and
    * share access to workouts and read access to routes, which Apple requires for route data.
    */
-  write?: HealthDataType[];
+  write?: HealthWriteAuthorizationType[];
   /**
    * Android only: also request the `READ_HEALTH_DATA_HISTORY` permission in the same
    * Health Connect permission sheet. Without it, Health Connect caps reads to roughly
@@ -447,6 +454,15 @@ export interface WriteSampleOptions {
   recordingMethod?: RecordingMethod;
 }
 
+export interface SaveSampleResult {
+  /**
+   * Optional platform-specific identifier of the saved sample (Health Connect record id on Android,
+   * HealthKit UUID on iOS; the correlation's UUID for blood pressure). Usable with
+   * {@link HealthPlugin.deleteSamples}.
+   */
+  platformId?: string;
+}
+
 export interface DeleteSamplesOptions {
   /**
    * Type of the records to delete. Use `workouts` for workouts saved with
@@ -465,9 +481,7 @@ export interface DeleteSamplesResult {
    * associated samples).
    *
    * Android: the number of ids requested, since Health Connect does not report how many records it
-   * deleted. Android 14 and later ignore ids that match nothing. Health Connect documents that such an
-   * id fails the whole call, so on Android 13 and lower (Health Connect app) the call can reject with
-   * `delete-samples-failed` and delete nothing.
+   * deleted. Missing ids are skipped, so stale or already-deleted ids do not fail the call.
    */
   deleted: number;
 }
@@ -510,7 +524,7 @@ export type WorkoutCompanionRecord = 'distance' | 'energy' | 'heartRate';
 export interface SaveWorkoutOptions {
   /**
    * The type of workout. On iOS `swimmingPool` and `swimmingOpenWater` are saved as swimming workouts
-   * with a pool or open-water location, so {@link HealthPlugin.queryWorkouts} reports both as `swimming`.
+   * with a pool or open-water location; {@link HealthPlugin.queryWorkouts} can filter each variant.
    */
   workoutType: WorkoutType;
   /** ISO 8601 start date of the workout. */
@@ -524,17 +538,15 @@ export interface SaveWorkoutOptions {
    * On Android it becomes the Health Connect `clientRecordId` of the exercise session, and the
    * distance, energy and heart-rate records get derived ids (`<id>:distance`, `<id>:energy`,
    * `<id>:hr`). Each save uses the save time in milliseconds as `clientRecordVersion` (always higher
-   * than the previous save's), so the latest save wins. Derived records a later save no longer
-   * writes are deleted, for the types the app can still write.
+   * than the previous save's), so the latest save wins. Derived records a later save no longer writes are
+   * deleted when the app still has the corresponding write permission.
    *
    * On iOS it becomes the `HKMetadataKeySyncIdentifier` of the workout, and the other objects get
    * derived ids (`<id>:distance`, `<id>:energy`, `<id>:hr:<n>` per heart-rate reading,
    * `<id>:route`), with the same kind of version as `HKMetadataKeySyncVersion`. When pauses split the
    * workout into several active intervals, the distance and energy pieces get `<id>:distance:<n>` and
-   * `<id>:energy:<n>` (from 0, in time order) instead. HealthKit only replaces the objects a later save
-   * writes again: a distance, energy or route it leaves out, distance or energy pieces with another id
-   * (the pauses changed), and heart-rate readings beyond its count, stay from the earlier save. Retry with the same data, or
-   * delete the workout with {@link HealthPlugin.deleteSamples} before saving different contents.
+   * `<id>:energy:<n>` (from 0, in time order) instead. Before saving, objects with derived ids that the
+   * new payload no longer writes are deleted (when share access allows).
    *
    * Without it, every call inserts new records.
    */
@@ -684,7 +696,7 @@ export interface HealthPlugin {
   /** Reads samples for the given data type within the specified time frame. */
   readSamples(options: QueryOptions): Promise<ReadSamplesResult>;
   /** Writes a single sample to the native health store. */
-  saveSample(options: WriteSampleOptions): Promise<void>;
+  saveSample(options: WriteSampleOptions): Promise<SaveSampleResult>;
 
   /**
    * Deletes records this app saved, by `clientRecordId` and/or `platformId`.

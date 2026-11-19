@@ -260,10 +260,8 @@ enum WorkoutType: String, CaseIterable {
             return .traditionalStrengthTraining
         case .surfing, .surfingSports:
             return .surfingSports
-        case .swimming, .swimmingPool:
+        case .swimming, .swimmingPool, .swimmingOpenWater:
             return .swimming
-        case .swimmingOpenWater:
-            return .waterSports
         case .tableTennis:
             return .tableTennis
         case .tennis:
@@ -376,6 +374,20 @@ enum WorkoutType: String, CaseIterable {
              .paraGliding, .plank, .upperTwist, .other:
             return .other
         }
+    }
+
+    static func from(workout: HKWorkout) -> WorkoutType {
+        if workout.workoutActivityType == .swimming {
+            switch workout.swimmingLocationType {
+            case .pool:
+                return .swimmingPool
+            case .openWater:
+                return .swimmingOpenWater
+            default:
+                return .swimming
+            }
+        }
+        return fromHKWorkoutActivityType(workout.workoutActivityType)
     }
 
     static func fromHKWorkoutActivityType(_ hkType: HKWorkoutActivityType) -> WorkoutType {
@@ -1254,7 +1266,7 @@ final class Health {
         }
     }
 
-    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, clientRecordId: String?, recordingMethod: String?, completion: @escaping (Result<Void, Error>) -> Void) throws {
+    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, clientRecordId: String?, recordingMethod: String?, completion: @escaping (Result<String?, Error>) -> Void) throws {
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthManagerError.healthDataUnavailable
         }
@@ -1297,7 +1309,7 @@ final class Health {
                 }
                 
                 if success {
-                    completion(.success(()))
+                    completion(.success(sample.uuid.uuidString))
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
                 }
@@ -1319,7 +1331,7 @@ final class Health {
                 }
                 
                 if success {
-                    completion(.success(()))
+                    completion(.success(sample.uuid.uuidString))
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
                 }
@@ -1357,7 +1369,7 @@ final class Health {
                 }
                 
                 if success {
-                    completion(.success(()))
+                    completion(.success(correlation.uuid.uuidString))
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
                 }
@@ -1378,7 +1390,7 @@ final class Health {
             }
 
             if success {
-                completion(.success(()))
+                completion(.success(sample.uuid.uuidString))
             } else {
                 completion(.failure(HealthManagerError.operationFailed("Failed to save the sample.")))
             }
@@ -1827,6 +1839,22 @@ final class Health {
                     HKQuery.predicateForWorkouts(with: .wheelchairRunPace),
                     HKQuery.predicateForWorkouts(with: .wheelchairWalkPace),
                 ])
+            } else if workoutType == .swimmingPool {
+                typePredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    HKQuery.predicateForWorkouts(with: .swimming),
+                    NSPredicate(
+                        format: "swimmingLocationType == %d",
+                        HKWorkoutSwimmingLocationType.pool.rawValue
+                    ),
+                ])
+            } else if workoutType == .swimmingOpenWater {
+                typePredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    HKQuery.predicateForWorkouts(with: .swimming),
+                    NSPredicate(
+                        format: "swimmingLocationType == %d",
+                        HKWorkoutSwimmingLocationType.openWater.rawValue
+                    ),
+                ])
             } else {
                 typePredicate = HKQuery.predicateForWorkouts(with: workoutType.hkWorkoutActivityType())
             }
@@ -1876,7 +1904,7 @@ final class Health {
     
     private func workoutToPayload(_ workout: HKWorkout) -> [String: Any] {
         var payload: [String: Any] = [
-            "workoutType": WorkoutType.fromHKWorkoutActivityType(workout.workoutActivityType).rawValue,
+            "workoutType": WorkoutType.from(workout: workout).rawValue,
             "duration": Int(workout.duration),
             "startDate": isoFormatter.string(from: workout.startDate),
             "endDate": isoFormatter.string(from: workout.endDate)
