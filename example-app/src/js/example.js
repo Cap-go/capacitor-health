@@ -27,6 +27,18 @@ const samplesContainer = document.getElementById('samplesContainer');
 
 const readTypeCheckboxes = Array.from(document.querySelectorAll('.read-type'));
 const writeTypeCheckboxes = Array.from(document.querySelectorAll('.write-type'));
+const e2eAndroidButton = document.getElementById('e2e-body-composition-android');
+const e2eIosUnsupportedButton = document.getElementById('e2e-body-composition-ios-unsupported');
+const e2eMarkerPane = document.getElementById('e2eMarkerPane');
+
+const bodyCompositionTypes = ['leanBodyMass', 'boneMass', 'bodyWaterMass'];
+
+const setE2eMarker = (message) => {
+  if (e2eMarkerPane) {
+    e2eMarkerPane.textContent = message;
+  }
+  setOutput({ e2eMarker: message });
+};
 
 const setStatus = (message) => {
   if (statusLine) {
@@ -192,6 +204,98 @@ saveSampleButton?.addEventListener('click', async () => {
     const message = error instanceof Error ? error.message : String(error);
     setOutput({ error: message });
     setStatus('Save sample failed');
+  }
+});
+
+e2eAndroidButton?.addEventListener('click', async () => {
+  if (Capacitor.getPlatform() !== 'android') {
+    setE2eMarker('E2E:body-composition:skipped-not-android');
+    return;
+  }
+
+  setE2eMarker('E2E:body-composition:running');
+
+  try {
+    const availability = await Health.isAvailable();
+    if (!availability.available) {
+      throw new Error(availability.reason ?? 'Health Connect unavailable');
+    }
+
+    const auth = await Health.requestAuthorization({
+      read: bodyCompositionTypes,
+      write: bodyCompositionTypes,
+    });
+    setOutput({ auth });
+
+    const now = new Date().toISOString();
+    const samplesToSave = [
+      { dataType: 'leanBodyMass', value: 61.2 },
+      { dataType: 'boneMass', value: 2.9 },
+      { dataType: 'bodyWaterMass', value: 41.5 },
+    ];
+
+    for (const sample of samplesToSave) {
+      await Health.saveSample({
+        dataType: sample.dataType,
+        value: sample.value,
+        unit: 'kilogram',
+        startDate: now,
+        endDate: now,
+      });
+    }
+
+    const readBack = await Health.readSamples({
+      dataType: 'leanBodyMass',
+      startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      endDate: now,
+      limit: 5,
+    });
+
+    setOutput({ auth, readBack, saved: samplesToSave });
+    setE2eMarker('E2E:body-composition:success');
+    setStatus('Android body composition E2E passed');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    setE2eMarker(`E2E:body-composition:failed:${message}`);
+    setStatus('Android body composition E2E failed');
+  }
+});
+
+e2eIosUnsupportedButton?.addEventListener('click', async () => {
+  if (Capacitor.getPlatform() !== 'ios') {
+    setE2eMarker('E2E:ios-unsupported:skipped-not-ios');
+    return;
+  }
+
+  setE2eMarker('E2E:ios-unsupported:running');
+
+  const expectUnsupported = async (dataType) => {
+    try {
+      await Health.saveSample({
+        dataType,
+        value: 1,
+        startDate: new Date().toISOString(),
+        endDate: new Date().toISOString(),
+      });
+      throw new Error(`${dataType} should be rejected on iOS`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes('Unsupported health data type')) {
+        throw error;
+      }
+    }
+  };
+
+  try {
+    for (const dataType of bodyCompositionTypes) {
+      await expectUnsupported(dataType);
+    }
+    setE2eMarker('E2E:ios-unsupported:success');
+    setStatus('iOS unsupported body composition E2E passed');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    setE2eMarker(`E2E:ios-unsupported:failed:${message}`);
+    setStatus('iOS unsupported body composition E2E failed');
   }
 });
 
