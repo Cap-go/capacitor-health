@@ -72,7 +72,11 @@ class SampleDeleter {
             )
         }
 
-        val scopedClientRecordIds = input.clientRecordIds.map { scopeClientRecordId(input.dataType, it) }
+        // `workouts` is not a HealthDataType: its ids are used as given.
+        val healthDataType = HealthDataType.from(input.dataType)
+        val scopedClientRecordIds = input.clientRecordIds.map { id ->
+            healthDataType?.let { WorkoutWriter.scopeClientRecordId(it, id) } ?: id
+        }
         deleteIds(client, input.recordClass, input.platformIds, scopedClientRecordIds)
 
         if (input.isWorkout && input.clientRecordIds.isNotEmpty()) {
@@ -121,13 +125,6 @@ class SampleDeleter {
         } catch (_: IllegalArgumentException) {
             platformIds.forEach { id -> deleteId(client, recordClass, platformId = id, clientRecordId = null) }
             clientRecordIds.forEach { id -> deleteId(client, recordClass, platformId = null, clientRecordId = id) }
-        }
-    }
-
-    private fun scopeClientRecordId(dataType: String, clientRecordId: String): String {
-        return when (dataType) {
-            "dietaryEnergyConsumed", "dietaryProtein" -> "$dataType:$clientRecordId"
-            else -> clientRecordId
         }
     }
 
