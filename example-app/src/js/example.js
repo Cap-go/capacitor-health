@@ -39,6 +39,14 @@ const e2eMarkerPane = document.getElementById('e2eMarkerPane');
 
 const bodyCompositionTypes = ['leanBodyMass', 'boneMass', 'bodyWaterMass'];
 
+const isSameSampleInstant = (savedIso, rowStart) => {
+  if (!savedIso || !rowStart) return false;
+  const savedMs = Date.parse(savedIso);
+  const rowMs = Date.parse(rowStart);
+  if (Number.isNaN(savedMs) || Number.isNaN(rowMs)) return false;
+  return Math.abs(savedMs - rowMs) < 1000;
+};
+
 const setE2eMarker = (message) => {
   if (e2eMarkerPane) {
     e2eMarkerPane.textContent = message;
@@ -274,7 +282,7 @@ e2eAndroidButton?.addEventListener('click', async () => {
           (row) =>
             row.dataType === sample.dataType &&
             row.value === sample.value &&
-            row.startDate === now,
+            isSameSampleInstant(now, row.startDate),
         )
       ) {
         throw new Error(`Could not read back ${sample.dataType}`);
