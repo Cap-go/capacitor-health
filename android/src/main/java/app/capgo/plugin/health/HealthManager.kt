@@ -80,13 +80,22 @@ class HealthManager {
         readTypes: Collection<HealthDataType>,
         writeTypes: Collection<HealthDataType>,
         includeWorkouts: Boolean = false,
-        includeHistoryAccess: Boolean = false
+        includeHistoryAccess: Boolean = false,
+        includeWorkoutWrite: Boolean = false,
+        includeWorkoutRouteWrite: Boolean = false
     ): Set<String> = buildSet {
         readTypes.forEach { add(it.readPermission) }
         writeTypes.forEach { add(it.writePermission) }
         // Include workout read permission if explicitly requested
         if (includeWorkouts) {
             add(HealthPermission.getReadPermission(ExerciseSessionRecord::class))
+        }
+        // Include workout / route write permissions (saveWorkout) if explicitly requested
+        if (includeWorkoutWrite) {
+            add(HealthPermission.getWritePermission(ExerciseSessionRecord::class))
+        }
+        if (includeWorkoutRouteWrite) {
+            add(HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE)
         }
         // Include history-access permission if explicitly requested so reads can
         // exceed Health Connect's default 30-day window. Requires the consumer to
@@ -103,7 +112,9 @@ class HealthManager {
         readTypes: Collection<HealthDataType>,
         writeTypes: Collection<HealthDataType>,
         includeWorkouts: Boolean = false,
-        includeHistoryAccess: Boolean = false
+        includeHistoryAccess: Boolean = false,
+        includeWorkoutWrite: Boolean = false,
+        includeWorkoutRouteWrite: Boolean = false
     ): JSObject {
         val granted = client.permissionController.getGrantedPermissions()
 
@@ -137,11 +148,25 @@ class HealthManager {
             }
         }
 
+        // Check workout / route write permissions if requested
+        if (includeWorkoutWrite) {
+            if (granted.contains(HealthPermission.getWritePermission(ExerciseSessionRecord::class))) {
+                writeAuthorized.put("workouts")
+            } else {
+                writeDenied.put("workouts")
+            }
+        }
         return JSObject().apply {
             put("readAuthorized", readAuthorized)
             put("readDenied", readDenied)
             put("writeAuthorized", writeAuthorized)
             put("writeDenied", writeDenied)
+            if (includeWorkoutRouteWrite) {
+                put(
+                    "workoutRouteWriteAuthorized",
+                    granted.contains(HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE),
+                )
+            }
             // Report history-access status as top-level flags, only when it was requested.
             // historyAccessAvailable distinguishes "the provider is too old to ever grant
             // this" from "the user denied it"; historyAccessAuthorized is necessarily false
@@ -512,9 +537,13 @@ class HealthManager {
         metadata: Map<String, String>?,
         systolic: Double?,
         diastolic: Double?,
-        mindfulnessSessionType: String?
+        mindfulnessSessionType: String?,
+        clientRecordId: String? = null,
+        manualEntry: Boolean = true,
     ) {
-        val recordMetadata = Metadata.manualEntry()
+        // Without clientRecordId / recordingMethod this stays Metadata.manualEntry(), as before.
+        val scopedClientRecordId = clientRecordId?.let { WorkoutWriter.scopeClientRecordId(dataType, it) }
+        val recordMetadata = WorkoutWriter.recordMetadata(scopedClientRecordId, manualEntry, WorkoutWriter.nextRecordVersion())
 
         when (dataType) {
             HealthDataType.STEPS -> {

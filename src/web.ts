@@ -4,6 +4,8 @@ import type {
   AuthorizationOptions,
   AuthorizationStatus,
   AvailabilityResult,
+  DeleteSamplesOptions,
+  DeleteSamplesResult,
   HealthPlugin,
   QueryAggregatedOptions,
   QueryAggregatedResult,
@@ -11,6 +13,8 @@ import type {
   QueryWorkoutsOptions,
   QueryWorkoutsResult,
   ReadSamplesResult,
+  SaveWorkoutOptions,
+  SaveWorkoutResult,
   WriteSampleOptions,
 } from './definitions';
 
@@ -39,6 +43,10 @@ export class HealthWeb extends WebPlugin implements HealthPlugin {
     throw this.unimplemented('Writing health data is only available on native platforms.');
   }
 
+  async deleteSamples(_options: DeleteSamplesOptions): Promise<DeleteSamplesResult> {
+    throw this.unimplemented('Deleting health data is only available on native platforms.');
+  }
+
   async getPluginVersion(): Promise<{ version: string }> {
     return { version: 'web' };
   }
@@ -53,6 +61,10 @@ export class HealthWeb extends WebPlugin implements HealthPlugin {
 
   async queryWorkouts(_options: QueryWorkoutsOptions): Promise<QueryWorkoutsResult> {
     throw this.unimplemented('Querying workouts is only available on native platforms.');
+  }
+
+  async saveWorkout(_options: SaveWorkoutOptions): Promise<SaveWorkoutResult> {
+    throw this.unimplemented('Saving workouts is only available on native platforms.');
   }
 
   async queryAggregated(_options: QueryAggregatedOptions): Promise<QueryAggregatedResult> {

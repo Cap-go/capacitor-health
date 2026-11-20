@@ -12,14 +12,19 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "checkAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readSamples", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "saveSample", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "deleteSamples", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getPluginVersion", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openHealthConnectSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showPrivacyPolicy", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "queryWorkouts", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "saveWorkout", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "queryAggregated", returnType: CAPPluginReturnPromise)
     ]
 
     private let implementation = Health()
+    // Lazy so they can share the implementation's HKHealthStore (plugin calls run on the serial bridge queue).
+    private lazy var workoutWriter = WorkoutWriter(healthStore: implementation.healthStore)
+    private lazy var sampleDeleter = SampleDeleter(healthStore: implementation.healthStore)
 
     @objc func isAvailable(_ call: CAPPluginCall) {
         call.resolve(implementation.availabilityPayload())
@@ -127,7 +132,9 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
                 endDateString: endDate,
                 metadata: metadata,
                 systolic: systolic,
-                diastolic: diastolic
+                diastolic: diastolic,
+                clientRecordId: call.getString("clientRecordId"),
+                recordingMethod: call.getString("recordingMethod")
             ) { result in
                 DispatchQueue.main.async {
                     switch result {
@@ -179,6 +186,32 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.resolve(response)
                 case let .failure(error):
                     call.reject(error.localizedDescription, nil, error)
+                }
+            }
+        }
+    }
+
+    @objc func saveWorkout(_ call: CAPPluginCall) {
+        workoutWriter.saveWorkout(options: call.jsObjectRepresentation) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case let .success(response):
+                    call.resolve(response)
+                case let .failure(error):
+                    call.reject(error.localizedDescription, HealthWriteError.code(for: error, fallback: "save-workout-failed"), error)
+                }
+            }
+        }
+    }
+
+    @objc func deleteSamples(_ call: CAPPluginCall) {
+        sampleDeleter.deleteSamples(options: call.jsObjectRepresentation) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case let .success(response):
+                    call.resolve(response)
+                case let .failure(error):
+                    call.reject(error.localizedDescription, HealthWriteError.code(for: error, fallback: "delete-samples-failed"), error)
                 }
             }
         }
