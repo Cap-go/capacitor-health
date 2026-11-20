@@ -9,7 +9,8 @@ until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "
 done
 
 revoke() {
-  adb shell pm revoke "$APP_ID" "$1" 2>/dev/null || true
+  adb shell pm revoke --user 0 "$APP_ID" "$1" 2>/dev/null || \
+    adb shell pm revoke "$APP_ID" "$1" 2>/dev/null || true
 }
 
 for permission in \
@@ -21,6 +22,11 @@ for permission in \
   android.permission.health.WRITE_BODY_WATER_MASS; do
   revoke "$permission"
 done
+
+if adb shell dumpsys package "$APP_ID" 2>/dev/null | grep -q "android.permission.health.WRITE_LEAN_BODY_MASS: granted=true"; then
+  echo "WRITE_LEAN_BODY_MASS still granted after revoke; permission-denied E2E cannot run" >&2
+  exit 1
+fi
 
 adb shell am force-stop "$APP_ID" 2>/dev/null || true
 
