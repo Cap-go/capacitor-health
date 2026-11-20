@@ -12,6 +12,12 @@ appId: app.capgo.health
     timeout: 120000
 - tapOn:
     text: Run Android body composition E2E
+- tapOn:
+    text: Allow all
+    optional: true
+- tapOn:
+    text: Allow
+    optional: true
 - extendedWaitUntil:
     visible: 'E2E:body-composition:success'
     timeout: 300000

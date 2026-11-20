@@ -40,4 +40,4 @@ xcrun simctl boot "$SIMULATOR_ID" 2>/dev/null || true
 xcrun simctl bootstatus "$SIMULATOR_ID" -b
 xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
 
-maestro test --config "$ROOT_DIR/.maestro/config.yaml" "$FLOW_PATH"
+maestro test --device "$SIMULATOR_ID" --config "$ROOT_DIR/.maestro/config.yaml" "$FLOW_PATH"
