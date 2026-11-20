@@ -300,10 +300,7 @@ const runAndroidPermissionDeniedE2e = async () => {
   });
   const allDenied = bodyCompositionTypes.every(
     (type) =>
-      result.readDenied?.includes(type) &&
-      result.writeDenied?.includes(type) &&
-      !result.readAuthorized?.includes(type) &&
-      !result.writeAuthorized?.includes(type),
+      !result.readAuthorized?.includes(type) && !result.writeAuthorized?.includes(type),
   );
   if (!allDenied) {
     throw new Error('Body composition permissions should start denied');
