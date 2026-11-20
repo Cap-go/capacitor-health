@@ -42,17 +42,18 @@ elif xcrun simctl list devices booted | grep -Fq "$SIMULATOR_ID"; then
   echo "iOS simulator $SIMULATOR_ID already booted"
 else
   xcrun simctl boot "$SIMULATOR_ID" 2>/dev/null || true
-  xcrun simctl bootstatus "$SIMULATOR_ID" -b
+  if [[ "${CAPGO_MAESTRO_SKIP_SIM_BOOT:-0}" == "1" ]]; then
+    sleep 5
+  else
+    xcrun simctl bootstatus "$SIMULATOR_ID" -b
+  fi
 fi
 if [[ "${CAPGO_MAESTRO_SKIP_INSTALL:-0}" != "1" ]]; then
   if [[ "${CAPGO_MAESTRO_INSTALL_RETRY:-0}" == "1" ]]; then
     xcrun simctl uninstall "$SIMULATOR_ID" app.capgo.health 2>/dev/null || true
   fi
-  echo "Installing $APP_PATH on $SIMULATOR_ID (90s timeout)"
-  if ! timeout 90s xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"; then
-    echo "simctl install failed or timed out" >&2
-    exit 1
-  fi
+  echo "Installing $APP_PATH on $SIMULATOR_ID"
+  xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
 fi
 
 echo "Starting Maestro on $SIMULATOR_ID"

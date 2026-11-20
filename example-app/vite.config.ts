@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -9,5 +10,8 @@ export default defineConfig({
     outDir: '../dist',
     minify: false,
     emptyOutDir: true,
+    rollupOptions: {
+      input: resolve(import.meta.dirname, 'src/index.html'),
+    },
   },
 });

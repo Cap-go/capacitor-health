@@ -182,6 +182,8 @@ jobs:
         run: |
           simulator_id="$(./scripts/select-ios-simulator.sh)"
           echo "CAPGO_MAESTRO_IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
+          xcrun simctl boot "$simulator_id" 2>/dev/null || true
+          xcrun simctl bootstatus "$simulator_id" -b
       - name: Build example iOS app
         run: bash ./scripts/ci/build-example-ios-app.sh
       - name: Archive Maestro iOS app bundle
