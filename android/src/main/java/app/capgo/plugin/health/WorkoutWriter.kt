@@ -497,9 +497,46 @@ class WorkoutWriter {
             if (clientRecordIds.isEmpty()) {
                 return
             }
-            val existing = existingClientRecordIds(client, recordClass, packageName, clientRecordIds.toSet())
-            if (existing.isNotEmpty()) {
-                client.deleteRecords(recordClass, emptyList(), existing.toList())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val existing = existingClientRecordIds(client, recordClass, packageName, clientRecordIds.toSet())
+                if (existing.isNotEmpty()) {
+                    client.deleteRecords(recordClass, emptyList(), existing.toList())
+                }
+                return
+            }
+            deleteCompanionRecordsById(client, recordClass, clientRecordIds)
+        }
+
+        /**
+         * Deletes by client record id without a read lookup. Used below Android 14, where an app's own
+         * data read window is 30 days and companions older than that are invisible to [existingClientRecordIds]
+         * but still deletable by id.
+         */
+        private suspend fun deleteCompanionRecordsById(
+            client: HealthConnectClient,
+            recordClass: KClass<out Record>,
+            clientRecordIds: List<String>,
+        ) {
+            try {
+                client.deleteRecords(recordClass, emptyList(), clientRecordIds)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: IllegalArgumentException) {
+                clientRecordIds.forEach { id -> deleteCompanionRecordById(client, recordClass, id) }
+            }
+        }
+
+        private suspend fun deleteCompanionRecordById(
+            client: HealthConnectClient,
+            recordClass: KClass<out Record>,
+            clientRecordId: String,
+        ) {
+            try {
+                client.deleteRecords(recordClass, emptyList(), listOf(clientRecordId))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: IllegalArgumentException) {
+                // Missing id: documented as IllegalArgumentException (Android 14+ ignores it in batch calls).
             }
         }
 

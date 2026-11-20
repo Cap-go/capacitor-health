@@ -127,9 +127,19 @@ final class KeyedOperationSerializer {
 /// increasing `HKMetadataKeySyncVersion` (`SyncMetadata.currentVersion()`), so HealthKit replaces the
 /// earlier copy of each object written again.
 final class WorkoutWriter {
+    /// Serializes workout saves and deletes that have no `clientRecordId` metadata (see `serializerKeys`).
+    static let untaggedWorkoutSerializerKey = "__capgo_untagged_workout__"
+
     /// Serializes `saveWorkout` and workout `deleteSamples` work per workout `clientRecordId`, so companion
     /// cleanup and the save of one id cannot interleave. Different ids still run concurrently.
     static let recordIdSerializer = KeyedOperationSerializer(label: "app.capgo.health.workout-writes")
+
+    static func serializerKeys(forClientRecordId clientRecordId: String?) -> Set<String> {
+        if let clientRecordId = clientRecordId {
+            return [clientRecordId]
+        }
+        return [untaggedWorkoutSerializerKey]
+    }
 
     /// Exact workout `clientRecordId` stored on companion samples and routes for cleanup (not a sync-id prefix).
     static let workoutParentClientRecordIdKey = "capgoWorkoutClientRecordId"
@@ -165,7 +175,7 @@ final class WorkoutWriter {
             return
         }
 
-        let keys = Set(input.clientRecordId.map { [$0] } ?? [])
+        let keys = WorkoutWriter.serializerKeys(forClientRecordId: input.clientRecordId)
         WorkoutWriter.recordIdSerializer.run(keys: keys, completion: completion) { [weak self] finish in
             guard let self = self else {
                 finish(.failure(HealthWriteError.saveFailed("The plugin was released before the workout could be saved.")))

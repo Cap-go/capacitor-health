@@ -46,15 +46,18 @@ final class SampleDeleter {
 
         switch request.target {
         case .workouts:
-            // Runs after any in-flight saveWorkout of the same clientRecordIds (and blocks the next one),
-            // so a save cannot recreate companions while their workout is being deleted. Deletes by
-            // platformIds only have no clientRecordId to serialize on and run right away.
-            WorkoutWriter.recordIdSerializer.run(keys: Set(request.clientRecordIds), completion: completion) { [weak self] finish in
+            resolveWorkoutSerializerKeys(for: request) { [weak self] result in
                 guard let self = self else {
-                    finish(.failure(HealthWriteError.deleteFailed("The plugin was released before the workouts could be deleted.")))
                     return
                 }
-                self.deleteWorkouts(matching: request.predicate, completion: finish)
+                switch result {
+                case let .failure(error):
+                    completion(.failure(error))
+                case let .success(keys):
+                    WorkoutWriter.recordIdSerializer.run(keys: keys, completion: completion) { finish in
+                        self.deleteWorkouts(matching: request.predicate, completion: finish)
+                    }
+                }
             }
         case let .correlations(type):
             deleteCorrelations(of: type, matching: request.predicate, completion: completion)
@@ -86,6 +89,35 @@ final class SampleDeleter {
 
     private func isSharingAuthorized(_ type: HKObjectType) -> Bool {
         return healthStore.authorizationStatus(for: type) == .sharingAuthorized
+    }
+
+    /// Resolves serializer keys from explicit clientRecordIds and from each matched workout's sync identifier.
+    private func resolveWorkoutSerializerKeys(for request: DeleteRequest,
+                                              completion: @escaping (Result<Set<String>, Error>) -> Void) {
+        guard request.usesPlatformIds else {
+            let keys = Set(request.clientRecordIds)
+            completion(.success(keys.isEmpty
+                ? WorkoutWriter.serializerKeys(forClientRecordId: nil)
+                : keys))
+            return
+        }
+        var keys = Set(request.clientRecordIds)
+        query(HKObjectType.workoutType(), matching: request.predicate) { result in
+            switch result {
+            case let .failure(error):
+                completion(.failure(SampleDeleter.lookupError(error, dataType: "workouts")))
+            case let .success(samples):
+                for workout in samples.compactMap({ $0 as? HKWorkout }) {
+                    if let sync = workout.metadata?[HKMetadataKeySyncIdentifier] as? String {
+                        keys.insert(sync)
+                    }
+                }
+                if keys.isEmpty {
+                    keys = WorkoutWriter.serializerKeys(forClientRecordId: nil)
+                }
+                completion(.success(keys))
+            }
+        }
     }
 
     /// Finds the workouts, deletes what is associated with them, then deletes the workouts in one call.
@@ -243,6 +275,8 @@ struct DeleteRequest {
     let target: Target
     /// Requested sync identifiers, without duplicates.
     let clientRecordIds: [String]
+    /// Whether `platformIds` were provided (not only clientRecordIds).
+    let usesPlatformIds: Bool
     /// Matches the requested sync identifiers or UUIDs, among the objects saved by this app.
     let predicate: NSPredicate
 
@@ -281,6 +315,7 @@ struct DeleteRequest {
         self.dataType = dataType
         self.target = target
         self.clientRecordIds = clientRecordIds
+        usesPlatformIds = !uuids.isEmpty
         predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             NSCompoundPredicate(orPredicateWithSubpredicates: idPredicates),
             HKQuery.predicateForObjects(from: HKSource.default())
