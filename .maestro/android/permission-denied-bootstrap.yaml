@@ -1,0 +1,8 @@
+appId: app.capgo.health
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: '@capgo/capacitor-health Demo'
+    timeout: 90000
+- stopApp
