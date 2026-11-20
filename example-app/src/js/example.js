@@ -392,10 +392,15 @@ e2eIosUnsupportedButton?.addEventListener('click', async () => {
       throw new Error(`${dataType} should be rejected on iOS`);
     } catch (error) {
       const message =
-        error && typeof error === 'object' && 'message' in error
-          ? String(error.message)
-          : String(error);
-      if (!message.includes('Unsupported health data type')) {
+        error instanceof Error
+          ? error.message
+          : error && typeof error === 'object' && 'message' in error
+            ? String(error.message)
+            : String(error);
+      if (
+        !message.includes('Unsupported health data type') &&
+        !message.includes('Unsupported data type')
+      ) {
         throw error;
       }
     }

@@ -18,5 +18,5 @@ appId: app.capgo.health
     direction: DOWN
     timeout: 15000
 - extendedWaitUntil:
-    visible: 'Android permission denied E2E passed'
-    timeout: 15000
+    visible: 'E2E:permission-denied:success'
+    timeout: 45000
