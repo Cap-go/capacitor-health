@@ -18,6 +18,10 @@ export type HealthDataType =
   | 'exerciseTime'
   | 'distanceCycling'
   | 'bodyFat'
+  // Android only (Health Connect); rejected as unsupported on iOS.
+  | 'leanBodyMass'
+  | 'boneMass'
+  | 'bodyWaterMass'
   | 'basalBodyTemperature'
   | 'appleSleepingWristTemperature'
   | 'basalCalories'

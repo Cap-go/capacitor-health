@@ -1,0 +1,17 @@
+appId: app.capgo.health
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: '@capgo/capacitor-health Demo'
+    timeout: 120000
+- scrollUntilVisible:
+    element:
+      text: Run iOS unsupported types E2E
+    direction: DOWN
+    timeout: 120000
+- tapOn:
+    text: Run iOS unsupported types E2E
+- extendedWaitUntil:
+    visible: 'E2E:ios-unsupported:success'
+    timeout: 120000
