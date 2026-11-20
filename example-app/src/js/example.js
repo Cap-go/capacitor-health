@@ -309,16 +309,17 @@ const runAndroidPermissionDeniedE2e = async () => {
   setE2eMarker('E2E:permission-denied:running');
 
   const result = await Health.checkAuthorization({
-    read: [],
+    read: ['leanBodyMass'],
     write: ['leanBodyMass'],
   });
   const writeAuthorized = Array.isArray(result.writeAuthorized) ? result.writeAuthorized : [];
   const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
+  const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
   if (writeAuthorized.includes('leanBodyMass')) {
     throw new Error(`leanBodyMass must not be writeAuthorized, got: ${JSON.stringify(result)}`);
   }
-  if (!writeDenied.includes('leanBodyMass') && writeAuthorized.length === 0 && writeDenied.length === 0) {
-    throw new Error(`Unexpected empty authorization status: ${JSON.stringify(result)}`);
+  if (!writeDenied.includes('leanBodyMass') && !readDenied.includes('leanBodyMass')) {
+    throw new Error(`Expected leanBodyMass denied, got: ${JSON.stringify(result)}`);
   }
   setOutput(result);
   setE2eMarker('E2E:permission-denied:success');
