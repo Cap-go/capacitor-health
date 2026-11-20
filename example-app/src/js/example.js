@@ -285,14 +285,14 @@ const runAndroidPermissionDeniedE2e = async () => {
   setE2eMarker('E2E:permission-denied:running');
 
   try {
-    const result = await Health.checkAuthorization({ read: ['vo2Max'] });
-    const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
-    const readAuthorized = Array.isArray(result.readAuthorized) ? result.readAuthorized : [];
-    if (readAuthorized.includes('vo2Max')) {
-      throw new Error(`vo2Max should not be authorized yet: ${JSON.stringify(result)}`);
+    const result = await Health.checkAuthorization({ write: ['vo2Max'] });
+    const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
+    const writeAuthorized = Array.isArray(result.writeAuthorized) ? result.writeAuthorized : [];
+    if (writeAuthorized.includes('vo2Max')) {
+      throw new Error(`vo2Max write should not be authorized: ${JSON.stringify(result)}`);
     }
-    if (!readDenied.includes('vo2Max') && readDenied.length === 0 && readAuthorized.length === 0) {
-      throw new Error(`Expected denial state for vo2Max, got: ${JSON.stringify(result)}`);
+    if (!writeDenied.includes('vo2Max')) {
+      throw new Error(`Expected vo2Max in writeDenied, got: ${JSON.stringify(result)}`);
     }
     setOutput(result);
     setE2eMarker('E2E:permission-denied:success');
@@ -357,11 +357,12 @@ e2eIosUnsupportedButton?.addEventListener('click', async () => {
 
   const expectUnsupported = async (dataType) => {
     try {
-      await Health.readSamples({
+      await Health.saveSample({
         dataType,
-        startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        value: 1,
+        unit: 'kilogram',
+        startDate: new Date().toISOString(),
         endDate: new Date().toISOString(),
-        limit: 1,
       });
       throw new Error(`${dataType} should be rejected on iOS`);
     } catch (error) {
@@ -369,7 +370,7 @@ e2eIosUnsupportedButton?.addEventListener('click', async () => {
         error && typeof error === 'object' && 'message' in error
           ? String(error.message)
           : String(error);
-      if (!message.includes('Unsupported health data type') && !message.includes('Unsupported data type')) {
+      if (!message.includes('Unsupported health data type')) {
         throw error;
       }
     }
