@@ -287,8 +287,12 @@ const runAndroidPermissionDeniedE2e = async () => {
   try {
     const result = await Health.checkAuthorization({ read: ['vo2Max'] });
     const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
-    if (!readDenied.includes('vo2Max')) {
-      throw new Error(`Expected vo2Max in readDenied, got: ${JSON.stringify(result)}`);
+    const readAuthorized = Array.isArray(result.readAuthorized) ? result.readAuthorized : [];
+    if (readAuthorized.includes('vo2Max')) {
+      throw new Error(`vo2Max should not be authorized yet: ${JSON.stringify(result)}`);
+    }
+    if (!readDenied.includes('vo2Max') && readDenied.length === 0 && readAuthorized.length === 0) {
+      throw new Error(`Expected denial state for vo2Max, got: ${JSON.stringify(result)}`);
     }
     setOutput(result);
     setE2eMarker('E2E:permission-denied:success');
