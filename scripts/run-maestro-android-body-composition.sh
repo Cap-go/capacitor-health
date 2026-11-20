@@ -31,7 +31,8 @@ adb wait-for-device
 until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; do
   sleep 1
 done
-adb install -r "$APK_PATH"
+adb uninstall app.capgo.health 2>/dev/null || true
+adb install "$APK_PATH"
 
 if [[ "${CAPGO_MAESTRO_INSTALL_ONLY:-0}" == "1" ]]; then
   exit 0

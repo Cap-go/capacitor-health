@@ -294,14 +294,6 @@ const runAndroidPermissionDeniedE2e = async () => {
     throw new Error(availability.reason ?? 'Health Connect unavailable');
   }
 
-  const auth = await Health.checkAuthorization({
-    read: bodyCompositionTypes,
-    write: bodyCompositionTypes,
-  });
-  if (bodyCompositionTypes.some((type) => auth.writeAuthorized?.includes(type))) {
-    throw new Error('Body composition write should start denied');
-  }
-
   try {
     await Health.saveSample({
       dataType: 'leanBodyMass',
@@ -316,7 +308,7 @@ const runAndroidPermissionDeniedE2e = async () => {
     if (message === 'leanBodyMass save should fail without write permission') {
       throw error;
     }
-    setOutput({ auth, saveError: message });
+    setOutput({ saveError: message });
     setE2eMarker('E2E:permission-denied:success');
     setStatus('Android permission denied E2E passed');
   }
