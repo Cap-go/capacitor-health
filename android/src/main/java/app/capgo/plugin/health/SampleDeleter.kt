@@ -86,6 +86,7 @@ class SampleDeleter {
                     WorkoutWriter.deleteCompanionRecords(
                         client,
                         recordClass,
+                        packageName,
                         input.clientRecordIds.map { WorkoutWriter.companionClientRecordId(it, idSuffix) },
                     )
                 }
@@ -122,10 +123,7 @@ class SampleDeleter {
             client.deleteRecords(recordClass, platformIds, clientRecordIds)
         } catch (e: CancellationException) {
             throw e
-        } catch (e: RemoteException) {
-            if (!WorkoutWriter.isMissingRecord(e)) {
-                throw e
-            }
+        } catch (_: RemoteException) {
             platformIds.forEach { id -> deleteId(client, recordClass, platformId = id, clientRecordId = null) }
             clientRecordIds.forEach { id -> deleteId(client, recordClass, platformId = null, clientRecordId = id) }
         } catch (_: IllegalArgumentException) {
@@ -148,12 +146,10 @@ class SampleDeleter {
             )
         } catch (e: CancellationException) {
             throw e
-        } catch (e: RemoteException) {
-            if (!WorkoutWriter.isMissingRecord(e)) {
-                throw e
-            }
         } catch (_: IllegalArgumentException) {
-            // Missing id on Android 14+ (ignored in batch calls).
+            // Missing id (Android 14+ may report this in single-id deletes).
+        } catch (_: RemoteException) {
+            // Missing clientRecordId on older Health Connect providers in per-id fallback only.
         }
     }
 

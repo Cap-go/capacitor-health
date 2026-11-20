@@ -1,6 +1,7 @@
 package app.capgo.plugin.health
 
-import android.os.RemoteException
+import android.os.Build
+import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -10,12 +11,16 @@ import androidx.health.connect.client.records.ExerciseSegment
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.Record
+import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.request.ReadRecordsRequest
+import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Length
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
+import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -343,7 +348,23 @@ class WorkoutWriter {
             )
             COMPANION_RECORDS.forEach { (recordClass, idSuffix) ->
                 if (recordClass !in written && HealthPermission.getWritePermission(recordClass) in granted) {
-                    deleteCompanionRecords(client, recordClass, listOf(companionClientRecordId(id, idSuffix)))
+                    try {
+                        deleteCompanionRecords(
+                            client,
+                            recordClass,
+                            packageName,
+                            listOf(companionClientRecordId(id, idSuffix)),
+                        )
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // Below API 34 a missing clientRecordId can surface as RemoteException after the session
+                        // is committed; the workout save must still succeed.
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            throw e
+                        }
+                        Log.d(TAG, "Skipped deleting omitted ${recordClass.simpleName} companion: ${e.message}")
+                    }
                 }
             }
         }
@@ -478,37 +499,45 @@ class WorkoutWriter {
         /**
          * Deletes the companion records with [clientRecordIds] of [recordClass] that exist, and only those.
          *
-         * Companion ids are deterministic (`<id>:distance`, ...), so each id is deleted directly. A missing
-         * id is skipped; IPC and other `RemoteException` failures propagate (see [isMissingRecord]).
+         * On Android 14+, ids are resolved with [existingClientRecordIds] (full app history). Below that,
+         * the 30-day own-data read window finds recent companions; older ids are deleted by clientRecordId
+         * directly so stale records outside the window are still removable. Lookup or delete failures
+         * propagate so IPC errors are not swallowed.
          */
         internal suspend fun deleteCompanionRecords(
             client: HealthConnectClient,
             recordClass: KClass<out Record>,
+            packageName: String,
             clientRecordIds: List<String>,
         ) {
             if (clientRecordIds.isEmpty()) {
                 return
             }
-            deleteCompanionRecordsById(client, recordClass, clientRecordIds)
-        }
-
-        private suspend fun deleteCompanionRecordsById(
-            client: HealthConnectClient,
-            recordClass: KClass<out Record>,
-            clientRecordIds: List<String>,
-        ) {
-            try {
-                client.deleteRecords(recordClass, emptyList(), clientRecordIds)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: RemoteException) {
-                if (isMissingRecord(e)) {
-                    clientRecordIds.forEach { id -> deleteCompanionRecordById(client, recordClass, id) }
-                } else {
-                    throw e
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val existing = existingClientRecordIds(
+                    client,
+                    recordClass,
+                    packageName,
+                    clientRecordIds.toSet(),
+                    Instant.EPOCH,
+                )
+                if (existing.isNotEmpty()) {
+                    client.deleteRecords(recordClass, emptyList(), existing.toList())
                 }
-            } catch (_: IllegalArgumentException) {
-                clientRecordIds.forEach { id -> deleteCompanionRecordById(client, recordClass, id) }
+                return
+            }
+            val recent = existingClientRecordIds(
+                client,
+                recordClass,
+                packageName,
+                clientRecordIds.toSet(),
+                Instant.now().minus(LEGACY_OWN_DATA_READ_WINDOW),
+            )
+            if (recent.isNotEmpty()) {
+                client.deleteRecords(recordClass, emptyList(), recent.toList())
+            }
+            clientRecordIds.filter { it !in recent }.forEach { id ->
+                deleteCompanionRecordById(client, recordClass, id)
             }
         }
 
@@ -517,23 +546,36 @@ class WorkoutWriter {
             recordClass: KClass<out Record>,
             clientRecordId: String,
         ) {
-            try {
-                client.deleteRecords(recordClass, emptyList(), listOf(clientRecordId))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: RemoteException) {
-                if (!isMissingRecord(e)) {
-                    throw e
-                }
-            } catch (_: IllegalArgumentException) {
-                // Missing id: Android 14+ may use IllegalArgumentException; older providers use RemoteException.
-            }
+            client.deleteRecords(recordClass, emptyList(), listOf(clientRecordId))
         }
 
-        internal fun isMissingRecord(error: RemoteException): Boolean {
-            val message = error.message?.lowercase() ?: return false
-            return message.contains("not found") || message.contains("does not exist") || message.contains("no record")
+        private suspend fun existingClientRecordIds(
+            client: HealthConnectClient,
+            recordClass: KClass<out Record>,
+            packageName: String,
+            clientRecordIds: Set<String>,
+            readableFrom: Instant,
+        ): Set<String> {
+            val found = mutableSetOf<String>()
+            var pageToken: String? = null
+            do {
+                val response = client.readRecords(
+                    ReadRecordsRequest(
+                        recordType = recordClass,
+                        timeRangeFilter = TimeRangeFilter.after(readableFrom),
+                        dataOriginFilter = setOf(DataOrigin(packageName)),
+                        pageToken = pageToken,
+                    )
+                )
+                response.records.forEach { record ->
+                    record.metadata.clientRecordId?.takeIf { it in clientRecordIds }?.let { found.add(it) }
+                }
+                pageToken = response.pageToken?.takeIf { it.isNotEmpty() }
+            } while (pageToken != null && found.size < clientRecordIds.size)
+            return found
         }
+
+        private val LEGACY_OWN_DATA_READ_WINDOW: Duration = Duration.ofDays(30)
 
         /** Scopes ids for record classes that share one Health Connect type (for example nutrition, distance). */
         internal fun scopeClientRecordId(dataType: HealthDataType, clientRecordId: String): String {
