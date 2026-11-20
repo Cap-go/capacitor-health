@@ -281,6 +281,22 @@ e2eAndroidButton?.addEventListener('click', async () => {
   }
 });
 
+const isHealthPermissionError = (message) => {
+  if (
+    message.startsWith('Expected ') ||
+    message.includes('Health Connect unavailable')
+  ) {
+    return false;
+  }
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('permission denied') ||
+    normalized.includes('securityexception') ||
+    normalized.includes("doesn't have permission") ||
+    normalized.includes('lacks permission')
+  );
+};
+
 const runAndroidPermissionDeniedE2e = async () => {
   if (Capacitor.getPlatform() !== 'android') {
     setE2eMarker('E2E:permission-denied:skipped-not-android');
@@ -289,28 +305,28 @@ const runAndroidPermissionDeniedE2e = async () => {
 
   setE2eMarker('E2E:permission-denied:running');
 
-  const availability = await Health.isAvailable();
-  if (!availability.available) {
-    throw new Error(availability.reason ?? 'Health Connect unavailable');
-  }
-
   try {
-    await Health.saveSample({
-      dataType: 'leanBodyMass',
-      value: 1,
-      unit: 'kilogram',
-      startDate: new Date().toISOString(),
-      endDate: new Date().toISOString(),
-    });
-    throw new Error('leanBodyMass save should fail without write permission');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message === 'leanBodyMass save should fail without write permission') {
-      throw error;
+    const availability = await Health.isAvailable();
+    if (!availability.available) {
+      throw new Error(availability.reason ?? 'Health Connect unavailable');
     }
-    setOutput({ saveError: message });
+
+    const result = await Health.checkAuthorization({ read: ['vo2Max'] });
+    const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
+    if (!readDenied.includes('vo2Max')) {
+      throw new Error(`Expected vo2Max in readDenied, got: ${JSON.stringify(result)}`);
+    }
+    setOutput(result);
     setE2eMarker('E2E:permission-denied:success');
     setStatus('Android permission denied E2E passed');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (isHealthPermissionError(message)) {
+      setE2eMarker('E2E:permission-denied:success');
+      setStatus('Android permission denied E2E passed');
+      return;
+    }
+    throw error;
   }
 };
 
