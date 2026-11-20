@@ -245,7 +245,11 @@ e2eAndroidButton?.addEventListener('click', async () => {
     const savedAt = new Date();
     const now = savedAt.toISOString();
     const queryEnd = new Date(savedAt.getTime() + 1000).toISOString();
-    const samplesToSave = [{ dataType: 'leanBodyMass', value: 61.2 }];
+    const samplesToSave = [
+      { dataType: 'leanBodyMass', value: 61.2 },
+      { dataType: 'boneMass', value: 2.9 },
+      { dataType: 'bodyWaterMass', value: 41.5 },
+    ];
 
     for (const sample of samplesToSave) {
       await Health.saveSample({
@@ -265,7 +269,14 @@ e2eAndroidButton?.addEventListener('click', async () => {
         endDate: queryEnd,
         limit: 5,
       });
-      if (!result.samples.some((row) => row.dataType === sample.dataType && row.value === sample.value)) {
+      if (
+        !result.samples.some(
+          (row) =>
+            row.dataType === sample.dataType &&
+            row.value === sample.value &&
+            row.startDate === now,
+        )
+      ) {
         throw new Error(`Could not read back ${sample.dataType}`);
       }
       readBack[sample.dataType] = result;
@@ -289,34 +300,37 @@ const runAndroidPermissionDeniedE2e = async () => {
 
   setE2eMarker('E2E:permission-denied:running');
 
+  const availability = await Health.isAvailable();
+  if (!availability.available) {
+    throw new Error(availability.reason ?? 'Health Connect unavailable');
+  }
+
+  const auth = await Health.checkAuthorization({
+    read: bodyCompositionTypes,
+    write: bodyCompositionTypes,
+  });
+  if (bodyCompositionTypes.some((type) => auth.writeAuthorized?.includes(type))) {
+    throw new Error('Body composition write should start denied');
+  }
+
+  const deniedSaveAt = new Date().toISOString();
   try {
-    const result = await Health.checkAuthorization({ read: ['vo2Max'] });
-    const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
-    if (!readDenied.includes('vo2Max')) {
-      throw new Error(`Expected vo2Max in readDenied, got: ${JSON.stringify(result)}`);
-    }
-    setOutput(result);
-    setE2eMarker('E2E:permission-denied:success');
-    setStatus('Android permission denied E2E passed');
+    await Health.saveSample({
+      dataType: 'leanBodyMass',
+      value: 1,
+      unit: 'kilogram',
+      startDate: deniedSaveAt,
+      endDate: deniedSaveAt,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const normalized = message.toLowerCase();
-    if (
-      normalized.includes('permission') ||
-      normalized.includes('denied') ||
-      normalized.includes('authorization') ||
-      normalized.includes('not authorized') ||
-      normalized.includes('unauthorized') ||
-      normalized.includes('not determined') ||
-      normalized.includes('healthkit') ||
-      normalized.includes('sharing')
-    ) {
-      setE2eMarker('E2E:permission-denied:success');
-      setStatus('Android permission denied E2E passed');
-      return;
-    }
-    throw error;
+    setOutput({ auth, saveError: message });
+    setE2eMarker('E2E:permission-denied:success');
+    setStatus('Android permission denied E2E passed');
+    return;
   }
+
+  throw new Error('leanBodyMass save should fail without write permission');
 };
 
 e2eAndroidPermissionDeniedButton?.addEventListener('click', () => {
@@ -393,7 +407,9 @@ e2eIosUnsupportedButton?.addEventListener('click', async () => {
   };
 
   try {
-    await expectUnsupported('leanBodyMass');
+    for (const dataType of bodyCompositionTypes) {
+      await expectUnsupported(dataType);
+    }
     setE2eMarker('E2E:ios-unsupported:success');
     setStatus('iOS unsupported body composition E2E passed');
   } catch (error) {
