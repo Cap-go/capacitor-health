@@ -310,20 +310,27 @@ const runAndroidPermissionDeniedE2e = async () => {
   setE2eMarker('E2E:permission-denied:running');
   setStatus('Android permission denied E2E running');
 
-  const result = await Health.checkAuthorization({
-    read: ['leanBodyMass'],
-    write: ['leanBodyMass'],
-  });
-  const writeAuthorized = Array.isArray(result.writeAuthorized) ? result.writeAuthorized : [];
-  const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
-  const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
-  if (writeAuthorized.includes('leanBodyMass')) {
-    throw new Error(`leanBodyMass must not be writeAuthorized, got: ${JSON.stringify(result)}`);
+  const now = new Date().toISOString();
+  try {
+    await Health.saveSample({
+      dataType: 'leanBodyMass',
+      value: 60,
+      unit: 'kilogram',
+      startDate: now,
+      endDate: now,
+    });
+    throw new Error('saveSample should fail when Health Connect write permission is revoked');
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : error && typeof error === 'object' && 'message' in error
+          ? String(error.message)
+          : String(error);
+    if (!message.includes('write permission not granted')) {
+      throw error;
+    }
   }
-  if (!writeDenied.includes('leanBodyMass') && !readDenied.includes('leanBodyMass')) {
-    throw new Error(`Expected leanBodyMass denied, got: ${JSON.stringify(result)}`);
-  }
-  setOutput(result);
   setE2eMarker('E2E:permission-denied:success');
   setStatus('Android permission denied E2E passed');
 };

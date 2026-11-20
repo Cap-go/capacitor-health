@@ -10,8 +10,8 @@ bun run build
 cd "$EXAMPLE_DIR"
 bun install --frozen-lockfile
 bun run build
-if ! grep -rq "permission-denied:success" dist/assets/*.js 2>/dev/null; then
-  echo "Maestro web bundle missing permission-denied E2E strings" >&2
+if ! grep -rq "write permission not granted" dist/assets/*.js 2>/dev/null; then
+  echo "Maestro web bundle missing Android permission-denied E2E strings" >&2
   exit 1
 fi
 bunx cap sync android
