@@ -8,6 +8,9 @@ on:
     branches: [ main ]
   workflow_call:  # Allow this workflow to be called by other workflows
 
+env:
+  MAESTRO_VERSION: cli-2.4.0
+
 jobs:
   guard_swiftpm_version:
     runs-on: ubuntu-latest
@@ -78,6 +81,96 @@ jobs:
       - name: Verify packed package in example app (iOS)
         shell: bash
         run: bash ./.github/scripts/verify-packed-example.sh ios
+  ios_unit_tests:
+    runs-on: macOS-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+      - name: Install dependencies
+        run: bun i
+      - name: Run HealthPlugin XCTests
+        run: bun run test:ios:unit
+  maestro_android_e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+      - name: Install root dependencies
+        run: bun i
+      - name: Setup java
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: '21'
+          cache: gradle
+      - name: Setup Maestro
+        uses: ./.github/actions/setup-maestro
+        with:
+          maestro-version: ${{ env.MAESTRO_VERSION }}
+      - name: Build example Android APK
+        run: bash ./scripts/ci/build-example-android-apk.sh
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Clear Android SDK temp cache
+        shell: bash
+        run: bash ./.github/scripts/ensure-android-emulator-sdk.sh
+      - name: Run Android Maestro CI suite
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: |
+            export PATH="$HOME/.maestro/bin:$PATH"
+            export CAPGO_MAESTRO_SKIP_BUILD=1
+            export MAESTRO_DRIVER_STARTUP_TIMEOUT=120000
+            bun run test:maestro:android:ci
+  maestro_ios_e2e:
+    runs-on: macOS-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+      - name: Install root dependencies
+        run: bun i
+      - name: Setup Maestro
+        uses: ./.github/actions/setup-maestro
+        with:
+          maestro-version: ${{ env.MAESTRO_VERSION }}
+      - name: Select iOS simulator
+        run: |
+          simulator_id="$(./scripts/select-ios-simulator.sh)"
+          echo "CAPGO_MAESTRO_IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
+      - name: Build example iOS app
+        run: bash ./scripts/ci/build-example-ios-app.sh
+      - name: Run iOS Maestro CI suite
+        env:
+          CAPGO_MAESTRO_SKIP_BUILD: '1'
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '120000'
+        run: bun run test:maestro:ios:ci
   web:
     runs-on: ubuntu-latest
     # Keep this job capped at 10 minutes; never raise it unless explicitly asked.
