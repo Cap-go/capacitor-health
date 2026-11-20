@@ -20,6 +20,7 @@ run_maestro() {
 
 for attempt in $(seq 1 "$RETRIES"); do
   install_apk
+  adb shell pm revoke app.capgo.health android.permission.health.READ_VO2_MAX 2>/dev/null || true
   bash "$ROOT_DIR/scripts/ci/grant-health-connect-e2e-permissions.sh"
   if run_maestro; then
     exit 0

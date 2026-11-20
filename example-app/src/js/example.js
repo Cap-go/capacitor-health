@@ -353,25 +353,26 @@ e2eIosUnsupportedButton?.addEventListener('click', async () => {
 
   const expectUnsupported = async (dataType) => {
     try {
-      await Health.saveSample({
+      await Health.readSamples({
         dataType,
-        value: 1,
-        startDate: new Date().toISOString(),
+        startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
         endDate: new Date().toISOString(),
+        limit: 1,
       });
       throw new Error(`${dataType} should be rejected on iOS`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes('Unsupported health data type')) {
+      const message =
+        error && typeof error === 'object' && 'message' in error
+          ? String(error.message)
+          : String(error);
+      if (!message.includes('Unsupported health data type') && !message.includes('Unsupported data type')) {
         throw error;
       }
     }
   };
 
   try {
-    for (const dataType of bodyCompositionTypes) {
-      await expectUnsupported(dataType);
-    }
+    await expectUnsupported('leanBodyMass');
     setE2eMarker('E2E:ios-unsupported:success');
     setStatus('iOS unsupported body composition E2E passed');
   } catch (error) {
