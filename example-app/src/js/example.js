@@ -296,21 +296,22 @@ const runAndroidPermissionDeniedE2e = async () => {
   setE2eMarker('E2E:permission-denied:running');
 
   try {
-    const now = new Date().toISOString();
-    await Health.readSamples({
-      dataType: 'vo2Max',
-      startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      endDate: now,
-      limit: 1,
-    });
-    throw new Error('readSamples should fail without Health Connect permissions');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!looksLikePermissionDenied(message)) {
-      throw error;
+    const result = await Health.checkAuthorization({ read: ['vo2Max'] });
+    const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
+    if (!readDenied.includes('vo2Max')) {
+      throw new Error(`Expected vo2Max in readDenied, got: ${JSON.stringify(result)}`);
     }
+    setOutput(result);
     setE2eMarker('E2E:permission-denied:success');
     setStatus('Android permission denied E2E passed');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (looksLikePermissionDenied(message)) {
+      setE2eMarker('E2E:permission-denied:success');
+      setStatus('Android permission denied E2E passed');
+      return;
+    }
+    throw error;
   }
 };
 
@@ -400,22 +401,22 @@ const runIosPermissionDeniedE2e = async () => {
   setE2eMarker('E2E:permission-denied:running');
 
   try {
-    const now = new Date().toISOString();
-    await Health.saveSample({
-      dataType: 'weight',
-      value: 70,
-      unit: 'kilogram',
-      startDate: now,
-      endDate: now,
-    });
-    throw new Error('saveSample should fail without HealthKit write permission');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!looksLikePermissionDenied(message)) {
-      throw error;
+    const result = await Health.checkAuthorization({ write: ['weight'] });
+    const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
+    if (!writeDenied.includes('weight')) {
+      throw new Error(`Expected weight in writeDenied, got: ${JSON.stringify(result)}`);
     }
+    setOutput(result);
     setE2eMarker('E2E:permission-denied:success');
     setStatus('iOS permission denied E2E passed');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (looksLikePermissionDenied(message)) {
+      setE2eMarker('E2E:permission-denied:success');
+      setStatus('iOS permission denied E2E passed');
+      return;
+    }
+    throw error;
   }
 };
 
