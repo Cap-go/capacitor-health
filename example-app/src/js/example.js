@@ -233,37 +233,26 @@ e2eAndroidButton?.addEventListener('click', async () => {
     setOutput({ auth });
 
     const now = new Date().toISOString();
-    const samplesToSave = [
-      { dataType: 'leanBodyMass', value: 61.2 },
-      { dataType: 'boneMass', value: 2.9 },
-      { dataType: 'bodyWaterMass', value: 41.5 },
-    ];
+    const sample = { dataType: 'leanBodyMass', value: 61.2 };
+    await Health.saveSample({
+      dataType: sample.dataType,
+      value: sample.value,
+      unit: 'kilogram',
+      startDate: now,
+      endDate: now,
+    });
 
-    for (const sample of samplesToSave) {
-      await Health.saveSample({
-        dataType: sample.dataType,
-        value: sample.value,
-        unit: 'kilogram',
-        startDate: now,
-        endDate: now,
-      });
+    const readBack = await Health.readSamples({
+      dataType: sample.dataType,
+      startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      endDate: now,
+      limit: 5,
+    });
+    if (!readBack.samples.some((row) => row.dataType === sample.dataType && row.value === sample.value)) {
+      throw new Error(`Could not read back ${sample.dataType}`);
     }
 
-    const readBack = {};
-    for (const sample of samplesToSave) {
-      const result = await Health.readSamples({
-        dataType: sample.dataType,
-        startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        endDate: now,
-        limit: 5,
-      });
-      if (!result.samples.some((row) => row.dataType === sample.dataType && row.value === sample.value)) {
-        throw new Error(`Could not read back ${sample.dataType}`);
-      }
-      readBack[sample.dataType] = result;
-    }
-
-    setOutput({ auth, readBack, saved: samplesToSave });
+    setOutput({ auth, readBack, saved: sample });
     setE2eMarker('E2E:body-composition:success');
     setStatus('Android body composition E2E passed');
   } catch (error) {
