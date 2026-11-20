@@ -175,7 +175,7 @@ class HealthPlugin : Plugin() {
 
         val includeHistoryAccess = call.getBoolean("requestHistoryAccess") ?: false
 
-        if (!includeWorkouts && !includeHistoryAccess) {
+        if (writeTypes.isNotEmpty() && !includeWorkouts && !includeHistoryAccess) {
             call.resolve(manager.authorizationStatusFromPackageManager(context, readTypes, writeTypes))
             return
         }

@@ -308,7 +308,10 @@ const runAndroidPermissionDeniedE2e = async () => {
 
   setE2eMarker('E2E:permission-denied:running');
 
-  const result = await Health.checkAuthorization({ write: ['leanBodyMass'] });
+  const result = await Health.checkAuthorization({
+    read: [],
+    write: ['leanBodyMass'],
+  });
   const writeAuthorized = Array.isArray(result.writeAuthorized) ? result.writeAuthorized : [];
   const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
   if (writeAuthorized.includes('leanBodyMass')) {
