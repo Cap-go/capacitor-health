@@ -1,4 +1,3 @@
-import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import { Capacitor } from '@capacitor/core';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Health } from '@capgo/capacitor-health';
@@ -471,12 +470,6 @@ e2eIosKillRelaunchVerifyButton?.addEventListener('click', () => {
 
 setDefaultDateRanges();
 
-if (__CAPGO_MAESTRO_E2E__) {
+if (Capacitor.isNativePlatform()) {
   void SplashScreen.hide();
-}
-
-if (Capacitor.isNativePlatform() && !__CAPGO_MAESTRO_E2E__) {
-  CapacitorUpdater.notifyAppReady().catch((error) => {
-    console.error('Capgo notifyAppReady failed', error);
-  });
 }

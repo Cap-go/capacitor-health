@@ -44,14 +44,16 @@ else
   xcrun simctl boot "$SIMULATOR_ID" 2>/dev/null || true
   xcrun simctl bootstatus "$SIMULATOR_ID" -b
 fi
-MAESTRO_APP_ARGS=()
-if [[ -d "$APP_PATH" ]]; then
-  MAESTRO_APP_ARGS=(--app "$APP_PATH")
-elif [[ "${CAPGO_MAESTRO_SKIP_INSTALL:-0}" != "1" ]]; then
+if [[ "${CAPGO_MAESTRO_SKIP_INSTALL:-0}" != "1" ]]; then
   if [[ "${CAPGO_MAESTRO_INSTALL_RETRY:-0}" == "1" ]]; then
     xcrun simctl uninstall "$SIMULATOR_ID" app.capgo.health 2>/dev/null || true
   fi
-  timeout 90s xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
+  echo "Installing $APP_PATH on $SIMULATOR_ID (90s timeout)"
+  if ! timeout 90s xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"; then
+    echo "simctl install failed or timed out" >&2
+    exit 1
+  fi
 fi
 
-maestro test --device "$SIMULATOR_ID" "${MAESTRO_APP_ARGS[@]}" --config "$ROOT_DIR/.maestro/config.yaml" "$FLOW_PATH"
+echo "Starting Maestro on $SIMULATOR_ID"
+maestro test --device "$SIMULATOR_ID" --config "$ROOT_DIR/.maestro/config.yaml" "$FLOW_PATH"

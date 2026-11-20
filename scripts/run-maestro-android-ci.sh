@@ -21,6 +21,8 @@ run_flow() {
   local started
   started="$(date +%s)"
   if ! maestro test --config "$CONFIG" "$flow_path"; then
+    echo "logcat tail after Maestro failure (${label}):" >&2
+    adb logcat -d 2>/dev/null | tail -n 200 >&2 || true
     return 1
   fi
   echo "Maestro Android flow ${label} finished in $(( $(date +%s) - started ))s"

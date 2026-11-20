@@ -212,7 +212,6 @@ jobs:
         run: |
           simulator_id="$(./scripts/select-ios-simulator.sh)"
           echo "CAPGO_MAESTRO_IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
-          xcrun simctl boot "$simulator_id" 2>/dev/null || true
       - name: Download Maestro iOS app
         uses: actions/download-artifact@v8
         with:

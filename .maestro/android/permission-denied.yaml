@@ -12,6 +12,9 @@ appId: app.capgo.health
     timeout: 30000
 - tapOn:
     text: Run Android permission denied E2E
+- extendedWaitUntil:
+    visible: 'E2E:permission-denied:running'
+    timeout: 10000
 - scrollUntilVisible:
     element:
       id: e2eMarkerPane
