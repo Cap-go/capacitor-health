@@ -16,9 +16,13 @@ install_apk() {
 }
 
 run_android_e2e() {
-  maestro test --config "$CONFIG" "$PERMISSION_FLOW"
+  if ! maestro test --config "$CONFIG" "$PERMISSION_FLOW"; then
+    return 1
+  fi
   bash "$ROOT_DIR/scripts/ci/grant-health-connect-e2e-permissions.sh"
-  maestro test --config "$CONFIG" "$BODY_FLOW"
+  if ! maestro test --config "$CONFIG" "$BODY_FLOW"; then
+    return 1
+  fi
 }
 
 for attempt in $(seq 1 "$RETRIES"); do

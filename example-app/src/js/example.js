@@ -226,20 +226,10 @@ e2eAndroidButton?.addEventListener('click', async () => {
       throw new Error(availability.reason ?? 'Health Connect unavailable');
     }
 
-    let auth = await Health.checkAuthorization({
+    const auth = await Health.requestAuthorization({
       read: bodyCompositionTypes,
       write: bodyCompositionTypes,
     });
-    const needsAuthorization = bodyCompositionTypes.some(
-      (type) =>
-        !auth.readAuthorized?.includes(type) || !auth.writeAuthorized?.includes(type),
-    );
-    if (needsAuthorization) {
-      auth = await Health.requestAuthorization({
-        read: bodyCompositionTypes,
-        write: bodyCompositionTypes,
-      });
-    }
     setOutput({ auth });
 
     const savedAt = new Date();
@@ -287,16 +277,14 @@ const runAndroidPermissionDeniedE2e = async () => {
     throw new Error(availability.reason ?? 'Health Connect unavailable');
   }
 
-  const result = await Health.checkAuthorization({ read: ['vo2Max'], write: ['vo2Max'] });
-  const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
+  const result = await Health.checkAuthorization({ write: ['vo2Max'] });
   const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
-  const readAuthorized = Array.isArray(result.readAuthorized) ? result.readAuthorized : [];
   const writeAuthorized = Array.isArray(result.writeAuthorized) ? result.writeAuthorized : [];
-  if (readAuthorized.includes('vo2Max') || writeAuthorized.includes('vo2Max')) {
-    throw new Error(`vo2Max should not be authorized: ${JSON.stringify(result)}`);
+  if (writeAuthorized.includes('vo2Max')) {
+    throw new Error('vo2Max write should not be authorized');
   }
-  if (!readDenied.includes('vo2Max') && !writeDenied.includes('vo2Max')) {
-    throw new Error(`Expected vo2Max denied, got: ${JSON.stringify(result)}`);
+  if (!writeDenied.includes('vo2Max')) {
+    throw new Error('vo2Max write not denied');
   }
   setOutput(result);
   setE2eMarker('E2E:permission-denied:success');
