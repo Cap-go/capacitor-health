@@ -23,6 +23,20 @@ for permission in \
   revoke "$permission"
 done
 
+adb shell cmd healthconnect reset-app-permissions "$APP_ID" 2>/dev/null || \
+  adb shell cmd healthconnect clear-app-permissions "$APP_ID" 2>/dev/null || \
+  adb shell cmd healthconnect delete-data "$APP_ID" 2>/dev/null || true
+
+for permission in \
+  android.permission.health.READ_LEAN_BODY_MASS \
+  android.permission.health.WRITE_LEAN_BODY_MASS \
+  android.permission.health.READ_BONE_MASS \
+  android.permission.health.WRITE_BONE_MASS \
+  android.permission.health.READ_BODY_WATER_MASS \
+  android.permission.health.WRITE_BODY_WATER_MASS; do
+  revoke "$permission"
+done
+
 if adb shell dumpsys package "$APP_ID" 2>/dev/null | grep -q "android.permission.health.WRITE_LEAN_BODY_MASS: granted=true"; then
   echo "WRITE_LEAN_BODY_MASS still granted after revoke; permission-denied E2E cannot run" >&2
   exit 1

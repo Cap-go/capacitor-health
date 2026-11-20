@@ -11,4 +11,4 @@ bun install --frozen-lockfile
 bun run build
 bunx cap sync android
 cd android
-./gradlew assembleDebug --build-cache
+./gradlew :capgo-capacitor-health:clean assembleDebug --build-cache
