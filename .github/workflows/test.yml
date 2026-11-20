@@ -116,6 +116,8 @@ jobs:
           java-version: '21'
           cache: gradle
       - name: Build example Android APK
+        env:
+          GRADLE_OPTS: -Dorg.gradle.caching=false
         run: bash ./scripts/ci/build-example-android-apk.sh
       - name: Upload Maestro Android APK
         uses: actions/upload-artifact@v7
