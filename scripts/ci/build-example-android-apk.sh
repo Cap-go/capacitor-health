@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 EXAMPLE_DIR="$ROOT_DIR/example-app"
 
 cd "$ROOT_DIR"
+export CAPGO_MAESTRO_E2E=1
 bun run build
 cd "$EXAMPLE_DIR"
 bun install --frozen-lockfile

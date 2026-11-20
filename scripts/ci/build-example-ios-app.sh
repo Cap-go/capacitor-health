@@ -7,6 +7,7 @@ DERIVED_DATA_PATH="${CAPGO_MAESTRO_IOS_DERIVED_DATA_PATH:-$ROOT_DIR/maestro-ios-
 SIMULATOR_ID="${CAPGO_MAESTRO_IOS_SIMULATOR_ID:-$("$ROOT_DIR/scripts/select-ios-simulator.sh")}"
 
 cd "$ROOT_DIR"
+export CAPGO_MAESTRO_E2E=1
 bun run build
 cd "$EXAMPLE_DIR"
 bun install --frozen-lockfile
