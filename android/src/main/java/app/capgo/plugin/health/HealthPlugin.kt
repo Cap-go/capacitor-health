@@ -2,6 +2,7 @@ package app.capgo.plugin.health
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
 import androidx.activity.result.ActivityResult
@@ -274,6 +275,11 @@ class HealthPlugin : Plugin() {
             return
         }
 
+        if (context.checkSelfPermission(dataType.writePermission) != PackageManager.PERMISSION_GRANTED) {
+            call.reject("Health Connect write permission not granted for ${dataType.identifier}")
+            return
+        }
+
         val metadataObj = call.getObject("metadata")
         val metadata = metadataObj?.let { obj ->
             val iterator = obj.keys()
@@ -294,11 +300,6 @@ class HealthPlugin : Plugin() {
 
         call.launchSafely {
             val client = getClientOrReject(this) ?: return@launchSafely
-            val granted = client.permissionController.getGrantedPermissions()
-            if (!granted.contains(dataType.writePermission)) {
-                reject("Health Connect write permission not granted for ${dataType.identifier}")
-                return@launchSafely
-            }
             try {
                 manager.saveSample(client, dataType, value, startInstant, endInstant, metadata, systolic, diastolic, mindfulnessSessionType)
                 resolve()

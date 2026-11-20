@@ -36,9 +36,19 @@ if [[ ! -d "$APP_PATH" ]]; then
   exit 1
 fi
 
-xcrun simctl boot "$SIMULATOR_ID" 2>/dev/null || true
-xcrun simctl bootstatus "$SIMULATOR_ID" -b
-xcrun simctl privacy "$SIMULATOR_ID" reset health app.capgo.health 2>/dev/null || true
+if xcrun simctl list devices booted | grep -Fq "$SIMULATOR_ID"; then
+  echo "iOS simulator $SIMULATOR_ID already booted"
+else
+  xcrun simctl boot "$SIMULATOR_ID" 2>/dev/null || true
+  xcrun simctl bootstatus "$SIMULATOR_ID" -b
+fi
+if command -v gtimeout >/dev/null; then
+  gtimeout 8 xcrun simctl privacy "$SIMULATOR_ID" reset health app.capgo.health 2>/dev/null || true
+elif command -v timeout >/dev/null; then
+  timeout 8 xcrun simctl privacy "$SIMULATOR_ID" reset health app.capgo.health 2>/dev/null || true
+else
+  xcrun simctl privacy "$SIMULATOR_ID" reset health app.capgo.health 2>/dev/null || true
+fi
 xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
 
 maestro test --device "$SIMULATOR_ID" --config "$ROOT_DIR/.maestro/config.yaml" "$FLOW_PATH"
