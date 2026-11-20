@@ -277,14 +277,14 @@ const runAndroidPermissionDeniedE2e = async () => {
     throw new Error(availability.reason ?? 'Health Connect unavailable');
   }
 
-  const result = await Health.checkAuthorization({ write: ['vo2Max'] });
-  const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
-  const writeAuthorized = Array.isArray(result.writeAuthorized) ? result.writeAuthorized : [];
-  if (writeAuthorized.includes('vo2Max')) {
-    throw new Error('vo2Max write should not be authorized');
+  const result = await Health.checkAuthorization({ read: ['workouts'] });
+  const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
+  const readAuthorized = Array.isArray(result.readAuthorized) ? result.readAuthorized : [];
+  if (readAuthorized.includes('workouts')) {
+    throw new Error('workouts should not be authorized');
   }
-  if (!writeDenied.includes('vo2Max')) {
-    throw new Error('vo2Max write not denied');
+  if (!readDenied.includes('workouts')) {
+    throw new Error('workouts read not denied');
   }
   setOutput(result);
   setE2eMarker('E2E:permission-denied:success');
