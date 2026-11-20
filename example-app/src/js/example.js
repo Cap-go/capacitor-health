@@ -300,6 +300,15 @@ e2eAndroidButton?.addEventListener('click', async () => {
   }
 });
 
+const looksLikePermissionDenied = (message) => {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('not granted') ||
+    lower.includes('permission denied') ||
+    lower.includes('permission not granted')
+  );
+};
+
 const runAndroidPermissionDeniedE2e = async () => {
   if (Capacitor.getPlatform() !== 'android') {
     setE2eMarker('E2E:permission-denied:skipped-not-android');
@@ -321,6 +330,9 @@ const runAndroidPermissionDeniedE2e = async () => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message === 'leanBodyMass save should fail without write permission') {
+      throw error;
+    }
+    if (!looksLikePermissionDenied(message)) {
       throw error;
     }
     setOutput({ saveError: message });

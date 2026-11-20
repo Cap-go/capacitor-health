@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RETRIES="${CAPGO_MAESTRO_TEST_RETRIES:-2}"
+RETRIES="${CAPGO_MAESTRO_TEST_RETRIES:-1}"
 
 export CAPGO_MAESTRO_IOS_FLOW="${CAPGO_MAESTRO_IOS_FLOW:-$ROOT_DIR/.maestro/ios/ci-suite.yaml}"
 export PATH="$HOME/.maestro/bin:${PATH:-}"
