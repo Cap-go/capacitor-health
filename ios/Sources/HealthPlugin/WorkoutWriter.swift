@@ -197,11 +197,15 @@ final class WorkoutWriter {
                                 finish(.success(value))
                                 return
                             }
-                            self.healthStore.delete(stale) { _, deleteError in
+                            self.healthStore.delete(stale) { success, deleteError in
                                 if let deleteError = deleteError {
                                     finish(.failure(deleteError))
-                                } else {
+                                } else if success {
                                     finish(.success(value))
+                                } else {
+                                    finish(.failure(HealthWriteError.saveFailed(
+                                        "HealthKit could not delete stale workout companions."
+                                    )))
                                 }
                             }
                         }
