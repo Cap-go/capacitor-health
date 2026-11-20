@@ -29,20 +29,3 @@ if adb shell pm path com.google.android.apps.healthdata >/dev/null 2>&1; then
   sleep 2
   adb shell input keyevent KEYCODE_HOME 2>/dev/null || true
 fi
-
-# Warm Health Connect client binding so saveSample does not block getOrCreate on a cold emulator.
-adb shell am start -W -n "${APP_ID}/.MainActivity" >/dev/null 2>&1 || \
-  adb shell monkey -p "$APP_ID" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
-sleep 3
-adb shell input keyevent KEYCODE_HOME 2>/dev/null || true
-adb shell am force-stop "$APP_ID" 2>/dev/null || true
-
-for permission in \
-  android.permission.health.READ_LEAN_BODY_MASS \
-  android.permission.health.WRITE_LEAN_BODY_MASS \
-  android.permission.health.READ_BONE_MASS \
-  android.permission.health.WRITE_BONE_MASS \
-  android.permission.health.READ_BODY_WATER_MASS \
-  android.permission.health.WRITE_BODY_WATER_MASS; do
-  revoke "$permission"
-done
