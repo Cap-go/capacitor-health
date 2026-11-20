@@ -309,7 +309,12 @@ const runAndroidPermissionDeniedE2e = async () => {
   setE2eMarker('E2E:permission-denied:running');
   setStatus('Android permission denied E2E running');
 
-  const result = await Health.checkAuthorization({ write: ['leanBodyMass'] });
+  const result = await Promise.race([
+    Health.checkAuthorization({ write: ['leanBodyMass'] }),
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('checkAuthorization timed out after 15s')), 15000);
+    }),
+  ]);
   const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
   if (!writeDenied.includes('leanBodyMass')) {
     throw new Error(`Expected leanBodyMass in writeDenied, got: ${JSON.stringify(result)}`);
@@ -454,6 +459,7 @@ e2eIosKillRelaunchVerifyButton?.addEventListener('click', () => {
 });
 
 setDefaultDateRanges();
+setE2eMarker('E2E:boot:ready');
 
 if (Capacitor.isNativePlatform()) {
   void SplashScreen.hide();

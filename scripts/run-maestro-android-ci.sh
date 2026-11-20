@@ -30,6 +30,7 @@ run_flow() {
 
 run_android_e2e() {
   bash "$ROOT_DIR/scripts/ci/prepare-android-health-connect-emulator.sh"
+  bash "$ROOT_DIR/scripts/ci/prepare-android-health-connect-emulator.sh"
   if ! run_flow permission-denied "$PERMISSION_FLOW"; then
     return 1
   fi
