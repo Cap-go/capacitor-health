@@ -137,6 +137,7 @@ class HealthManager {
             put("readDenied", readDenied)
             put("writeAuthorized", writeAuthorized)
             put("writeDenied", writeDenied)
+            put("authorizationSource", "package-manager")
         }
     }
 

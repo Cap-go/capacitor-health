@@ -312,6 +312,9 @@ const runAndroidPermissionDeniedE2e = async () => {
     read: ['leanBodyMass'],
     write: ['leanBodyMass'],
   });
+  if (result.authorizationSource !== 'package-manager') {
+    throw new Error(`Expected package-manager auth path, got: ${JSON.stringify(result)}`);
+  }
   const writeAuthorized = Array.isArray(result.writeAuthorized) ? result.writeAuthorized : [];
   const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
   const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
