@@ -16,6 +16,7 @@ install_apk() {
 }
 
 run_android_e2e() {
+  bash "$ROOT_DIR/scripts/ci/revoke-vo2max-e2e-permissions.sh"
   if ! maestro test --config "$CONFIG" "$PERMISSION_FLOW"; then
     return 1
   fi
