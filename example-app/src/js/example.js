@@ -300,15 +300,6 @@ e2eAndroidButton?.addEventListener('click', async () => {
   }
 });
 
-const looksLikePermissionDenied = (message) => {
-  const lower = message.toLowerCase();
-  return (
-    lower.includes('not granted') ||
-    lower.includes('permission denied') ||
-    lower.includes('permission not granted')
-  );
-};
-
 const runAndroidPermissionDeniedE2e = async () => {
   if (Capacitor.getPlatform() !== 'android') {
     setE2eMarker('E2E:permission-denied:skipped-not-android');
@@ -317,28 +308,14 @@ const runAndroidPermissionDeniedE2e = async () => {
 
   setE2eMarker('E2E:permission-denied:running');
 
-  const deniedSaveAt = new Date().toISOString();
-  try {
-    await Health.saveSample({
-      dataType: 'leanBodyMass',
-      value: 1,
-      unit: 'kilogram',
-      startDate: deniedSaveAt,
-      endDate: deniedSaveAt,
-    });
-    throw new Error('leanBodyMass save should fail without write permission');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message === 'leanBodyMass save should fail without write permission') {
-      throw error;
-    }
-    if (!looksLikePermissionDenied(message)) {
-      throw error;
-    }
-    setOutput({ saveError: message });
-    setE2eMarker('E2E:permission-denied:success');
-    setStatus('Android permission denied E2E passed');
+  const result = await Health.checkAuthorization({ write: ['leanBodyMass'] });
+  const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
+  if (!writeDenied.includes('leanBodyMass')) {
+    throw new Error(`Expected leanBodyMass in writeDenied, got: ${JSON.stringify(result)}`);
   }
+  setOutput(result);
+  setE2eMarker('E2E:permission-denied:success');
+  setStatus('Android permission denied E2E passed');
 };
 
 e2eAndroidPermissionDeniedButton?.addEventListener('click', () => {

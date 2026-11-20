@@ -1,5 +1,8 @@
 package app.capgo.plugin.health
 
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.HealthConnectFeatures
 import androidx.health.connect.client.aggregate.AggregationResult
@@ -98,6 +101,42 @@ class HealthManager {
         // that does not support it makes the request flow permanently unsatisfiable.
         if (includeHistoryAccess) {
             add(READ_HEALTH_DATA_HISTORY_PERMISSION)
+        }
+    }
+
+    fun authorizationStatusFromPackageManager(
+        context: Context,
+        readTypes: Collection<HealthDataType>,
+        writeTypes: Collection<HealthDataType>,
+    ): JSObject {
+        fun isGranted(permission: String): Boolean =
+            ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
+        val readAuthorized = JSArray()
+        val readDenied = JSArray()
+        readTypes.forEach { type ->
+            if (isGranted(type.readPermission)) {
+                readAuthorized.put(type.identifier)
+            } else {
+                readDenied.put(type.identifier)
+            }
+        }
+
+        val writeAuthorized = JSArray()
+        val writeDenied = JSArray()
+        writeTypes.forEach { type ->
+            if (isGranted(type.writePermission)) {
+                writeAuthorized.put(type.identifier)
+            } else {
+                writeDenied.put(type.identifier)
+            }
+        }
+
+        return JSObject().apply {
+            put("readAuthorized", readAuthorized)
+            put("readDenied", readDenied)
+            put("writeAuthorized", writeAuthorized)
+            put("writeDenied", writeDenied)
         }
     }
 
