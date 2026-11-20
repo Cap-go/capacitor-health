@@ -36,7 +36,9 @@ if [[ ! -d "$APP_PATH" ]]; then
   exit 1
 fi
 
-if xcrun simctl list devices booted | grep -Fq "$SIMULATOR_ID"; then
+if [[ "${CAPGO_MAESTRO_SKIP_SIM_BOOT:-0}" == "1" ]] && xcrun simctl list devices booted | grep -Fq "$SIMULATOR_ID"; then
+  echo "iOS simulator $SIMULATOR_ID already booted (skipping boot wait)"
+elif xcrun simctl list devices booted | grep -Fq "$SIMULATOR_ID"; then
   echo "iOS simulator $SIMULATOR_ID already booted"
 else
   xcrun simctl boot "$SIMULATOR_ID" 2>/dev/null || true
