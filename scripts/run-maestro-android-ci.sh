@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FLOW_PATH="$ROOT_DIR/.maestro/android/body-composition-and-kill.yaml"
+PERMISSION_FLOW="$ROOT_DIR/.maestro/android/permission-denied.yaml"
+BODY_FLOW="$ROOT_DIR/.maestro/android/body-composition-kill.yaml"
 CONFIG="$ROOT_DIR/.maestro/config.yaml"
 RETRIES="${CAPGO_MAESTRO_TEST_RETRIES:-1}"
 
@@ -14,10 +15,15 @@ install_apk() {
     bash "$ROOT_DIR/scripts/run-maestro-android-body-composition.sh"
 }
 
+run_android_e2e() {
+  maestro test --config "$CONFIG" "$PERMISSION_FLOW"
+  bash "$ROOT_DIR/scripts/ci/grant-health-connect-e2e-permissions.sh"
+  maestro test --config "$CONFIG" "$BODY_FLOW"
+}
+
 for attempt in $(seq 1 "$RETRIES"); do
   install_apk
-  bash "$ROOT_DIR/scripts/ci/grant-health-connect-e2e-permissions.sh"
-  if maestro test --config "$CONFIG" "$FLOW_PATH"; then
+  if run_android_e2e; then
     exit 0
   fi
   if [[ "$attempt" -lt "$RETRIES" ]]; then

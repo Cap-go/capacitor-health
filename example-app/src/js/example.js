@@ -282,14 +282,21 @@ const runAndroidPermissionDeniedE2e = async () => {
 
   setE2eMarker('E2E:permission-denied:running');
 
-  const result = await Health.checkAuthorization({ read: ['vo2Max'] });
+  const availability = await Health.isAvailable();
+  if (!availability.available) {
+    throw new Error(availability.reason ?? 'Health Connect unavailable');
+  }
+
+  const result = await Health.checkAuthorization({ read: ['vo2Max'], write: ['vo2Max'] });
   const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
+  const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
   const readAuthorized = Array.isArray(result.readAuthorized) ? result.readAuthorized : [];
-  if (readAuthorized.includes('vo2Max')) {
+  const writeAuthorized = Array.isArray(result.writeAuthorized) ? result.writeAuthorized : [];
+  if (readAuthorized.includes('vo2Max') || writeAuthorized.includes('vo2Max')) {
     throw new Error(`vo2Max should not be authorized: ${JSON.stringify(result)}`);
   }
-  if (!readDenied.includes('vo2Max')) {
-    throw new Error(`Expected vo2Max in readDenied, got: ${JSON.stringify(result)}`);
+  if (!readDenied.includes('vo2Max') && !writeDenied.includes('vo2Max')) {
+    throw new Error(`Expected vo2Max denied, got: ${JSON.stringify(result)}`);
   }
   setOutput(result);
   setE2eMarker('E2E:permission-denied:success');
