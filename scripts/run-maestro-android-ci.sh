@@ -20,6 +20,18 @@ run_flow() {
   local flow_path="$2"
   local started
   started="$(date +%s)"
+  if [[ "$label" == "permission-denied" ]]; then
+  for permission in \
+    android.permission.health.READ_LEAN_BODY_MASS \
+    android.permission.health.WRITE_LEAN_BODY_MASS \
+    android.permission.health.READ_BONE_MASS \
+    android.permission.health.WRITE_BONE_MASS \
+    android.permission.health.READ_BODY_WATER_MASS \
+    android.permission.health.WRITE_BODY_WATER_MASS; do
+    adb shell pm revoke --user 0 app.capgo.health "$permission" 2>/dev/null || \
+      adb shell pm revoke app.capgo.health "$permission" 2>/dev/null || true
+  done
+  fi
   if ! maestro test --config "$CONFIG" "$flow_path"; then
     echo "logcat tail after Maestro failure (${label}):" >&2
     adb logcat -d 2>/dev/null | tail -n 200 >&2 || true
