@@ -227,6 +227,7 @@ e2eAndroidButton?.addEventListener('click', async () => {
     setOutput({ auth });
 
     const now = new Date().toISOString();
+    const readEndDate = new Date(Date.parse(now) + 1000).toISOString();
     const samplesToSave = [
       { dataType: 'leanBodyMass', value: 61.2 },
       { dataType: 'boneMass', value: 2.9 },
@@ -248,7 +249,7 @@ e2eAndroidButton?.addEventListener('click', async () => {
       const result = await Health.readSamples({
         dataType: sample.dataType,
         startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        endDate: now,
+        endDate: readEndDate,
         limit: 5,
       });
       if (!result.samples.some((row) => row.dataType === sample.dataType && row.value === sample.value)) {
