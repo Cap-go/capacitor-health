@@ -8,6 +8,8 @@ import androidx.health.connect.client.records.BasalMetabolicRateRecord
 import androidx.health.connect.client.records.BloodGlucoseRecord
 import androidx.health.connect.client.records.BloodPressureRecord
 import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.BodyWaterMassRecord
+import androidx.health.connect.client.records.BoneMassRecord
 import androidx.health.connect.client.records.BodyTemperatureRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.FloorsClimbedRecord
@@ -15,6 +17,7 @@ import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.HydrationRecord
+import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.MindfulnessSessionRecord
 import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
@@ -52,6 +55,9 @@ enum class HealthDataType(
     FLIGHTS_CLIMBED("flightsClimbed", FloorsClimbedRecord::class, "count"),
     DISTANCE_CYCLING("distanceCycling", DistanceRecord::class, "meter"),
     BODY_FAT("bodyFat", BodyFatRecord::class, "percent"),
+    LEAN_BODY_MASS("leanBodyMass", LeanBodyMassRecord::class, "kilogram"),
+    BONE_MASS("boneMass", BoneMassRecord::class, "kilogram"),
+    BODY_WATER_MASS("bodyWaterMass", BodyWaterMassRecord::class, "kilogram"),
     BASAL_BODY_TEMPERATURE("basalBodyTemperature", BasalBodyTemperatureRecord::class, "celsius"),
     BASAL_CALORIES("basalCalories", BasalMetabolicRateRecord::class, "kilocalorie"),
     TOTAL_CALORIES("totalCalories", TotalCaloriesBurnedRecord::class, "kilocalorie"),

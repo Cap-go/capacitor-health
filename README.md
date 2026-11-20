@@ -35,7 +35,12 @@ We build, improve and fix our plugins with heavy use of AI, so issues usually ge
 - **Workouts and aggregates**: `queryWorkouts()` and `queryAggregated()` for summaries.
 - **Authorization**: `requestAuthorization()` and `checkAuthorization()` per data type.
 - **Health Connect helpers**: `openHealthConnectSettings()` and `showPrivacyPolicy()` on Android.
+- **Android body composition**: Read and write `leanBodyMass`, `boneMass`, and `bodyWaterMass` via Health Connect (Android only).
 - **Platforms**: iOS and Android. A few data types and units differ between iOS and Android, see the Supported data types table below. Not available on web.
+
+## Spotlight: Android body composition
+
+Smart scales and body analysis apps often sync **lean body mass**, **bone mass**, and **body water mass** into Health Connect alongside weight and body fat. This plugin exposes them as `leanBodyMass`, `boneMass`, and `bodyWaterMass` (kilograms) with matching read and write permissions. They are **Android only** today: iOS rejects them as unsupported because HealthKit does not map all three types yet.
 
 ## Why Capacitor Health?
 
@@ -216,6 +221,9 @@ await Health.saveSample({
 | `exerciseTime`          | `minute`      | Apple Exercise Time (iOS only)                           |
 | `distanceCycling`       | `meter`       | Cycling distance                                         |
 | `bodyFat`               | `percent`     | Body fat percentage                                      |
+| `leanBodyMass`          | `kilogram`    | Lean body mass (Android only)                            |
+| `boneMass`              | `kilogram`    | Bone mass (Android only)                                 |
+| `bodyWaterMass`         | `kilogram`    | Body water mass (Android only)                           |
 | `basalBodyTemperature`  | `celsius`     | Basal body temperature                                   |
 | `basalCalories`         | `kilocalorie` | Basal metabolic rate / resting energy                    |
 | `totalCalories`         | `kilocalorie` | Total energy burned (active + basal)                     |
@@ -353,6 +361,26 @@ const { samples } = await Health.readSamples({
 
 samples.forEach(sample => {
   console.log(`Sleep: ${sample.value} minutes, state: ${sample.sleepState}`);
+});
+```
+
+**Android body composition (lean mass, bone mass, body water):**
+```ts
+// Android only: Health Connect body composition metrics (kilograms)
+await Health.requestAuthorization({
+  read: ['leanBodyMass', 'boneMass', 'bodyWaterMass', 'bodyFat'],
+  write: ['leanBodyMass', 'boneMass', 'bodyWaterMass'],
+});
+
+const { samples: leanMass } = await Health.readSamples({
+  dataType: 'leanBodyMass',
+  startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  endDate: new Date().toISOString(),
+});
+
+await Health.saveSample({
+  dataType: 'bodyWaterMass',
+  value: 42.5,
 });
 ```
 
@@ -787,7 +815,7 @@ Stage-level sleep segment emitted for sleep samples when platform data is availa
 
 #### HealthDataType
 
-<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'basalBodyTemperature' | 'appleSleepingWristTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'appleStandHour' | 'dietaryWater' | 'dietaryEnergyConsumed' | 'dietaryProtein' | 'stateOfMind' | 'workouts'</code>
+<code>'steps' | 'distance' | 'calories' | 'heartRate' | 'weight' | 'sleep' | 'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' | 'heartRateVariability' | 'vo2Max' | 'bloodPressure' | 'bloodGlucose' | 'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' | 'distanceCycling' | 'bodyFat' | 'leanBodyMass' | 'boneMass' | 'bodyWaterMass' | 'basalBodyTemperature' | 'appleSleepingWristTemperature' | 'basalCalories' | 'totalCalories' | 'mindfulness' | 'appleStandHour' | 'dietaryWater' | 'dietaryEnergyConsumed' | 'dietaryProtein' | 'stateOfMind' | 'workouts'</code>
 
 
 #### HealthUnit
