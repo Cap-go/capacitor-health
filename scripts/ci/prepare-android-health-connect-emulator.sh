@@ -22,6 +22,8 @@ for permission in \
   revoke "$permission"
 done
 
+adb shell am force-stop "$APP_ID" 2>/dev/null || true
+
 if adb shell pm path com.google.android.apps.healthdata >/dev/null 2>&1; then
   adb shell am start -n com.google.android.apps.healthdata/.ui.deeplink.HomeDeepLinkActivity 2>/dev/null || \
     adb shell am start -a android.health.connect.action.HEALTH_CONNECT_SETTINGS 2>/dev/null || \

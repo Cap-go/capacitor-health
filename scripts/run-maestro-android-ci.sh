@@ -26,19 +26,8 @@ run_flow() {
   echo "Maestro Android flow ${label} finished in $(( $(date +%s) - started ))s"
 }
 
-warm_health_connect_client() {
-  local app_id="${CAPGO_HEALTH_APP_ID:-app.capgo.health}"
-  adb shell am force-stop "$app_id" 2>/dev/null || true
-  adb shell am start -W -n "${app_id}/.MainActivity" >/dev/null 2>&1 || \
-    adb shell monkey -p "$app_id" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
-  sleep 3
-  adb shell input keyevent KEYCODE_HOME 2>/dev/null || true
-  adb shell am force-stop "$app_id" 2>/dev/null || true
-}
-
 run_android_e2e() {
   bash "$ROOT_DIR/scripts/ci/prepare-android-health-connect-emulator.sh"
-  warm_health_connect_client
   if ! run_flow permission-denied "$PERMISSION_FLOW"; then
     return 1
   fi
