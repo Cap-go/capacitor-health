@@ -15,23 +15,44 @@ install_apk() {
     bash "$ROOT_DIR/scripts/run-maestro-android-body-composition.sh"
 }
 
+APP_ID="${CAPGO_HEALTH_APP_ID:-app.capgo.health}"
+HEALTH_E2E_PERMISSIONS=(
+  android.permission.health.READ_LEAN_BODY_MASS
+  android.permission.health.WRITE_LEAN_BODY_MASS
+  android.permission.health.READ_BONE_MASS
+  android.permission.health.WRITE_BONE_MASS
+  android.permission.health.READ_BODY_WATER_MASS
+  android.permission.health.WRITE_BODY_WATER_MASS
+)
+
+revoke_health_permissions() {
+  for permission in "${HEALTH_E2E_PERMISSIONS[@]}"; do
+    adb shell pm revoke --user 0 "$APP_ID" "$permission" 2>/dev/null || \
+      adb shell pm revoke "$APP_ID" "$permission" 2>/dev/null || true
+  done
+}
+
+prepare_permission_denied_app() {
+  # clearState on launch re-grants Health Connect on the emulator; seed once, then revoke.
+  adb shell am force-stop "$APP_ID" 2>/dev/null || true
+  adb shell pm clear "$APP_ID" 2>/dev/null || true
+  adb shell am start -W -n "$APP_ID/.MainActivity" >/dev/null
+  sleep 12
+  revoke_health_permissions
+  if adb shell dumpsys package "$APP_ID" 2>/dev/null | grep -q "android.permission.health.WRITE_LEAN_BODY_MASS: granted=true"; then
+    echo "WRITE_LEAN_BODY_MASS still granted after revoke; permission-denied E2E cannot run" >&2
+    return 1
+  fi
+  adb shell am force-stop "$APP_ID" 2>/dev/null || true
+}
+
 run_flow() {
   local label="$1"
   local flow_path="$2"
   local started
   started="$(date +%s)"
   if [[ "$label" == "permission-denied" ]]; then
-  adb shell am force-stop app.capgo.health 2>/dev/null || true
-  for permission in \
-    android.permission.health.READ_LEAN_BODY_MASS \
-    android.permission.health.WRITE_LEAN_BODY_MASS \
-    android.permission.health.READ_BONE_MASS \
-    android.permission.health.WRITE_BONE_MASS \
-    android.permission.health.READ_BODY_WATER_MASS \
-    android.permission.health.WRITE_BODY_WATER_MASS; do
-    adb shell pm revoke --user 0 app.capgo.health "$permission" 2>/dev/null || \
-      adb shell pm revoke app.capgo.health "$permission" 2>/dev/null || true
-  done
+    prepare_permission_denied_app
   fi
   if ! maestro test --config "$CONFIG" "$flow_path"; then
     echo "logcat tail after Maestro failure (${label}):" >&2

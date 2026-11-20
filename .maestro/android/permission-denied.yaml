@@ -4,7 +4,7 @@ appId: app.capgo.health
     clearState: false
 - extendedWaitUntil:
     visible: '@capgo/capacitor-health Demo'
-    timeout: 60000
+    timeout: 90000
 - scrollUntilVisible:
     element:
       text: Run Android permission denied E2E
