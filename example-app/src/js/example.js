@@ -30,12 +30,12 @@ const writeTypeCheckboxes = Array.from(document.querySelectorAll('.write-type'))
 const e2eAndroidButton = document.getElementById('e2e-body-composition-android');
 const e2eAndroidPermissionDeniedButton = document.getElementById('e2e-android-permission-denied');
 const e2eAndroidKillRelaunchPrepButton = document.getElementById('e2e-android-kill-relaunch-prep');
+const e2eAndroidKillRelaunchVerifyButton = document.getElementById('e2e-android-kill-relaunch-verify');
 const e2eIosUnsupportedButton = document.getElementById('e2e-body-composition-ios-unsupported');
 const e2eIosPermissionDeniedButton = document.getElementById('e2e-ios-permission-denied');
 const e2eIosKillRelaunchPrepButton = document.getElementById('e2e-ios-kill-relaunch-prep');
+const e2eIosKillRelaunchVerifyButton = document.getElementById('e2e-ios-kill-relaunch-verify');
 const e2eMarkerPane = document.getElementById('e2eMarkerPane');
-
-const E2E_KILL_RELAUNCH_KEY = 'capgo_health_e2e_kill_relaunch';
 
 const bodyCompositionTypes = ['leanBodyMass', 'boneMass', 'bodyWaterMass'];
 
@@ -322,14 +322,35 @@ e2eAndroidPermissionDeniedButton?.addEventListener('click', () => {
   });
 });
 
+const runKillRelaunchVerify = async (platform) => {
+  if (Capacitor.getPlatform() !== platform) {
+    setE2eMarker(`E2E:kill-relaunch:skipped-not-${platform}`);
+    return;
+  }
+  setE2eMarker('E2E:kill-relaunch:running');
+  const availability = await Health.isAvailable();
+  if (!availability.available) {
+    throw new Error(availability.reason ?? 'Health unavailable after relaunch');
+  }
+  setE2eMarker('E2E:kill-relaunch:success');
+  setStatus('Kill relaunch E2E passed');
+};
+
 e2eAndroidKillRelaunchPrepButton?.addEventListener('click', () => {
   if (Capacitor.getPlatform() !== 'android') {
     setE2eMarker('E2E:kill-relaunch:skipped-not-android');
     return;
   }
-  window.localStorage.setItem(E2E_KILL_RELAUNCH_KEY, 'android');
   setE2eMarker('E2E:kill-relaunch:prepped');
-  setStatus('Android kill relaunch prep stored');
+  setStatus('Android kill relaunch prep ready');
+});
+
+e2eAndroidKillRelaunchVerifyButton?.addEventListener('click', () => {
+  runKillRelaunchVerify('android').catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    setE2eMarker(`E2E:kill-relaunch:failed:${message}`);
+    setStatus('Kill relaunch E2E failed');
+  });
 });
 
 e2eIosUnsupportedButton?.addEventListener('click', async () => {
@@ -411,42 +432,19 @@ e2eIosKillRelaunchPrepButton?.addEventListener('click', () => {
     setE2eMarker('E2E:kill-relaunch:skipped-not-ios');
     return;
   }
-  window.localStorage.setItem(E2E_KILL_RELAUNCH_KEY, 'ios');
   setE2eMarker('E2E:kill-relaunch:prepped');
-  setStatus('iOS kill relaunch prep stored');
+  setStatus('iOS kill relaunch prep ready');
 });
 
-const completeKillRelaunchIfNeeded = async () => {
-  if (!Capacitor.isNativePlatform()) {
-    return;
-  }
-  const pending = window.localStorage.getItem(E2E_KILL_RELAUNCH_KEY);
-  if (!pending) {
-    return;
-  }
-  window.localStorage.removeItem(E2E_KILL_RELAUNCH_KEY);
-  if (pending === 'android' && Capacitor.getPlatform() !== 'android') {
-    return;
-  }
-  if (pending === 'ios' && Capacitor.getPlatform() !== 'ios') {
-    return;
-  }
-  try {
-    const availability = await Health.isAvailable();
-    if (!availability.available) {
-      throw new Error(availability.reason ?? 'Health unavailable after relaunch');
-    }
-    setE2eMarker('E2E:kill-relaunch:success');
-    setStatus('Kill relaunch E2E passed');
-  } catch (error) {
+e2eIosKillRelaunchVerifyButton?.addEventListener('click', () => {
+  runKillRelaunchVerify('ios').catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     setE2eMarker(`E2E:kill-relaunch:failed:${message}`);
     setStatus('Kill relaunch E2E failed');
-  }
-};
+  });
+});
 
 setDefaultDateRanges();
-completeKillRelaunchIfNeeded();
 
 if (Capacitor.isNativePlatform()) {
   CapacitorUpdater.notifyAppReady().catch((error) => {

@@ -39,5 +39,15 @@ appId: app.capgo.health
 - launchApp:
     clearState: false
 - extendedWaitUntil:
+    visible: '@capgo/capacitor-health Demo'
+    timeout: 90000
+- scrollUntilVisible:
+    element:
+      text: Run Android kill relaunch verify
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    text: Run Android kill relaunch verify
+- extendedWaitUntil:
     visible: 'E2E:kill-relaunch:success'
     timeout: 90000
