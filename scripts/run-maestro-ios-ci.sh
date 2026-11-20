@@ -9,6 +9,7 @@ export PATH="$HOME/.maestro/bin:${PATH:-}"
 export MAESTRO_DRIVER_STARTUP_TIMEOUT="${MAESTRO_DRIVER_STARTUP_TIMEOUT:-120000}"
 
 for attempt in $(seq 1 "$RETRIES"); do
+  export CAPGO_MAESTRO_INSTALL_RETRY="$(( attempt > 1 ? 1 : 0 ))"
   if bash "$ROOT_DIR/scripts/run-maestro-ios-body-composition-unsupported.sh"; then
     exit 0
   fi
