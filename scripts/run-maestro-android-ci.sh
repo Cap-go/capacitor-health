@@ -21,6 +21,7 @@ run_flow() {
   local started
   started="$(date +%s)"
   if [[ "$label" == "permission-denied" ]]; then
+  adb shell am force-stop app.capgo.health 2>/dev/null || true
   for permission in \
     android.permission.health.READ_LEAN_BODY_MASS \
     android.permission.health.WRITE_LEAN_BODY_MASS \
