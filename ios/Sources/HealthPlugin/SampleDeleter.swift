@@ -44,21 +44,24 @@ final class SampleDeleter {
             return
         }
 
-        WorkoutWriter.writeLock.lock()
-        let finish: (Result<[String: Any], Error>) -> Void = { result in
-            WorkoutWriter.writeLock.unlock()
-            completion(result)
-        }
-
         switch request.target {
         case .workouts:
-            deleteWorkouts(matching: request.predicate, completion: finish)
+            // Runs after any in-flight saveWorkout of the same clientRecordIds (and blocks the next one),
+            // so a save cannot recreate companions while their workout is being deleted. Deletes by
+            // platformIds only have no clientRecordId to serialize on and run right away.
+            WorkoutWriter.recordIdSerializer.run(keys: Set(request.clientRecordIds), completion: completion) { [weak self] finish in
+                guard let self = self else {
+                    finish(.failure(HealthWriteError.deleteFailed("The plugin was released before the workouts could be deleted.")))
+                    return
+                }
+                self.deleteWorkouts(matching: request.predicate, completion: finish)
+            }
         case let .correlations(type):
-            deleteCorrelations(of: type, matching: request.predicate, completion: finish)
+            deleteCorrelations(of: type, matching: request.predicate, completion: completion)
         case let .samples(type):
             healthStore.deleteObjects(of: type, predicate: request.predicate) { success, deletedCount, error in
                 SampleDeleter.finish(success: success, count: deletedCount, error: error, dataType: request.dataType,
-                                     completion: finish)
+                                     completion: completion)
             }
         }
     }
@@ -238,6 +241,8 @@ struct DeleteRequest {
 
     let dataType: String
     let target: Target
+    /// Requested sync identifiers, without duplicates.
+    let clientRecordIds: [String]
     /// Matches the requested sync identifiers or UUIDs, among the objects saved by this app.
     let predicate: NSPredicate
 
@@ -275,6 +280,7 @@ struct DeleteRequest {
 
         self.dataType = dataType
         self.target = target
+        self.clientRecordIds = clientRecordIds
         predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             NSCompoundPredicate(orPredicateWithSubpredicates: idPredicates),
             HKQuery.predicateForObjects(from: HKSource.default())

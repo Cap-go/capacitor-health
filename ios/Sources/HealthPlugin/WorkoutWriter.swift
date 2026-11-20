@@ -53,6 +53,65 @@ enum HealthWriteError: LocalizedError {
     }
 }
 
+/// Runs asynchronous operations one after another per key, without blocking the calling thread.
+///
+/// An operation starts once every earlier operation sharing one of its keys has called `finish`;
+/// operations with no key in common, or with no keys, run concurrently. Nothing is locked across
+/// threads: the bookkeeping lives on a private serial queue and each operation waits on the
+/// `DispatchGroup` of the previous operations of its keys. Ordering only points to earlier operations,
+/// so operations with several keys cannot deadlock.
+///
+/// The operation must call `finish` on every path (extra calls are ignored). `completion` is called
+/// exactly once, with the result passed to `finish`, after the keys are released.
+final class KeyedOperationSerializer {
+    private let queue: DispatchQueue
+    /// Group of the last operation scheduled per key; removed when that operation finishes.
+    private var tails: [String: DispatchGroup] = [:]
+
+    init(label: String) {
+        queue = DispatchQueue(label: label)
+    }
+
+    func run<Value>(keys: Set<String>,
+                    completion: @escaping (Result<Value, Error>) -> Void,
+                    operation: @escaping (_ finish: @escaping (Result<Value, Error>) -> Void) -> Void) {
+        queue.async {
+            let current = DispatchGroup()
+            current.enter()
+            let previous = DispatchGroup()
+            for key in keys {
+                if let tail = self.tails[key] {
+                    previous.enter()
+                    tail.notify(queue: self.queue) { previous.leave() }
+                }
+                self.tails[key] = current
+            }
+
+            // Read and written only on `queue`.
+            var finished = false
+            let finish: (Result<Value, Error>) -> Void = { result in
+                self.queue.async {
+                    guard !finished else {
+                        return
+                    }
+                    finished = true
+                    for key in keys where self.tails[key] === current {
+                        self.tails.removeValue(forKey: key)
+                    }
+                    current.leave()
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        completion(result)
+                    }
+                }
+            }
+
+            previous.notify(queue: DispatchQueue.global(qos: .userInitiated)) {
+                operation(finish)
+            }
+        }
+    }
+}
+
 /// Writes a complete workout to HealthKit for `saveWorkout`.
 ///
 /// An `HKWorkoutBuilder` collects the optional distance, active-energy and heart-rate samples and the
@@ -68,8 +127,9 @@ enum HealthWriteError: LocalizedError {
 /// increasing `HKMetadataKeySyncVersion` (`SyncMetadata.currentVersion()`), so HealthKit replaces the
 /// earlier copy of each object written again.
 final class WorkoutWriter {
-    /// Serializes `saveWorkout` and workout-related `deleteSamples` work so companion cleanup cannot interleave.
-    static let writeLock = NSLock()
+    /// Serializes `saveWorkout` and workout `deleteSamples` work per workout `clientRecordId`, so companion
+    /// cleanup and the save of one id cannot interleave. Different ids still run concurrently.
+    static let recordIdSerializer = KeyedOperationSerializer(label: "app.capgo.health.workout-writes")
 
     /// Exact workout `clientRecordId` stored on companion samples and routes for cleanup (not a sync-id prefix).
     static let workoutParentClientRecordIdKey = "capgoWorkoutClientRecordId"
@@ -82,7 +142,8 @@ final class WorkoutWriter {
     }
 
     /// Validates `options` and saves the workout. `completion` is called exactly once: synchronously for
-    /// validation and permission errors, otherwise on a HealthKit background queue.
+    /// validation and permission errors, otherwise on a background queue. Saves sharing a
+    /// `clientRecordId` run one after another (see `recordIdSerializer`).
     func saveWorkout(options: JSObject, completion: @escaping (Result<[String: Any], Error>) -> Void) {
         guard HKHealthStore.isHealthDataAvailable() else {
             completion(.failure(HealthManagerError.healthDataUnavailable))
@@ -104,21 +165,20 @@ final class WorkoutWriter {
             return
         }
 
-        WorkoutWriter.writeLock.lock()
-        let plan = makePlan(for: input)
-        reconcileOmittedCompanions(for: input, plan: plan) { [weak self] error in
+        let keys = Set(input.clientRecordId.map { [$0] } ?? [])
+        WorkoutWriter.recordIdSerializer.run(keys: keys, completion: completion) { [weak self] finish in
             guard let self = self else {
-                WorkoutWriter.writeLock.unlock()
+                finish(.failure(HealthWriteError.saveFailed("The plugin was released before the workout could be saved.")))
                 return
             }
-            if let error = error {
-                WorkoutWriter.writeLock.unlock()
-                completion(.failure(error))
-                return
-            }
-            self.save(input, plan: plan) { result in
-                WorkoutWriter.writeLock.unlock()
-                completion(result)
+            // The plan (sync versions included) is built once the previous operation on this id is done.
+            let plan = self.makePlan(for: input)
+            self.reconcileOmittedCompanions(for: input, plan: plan) { error in
+                if let error = error {
+                    finish(.failure(error))
+                    return
+                }
+                self.save(input, plan: plan, completion: finish)
             }
         }
     }
