@@ -298,7 +298,7 @@ const runAndroidPermissionDeniedE2e = async () => {
   try {
     const now = new Date().toISOString();
     await Health.readSamples({
-      dataType: 'leanBodyMass',
+      dataType: 'vo2Max',
       startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
       endDate: now,
       limit: 1,

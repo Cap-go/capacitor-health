@@ -122,8 +122,6 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 26.x
-      - name: Install root dependencies
-        run: bun i
       - name: Setup Maestro
         uses: ./.github/actions/setup-maestro
         with:
@@ -155,7 +153,7 @@ jobs:
             CAPGO_MAESTRO_SKIP_BUILD=1
             CAPGO_MAESTRO_TEST_RETRIES=2
             MAESTRO_DRIVER_STARTUP_TIMEOUT=120000
-            bun run test:maestro:android:ci
+            bash ./scripts/run-maestro-android-ci.sh
   maestro_ios_app:
     runs-on: macOS-latest
     timeout-minutes: 10
@@ -195,8 +193,6 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 26.x
-      - name: Install root dependencies
-        run: bun i
       - name: Setup Maestro
         uses: ./.github/actions/setup-maestro
         with:
@@ -227,7 +223,7 @@ jobs:
           CAPGO_MAESTRO_IOS_APP_PATH: ${{ steps.maestro_ios_app.outputs.path }}
           CAPGO_MAESTRO_TEST_RETRIES: '2'
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '120000'
-        run: bun run test:maestro:ios:ci
+        run: bash ./scripts/run-maestro-ios-ci.sh
   web:
     runs-on: ubuntu-latest
     # Keep this job capped at 10 minutes; never raise it unless explicitly asked.
