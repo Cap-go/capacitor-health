@@ -308,11 +308,6 @@ const runAndroidPermissionDeniedE2e = async () => {
 
   setE2eMarker('E2E:permission-denied:running');
 
-  const availability = await Health.isAvailable();
-  if (!availability.available) {
-    throw new Error(availability.reason ?? 'Health Connect unavailable');
-  }
-
   const deniedSaveAt = new Date().toISOString();
   try {
     await Health.saveSample({

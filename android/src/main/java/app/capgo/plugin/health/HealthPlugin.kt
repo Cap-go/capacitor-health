@@ -294,6 +294,11 @@ class HealthPlugin : Plugin() {
 
         call.launchSafely {
             val client = getClientOrReject(this) ?: return@launchSafely
+            val granted = client.permissionController.getGrantedPermissions()
+            if (!granted.contains(dataType.writePermission)) {
+                reject("Health Connect write permission not granted for ${dataType.identifier}")
+                return@launchSafely
+            }
             try {
                 manager.saveSample(client, dataType, value, startInstant, endInstant, metadata, systolic, diastolic, mindfulnessSessionType)
                 resolve()
