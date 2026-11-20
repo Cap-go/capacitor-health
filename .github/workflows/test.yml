@@ -96,9 +96,9 @@ jobs:
         run: bun i
       - name: Run HealthPlugin XCTests
         run: bun run test:ios:unit
-  maestro_android_e2e:
+  maestro_android_apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Check out
         uses: actions/checkout@v7
@@ -115,12 +115,37 @@ jobs:
           distribution: zulu
           java-version: '21'
           cache: gradle
+      - name: Build example Android APK
+        run: bash ./scripts/ci/build-example-android-apk.sh
+      - name: Upload Maestro Android APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-android-apk
+          path: example-app/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+  maestro_android_e2e:
+    needs: maestro_android_apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+      - name: Install root dependencies
+        run: bun i
       - name: Setup Maestro
         uses: ./.github/actions/setup-maestro
         with:
           maestro-version: ${{ env.MAESTRO_VERSION }}
-      - name: Build example Android APK
-        run: bash ./scripts/ci/build-example-android-apk.sh
+      - name: Download Maestro Android APK
+        uses: actions/download-artifact@v8
+        with:
+          name: maestro-android-apk
+          path: example-app/android/app/build/outputs/apk/debug
       - name: Enable KVM group perms
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -143,7 +168,33 @@ jobs:
             export CAPGO_MAESTRO_SKIP_BUILD=1
             export MAESTRO_DRIVER_STARTUP_TIMEOUT=120000
             bun run test:maestro:android:ci
+  maestro_ios_app:
+    runs-on: macOS-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+      - name: Install root dependencies
+        run: bun i
+      - name: Select iOS simulator
+        run: |
+          simulator_id="$(./scripts/select-ios-simulator.sh)"
+          echo "CAPGO_MAESTRO_IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
+      - name: Build example iOS app
+        run: bash ./scripts/ci/build-example-ios-app.sh
+      - name: Upload Maestro iOS app
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-ios-app
+          path: maestro-ios-derived-data/Build/Products/Debug-iphonesimulator/App.app
+          if-no-files-found: error
   maestro_ios_e2e:
+    needs: maestro_ios_app
     runs-on: macOS-latest
     timeout-minutes: 5
     steps:
@@ -164,11 +215,15 @@ jobs:
         run: |
           simulator_id="$(./scripts/select-ios-simulator.sh)"
           echo "CAPGO_MAESTRO_IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
-      - name: Build example iOS app
-        run: bash ./scripts/ci/build-example-ios-app.sh
+      - name: Download Maestro iOS app
+        uses: actions/download-artifact@v8
+        with:
+          name: maestro-ios-app
+          path: maestro-ios-app
       - name: Run iOS Maestro CI suite
         env:
           CAPGO_MAESTRO_SKIP_BUILD: '1'
+          CAPGO_MAESTRO_IOS_APP_PATH: ${{ github.workspace }}/maestro-ios-app/App.app
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '120000'
         run: bun run test:maestro:ios:ci
   web:
