@@ -163,10 +163,10 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: |
-            export PATH="$HOME/.maestro/bin:$PATH"
-            export CAPGO_MAESTRO_SKIP_BUILD=1
-            export MAESTRO_DRIVER_STARTUP_TIMEOUT=120000
+          script: >-
+            PATH="$HOME/.maestro/bin:$PATH"
+            CAPGO_MAESTRO_SKIP_BUILD=1
+            MAESTRO_DRIVER_STARTUP_TIMEOUT=120000
             bun run test:maestro:android:ci
   maestro_ios_app:
     runs-on: macOS-latest
@@ -220,10 +220,20 @@ jobs:
         with:
           name: maestro-ios-app
           path: maestro-ios-app
+      - name: Resolve Maestro iOS app path
+        id: maestro_ios_app
+        run: |
+          app_path="$(find "${GITHUB_WORKSPACE}/maestro-ios-app" -maxdepth 3 -name 'App.app' -type d | head -n 1)"
+          if [[ -z "$app_path" ]]; then
+            echo "No App.app found under maestro-ios-app" >&2
+            find "${GITHUB_WORKSPACE}/maestro-ios-app" -maxdepth 3 >&2 || true
+            exit 1
+          fi
+          echo "path=$app_path" >> "$GITHUB_OUTPUT"
       - name: Run iOS Maestro CI suite
         env:
           CAPGO_MAESTRO_SKIP_BUILD: '1'
-          CAPGO_MAESTRO_IOS_APP_PATH: ${{ github.workspace }}/maestro-ios-app/App.app
+          CAPGO_MAESTRO_IOS_APP_PATH: ${{ steps.maestro_ios_app.outputs.path }}
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '120000'
         run: bun run test:maestro:ios:ci
   web:

@@ -14,7 +14,7 @@ appId: app.capgo.health
     text: Run Android body composition E2E
 - extendedWaitUntil:
     visible: 'E2E:body-composition:success'
-    timeout: 180000
+    timeout: 120000
 - scrollUntilVisible:
     element:
       text: Run Android permission denied E2E
