@@ -88,8 +88,13 @@ export interface AuthorizationOptions {
 export interface AuthorizationStatus {
   readAuthorized: HealthDataType[];
   readDenied: HealthDataType[];
-  writeAuthorized: HealthWriteAuthorizationType[];
-  writeDenied: HealthWriteAuthorizationType[];
+  writeAuthorized: HealthDataType[];
+  writeDenied: HealthDataType[];
+  /**
+   * Present when `workoutRoute` was included in the authorization `write` request. `true` when route
+   * write access is granted, `false` when it was requested but denied.
+   */
+  workoutRouteWriteAuthorized?: boolean;
   /**
    * Android only: whether the `READ_HEALTH_DATA_HISTORY` permission is granted. Only
    * present when `requestHistoryAccess` was set on the request; omitted otherwise and

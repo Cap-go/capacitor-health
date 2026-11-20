@@ -1,6 +1,6 @@
 package app.capgo.plugin.health
 
-import android.os.Build
+import android.os.RemoteException
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -10,16 +10,12 @@ import androidx.health.connect.client.records.ExerciseSegment
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.Record
-import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
-import androidx.health.connect.client.request.ReadRecordsRequest
-import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Length
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
-import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -347,7 +343,7 @@ class WorkoutWriter {
             )
             COMPANION_RECORDS.forEach { (recordClass, idSuffix) ->
                 if (recordClass !in written && HealthPermission.getWritePermission(recordClass) in granted) {
-                    deleteCompanionRecords(client, recordClass, packageName, listOf(companionClientRecordId(id, idSuffix)))
+                    deleteCompanionRecords(client, recordClass, listOf(companionClientRecordId(id, idSuffix)))
                 }
             }
         }
@@ -482,36 +478,20 @@ class WorkoutWriter {
         /**
          * Deletes the companion records with [clientRecordIds] of [recordClass] that exist, and only those.
          *
-         * A workout only has the companions it was saved with, and Health Connect documents that deleting
-         * a non-existing id fails the whole call with a `RemoteException`, the same exception as an IPC
-         * failure. So the ids that exist are looked up first ([existingClientRecordIds]) and only those are
-         * deleted: an absent companion is not an error, while any failure of the lookup or of the delete
-         * propagates.
+         * Companion ids are deterministic (`<id>:distance`, ...), so each id is deleted directly. A missing
+         * id is skipped; IPC and other `RemoteException` failures propagate (see [isMissingRecord]).
          */
         internal suspend fun deleteCompanionRecords(
             client: HealthConnectClient,
             recordClass: KClass<out Record>,
-            packageName: String,
             clientRecordIds: List<String>,
         ) {
             if (clientRecordIds.isEmpty()) {
                 return
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                val existing = existingClientRecordIds(client, recordClass, packageName, clientRecordIds.toSet())
-                if (existing.isNotEmpty()) {
-                    client.deleteRecords(recordClass, emptyList(), existing.toList())
-                }
-                return
-            }
             deleteCompanionRecordsById(client, recordClass, clientRecordIds)
         }
 
-        /**
-         * Deletes by client record id without a read lookup. Used below Android 14, where an app's own
-         * data read window is 30 days and companions older than that are invisible to [existingClientRecordIds]
-         * but still deletable by id.
-         */
         private suspend fun deleteCompanionRecordsById(
             client: HealthConnectClient,
             recordClass: KClass<out Record>,
@@ -521,6 +501,12 @@ class WorkoutWriter {
                 client.deleteRecords(recordClass, emptyList(), clientRecordIds)
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: RemoteException) {
+                if (isMissingRecord(e)) {
+                    clientRecordIds.forEach { id -> deleteCompanionRecordById(client, recordClass, id) }
+                } else {
+                    throw e
+                }
             } catch (_: IllegalArgumentException) {
                 clientRecordIds.forEach { id -> deleteCompanionRecordById(client, recordClass, id) }
             }
@@ -535,57 +521,26 @@ class WorkoutWriter {
                 client.deleteRecords(recordClass, emptyList(), listOf(clientRecordId))
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: IllegalArgumentException) {
-                // Missing id: documented as IllegalArgumentException (Android 14+ ignores it in batch calls).
-            }
-        }
-
-        /**
-         * The ids among [clientRecordIds] of records of [recordClass] this app ([packageName]) wrote.
-         *
-         * Health Connect has no read by `clientRecordId`, so this pages through the app's own records of
-         * the type (`dataOriginFilter`) until every id is found. An app may read the records it wrote with
-         * only the write permission. Android 14+ has no history limit on an app's own data; Android 13
-         * and lower only read the last 30 days, so older companions there are not found (and not deleted).
-         */
-        private suspend fun existingClientRecordIds(
-            client: HealthConnectClient,
-            recordClass: KClass<out Record>,
-            packageName: String,
-            clientRecordIds: Set<String>,
-        ): Set<String> {
-            val readableFrom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                Instant.EPOCH
-            } else {
-                Instant.now().minus(LEGACY_OWN_DATA_READ_WINDOW)
-            }
-            val found = mutableSetOf<String>()
-            var pageToken: String? = null
-            do {
-                val response = client.readRecords(
-                    ReadRecordsRequest(
-                        recordType = recordClass,
-                        timeRangeFilter = TimeRangeFilter.after(readableFrom),
-                        dataOriginFilter = setOf(DataOrigin(packageName)),
-                        pageToken = pageToken,
-                    )
-                )
-                response.records.forEach { record ->
-                    record.metadata.clientRecordId?.takeIf { it in clientRecordIds }?.let { found.add(it) }
+            } catch (e: RemoteException) {
+                if (!isMissingRecord(e)) {
+                    throw e
                 }
-                // Some Health Connect versions end pagination with "" instead of null.
-                pageToken = response.pageToken?.takeIf { it.isNotEmpty() }
-            } while (pageToken != null && found.size < clientRecordIds.size)
-            return found
+            } catch (_: IllegalArgumentException) {
+                // Missing id: Android 14+ may use IllegalArgumentException; older providers use RemoteException.
+            }
         }
 
-        /** How far back Android 13 and lower let an app read its own data without the history permission. */
-        private val LEGACY_OWN_DATA_READ_WINDOW: Duration = Duration.ofDays(30)
+        internal fun isMissingRecord(error: RemoteException): Boolean {
+            val message = error.message?.lowercase() ?: return false
+            return message.contains("not found") || message.contains("does not exist") || message.contains("no record")
+        }
 
-        /** Scopes ids for record classes that share one Health Connect type (for example nutrition). */
+        /** Scopes ids for record classes that share one Health Connect type (for example nutrition, distance). */
         internal fun scopeClientRecordId(dataType: HealthDataType, clientRecordId: String): String {
             return when (dataType) {
-                HealthDataType.DIETARY_ENERGY, HealthDataType.DIETARY_PROTEIN -> "${dataType.identifier}:$clientRecordId"
+                HealthDataType.DIETARY_ENERGY, HealthDataType.DIETARY_PROTEIN,
+                HealthDataType.DISTANCE, HealthDataType.DISTANCE_CYCLING,
+                -> "${dataType.identifier}:$clientRecordId"
                 else -> clientRecordId
             }
         }

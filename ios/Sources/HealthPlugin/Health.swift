@@ -827,14 +827,19 @@ struct AuthorizationStatusPayload {
     let readDenied: [String]
     let writeAuthorized: [String]
     let writeDenied: [String]
+    let workoutRouteWriteAuthorized: Bool?
 
     func toDictionary() -> [String: Any] {
-        return [
+        var dictionary: [String: Any] = [
             "readAuthorized": readAuthorized,
             "readDenied": readDenied,
             "writeAuthorized": writeAuthorized,
             "writeDenied": writeDenied
         ]
+        if let workoutRouteWriteAuthorized = workoutRouteWriteAuthorized {
+            dictionary["workoutRouteWriteAuthorized"] = workoutRouteWriteAuthorized
+        }
+        return dictionary
     }
 }
 
@@ -1414,7 +1419,8 @@ final class Health {
                 readAuthorized: readAuthorized,
                 readDenied: readDenied,
                 writeAuthorized: writeStatus.authorized.map { $0.rawValue },
-                writeDenied: writeStatus.denied.map { $0.rawValue }
+                writeDenied: writeStatus.denied.map { $0.rawValue },
+                workoutRouteWriteAuthorized: nil
             )
             completion(payload)
         }

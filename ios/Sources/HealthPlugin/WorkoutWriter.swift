@@ -183,20 +183,39 @@ final class WorkoutWriter {
             }
             // The plan (sync versions included) is built once the previous operation on this id is done.
             let plan = self.makePlan(for: input)
-            self.reconcileOmittedCompanions(for: input, plan: plan) { error in
-                if let error = error {
+            self.collectStaleCompanions(for: input, plan: plan) { result in
+                switch result {
+                case let .failure(error):
                     finish(.failure(error))
-                    return
+                case let .success(stale):
+                    self.save(input, plan: plan) { saveResult in
+                        switch saveResult {
+                        case let .failure(error):
+                            finish(.failure(error))
+                        case let .success(value):
+                            guard !stale.isEmpty else {
+                                finish(.success(value))
+                                return
+                            }
+                            self.healthStore.delete(stale) { _, deleteError in
+                                if let deleteError = deleteError {
+                                    finish(.failure(deleteError))
+                                } else {
+                                    finish(.success(value))
+                                }
+                            }
+                        }
+                    }
                 }
-                self.save(input, plan: plan, completion: finish)
             }
         }
     }
 
-    /// Deletes derived records from an earlier save that this payload no longer writes for this workout id.
-    private func reconcileOmittedCompanions(for input: WorkoutInput, plan: SavePlan, completion: @escaping (Error?) -> Void) {
+    /// Finds derived records from an earlier save that this payload no longer writes for this workout id.
+    private func collectStaleCompanions(for input: WorkoutInput, plan: SavePlan,
+                                        completion: @escaping (Result<[HKSample], Error>) -> Void) {
         guard let clientRecordId = input.clientRecordId else {
-            completion(nil)
+            completion(.success([]))
             return
         }
         let expected = WorkoutWriter.expectedSyncIdentifiers(for: input, plan: plan)
@@ -207,10 +226,11 @@ final class WorkoutWriter {
             HKObjectType.quantityType(forIdentifier: .heartRate),
         ].compactMap { $0 }
         types.append(HKSeriesType.workoutRoute())
-        deleteStaleCompanions(
+        findStaleCompanions(
             types: types.filter { isSharingAuthorized($0) }[...],
             clientRecordId: clientRecordId,
             expected: expected,
+            accumulated: [],
             completion: completion
         )
     }
@@ -261,10 +281,11 @@ final class WorkoutWriter {
         return ids
     }
 
-    private func deleteStaleCompanions(types: ArraySlice<HKSampleType>, clientRecordId: String, expected: Set<String>,
-                                       completion: @escaping (Error?) -> Void) {
+    private func findStaleCompanions(types: ArraySlice<HKSampleType>, clientRecordId: String, expected: Set<String>,
+                                     accumulated: [HKSample],
+                                     completion: @escaping (Result<[HKSample], Error>) -> Void) {
         guard let type = types.first else {
-            completion(nil)
+            completion(.success(accumulated))
             return
         }
         let prefix = "\(clientRecordId):"
@@ -279,7 +300,7 @@ final class WorkoutWriter {
             sortDescriptors: nil
         ) { _, samples, error in
             if let error = error {
-                completion(error)
+                completion(.failure(error))
                 return
             }
             let stale = (samples ?? []).filter { sample in
@@ -289,17 +310,13 @@ final class WorkoutWriter {
                 }
                 return !expected.contains(sync)
             }
-            if stale.isEmpty {
-                self.deleteStaleCompanions(types: types.dropFirst(), clientRecordId: clientRecordId, expected: expected, completion: completion)
-                return
-            }
-            self.healthStore.delete(stale) { _, error in
-                if let error = error {
-                    completion(error)
-                    return
-                }
-                self.deleteStaleCompanions(types: types.dropFirst(), clientRecordId: clientRecordId, expected: expected, completion: completion)
-            }
+            self.findStaleCompanions(
+                types: types.dropFirst(),
+                clientRecordId: clientRecordId,
+                expected: expected,
+                accumulated: accumulated + stale,
+                completion: completion
+            )
         }
         healthStore.execute(query)
     }
@@ -748,19 +765,27 @@ extension WorkoutWriter {
         }
         var authorized = payload.writeAuthorized
         var denied = payload.writeDenied
+        var workoutRouteWriteAuthorized: Bool?
         for identifier in identifiers {
-            if let type = shareType(forWriteIdentifier: identifier),
-               healthStore.authorizationStatus(for: type) == .sharingAuthorized {
-                authorized.append(identifier)
-            } else {
-                denied.append(identifier)
+            switch identifier {
+            case "workoutRoute":
+                workoutRouteWriteAuthorized = shareType(forWriteIdentifier: identifier)
+                    .map { healthStore.authorizationStatus(for: $0) == .sharingAuthorized } ?? false
+            default:
+                if let type = shareType(forWriteIdentifier: identifier),
+                   healthStore.authorizationStatus(for: type) == .sharingAuthorized {
+                    authorized.append(identifier)
+                } else {
+                    denied.append(identifier)
+                }
             }
         }
         return AuthorizationStatusPayload(
             readAuthorized: payload.readAuthorized,
             readDenied: payload.readDenied,
             writeAuthorized: authorized,
-            writeDenied: denied
+            writeDenied: denied,
+            workoutRouteWriteAuthorized: workoutRouteWriteAuthorized
         )
     }
 }

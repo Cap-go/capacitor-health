@@ -1,5 +1,6 @@
 package app.capgo.plugin.health
 
+import android.os.RemoteException
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSessionRecord
@@ -85,7 +86,6 @@ class SampleDeleter {
                     WorkoutWriter.deleteCompanionRecords(
                         client,
                         recordClass,
-                        packageName,
                         input.clientRecordIds.map { WorkoutWriter.companionClientRecordId(it, idSuffix) },
                     )
                 }
@@ -122,6 +122,12 @@ class SampleDeleter {
             client.deleteRecords(recordClass, platformIds, clientRecordIds)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: RemoteException) {
+            if (!WorkoutWriter.isMissingRecord(e)) {
+                throw e
+            }
+            platformIds.forEach { id -> deleteId(client, recordClass, platformId = id, clientRecordId = null) }
+            clientRecordIds.forEach { id -> deleteId(client, recordClass, platformId = null, clientRecordId = id) }
         } catch (_: IllegalArgumentException) {
             platformIds.forEach { id -> deleteId(client, recordClass, platformId = id, clientRecordId = null) }
             clientRecordIds.forEach { id -> deleteId(client, recordClass, platformId = null, clientRecordId = id) }
@@ -142,8 +148,12 @@ class SampleDeleter {
             )
         } catch (e: CancellationException) {
             throw e
-        } catch (e: IllegalArgumentException) {
-            // Health Connect documents missing ids as an argument error (Android 14+ ignores them in batch calls).
+        } catch (e: RemoteException) {
+            if (!WorkoutWriter.isMissingRecord(e)) {
+                throw e
+            }
+        } catch (_: IllegalArgumentException) {
+            // Missing id on Android 14+ (ignored in batch calls).
         }
     }
 

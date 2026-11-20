@@ -156,19 +156,17 @@ class HealthManager {
                 writeDenied.put("workouts")
             }
         }
-        if (includeWorkoutRouteWrite) {
-            if (granted.contains(HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE)) {
-                writeAuthorized.put("workoutRoute")
-            } else {
-                writeDenied.put("workoutRoute")
-            }
-        }
-
         return JSObject().apply {
             put("readAuthorized", readAuthorized)
             put("readDenied", readDenied)
             put("writeAuthorized", writeAuthorized)
             put("writeDenied", writeDenied)
+            if (includeWorkoutRouteWrite) {
+                put(
+                    "workoutRouteWriteAuthorized",
+                    granted.contains(HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE),
+                )
+            }
             // Report history-access status as top-level flags, only when it was requested.
             // historyAccessAvailable distinguishes "the provider is too old to ever grant
             // this" from "the user denied it"; historyAccessAuthorized is necessarily false
