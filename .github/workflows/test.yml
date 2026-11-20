@@ -146,13 +146,15 @@ jobs:
           target: google_apis_playstore
           arch: x86_64
           profile: pixel_6
+          cores: 4
+          emulator-boot-timeout: 300
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -no-metrics
           script: >-
             PATH="$HOME/.maestro/bin:$PATH"
             CAPGO_MAESTRO_SKIP_BUILD=1
-            CAPGO_MAESTRO_TEST_RETRIES=2
-            MAESTRO_DRIVER_STARTUP_TIMEOUT=120000
+            CAPGO_MAESTRO_TEST_RETRIES=1
+            MAESTRO_DRIVER_STARTUP_TIMEOUT=90000
             bash ./scripts/run-maestro-android-ci.sh
   maestro_ios_app:
     runs-on: macOS-latest
@@ -201,6 +203,7 @@ jobs:
         run: |
           simulator_id="$(./scripts/select-ios-simulator.sh)"
           echo "CAPGO_MAESTRO_IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
+          xcrun simctl boot "$simulator_id" 2>/dev/null || true
       - name: Download Maestro iOS app
         uses: actions/download-artifact@v8
         with:
@@ -221,8 +224,8 @@ jobs:
         env:
           CAPGO_MAESTRO_SKIP_BUILD: '1'
           CAPGO_MAESTRO_IOS_APP_PATH: ${{ steps.maestro_ios_app.outputs.path }}
-          CAPGO_MAESTRO_TEST_RETRIES: '2'
-          MAESTRO_DRIVER_STARTUP_TIMEOUT: '120000'
+          CAPGO_MAESTRO_TEST_RETRIES: '1'
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '90000'
         run: bash ./scripts/run-maestro-ios-ci.sh
   web:
     runs-on: ubuntu-latest
