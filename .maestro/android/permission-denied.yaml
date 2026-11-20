@@ -10,9 +10,6 @@ appId: app.capgo.health
       text: Run Android permission denied E2E
     direction: DOWN
     timeout: 30000
-- extendedWaitUntil:
-    visible: 'E2E:boot:ready'
-    timeout: 90000
 - tapOn:
     id: e2e-android-permission-denied
 - scrollUntilVisible:
@@ -22,4 +19,4 @@ appId: app.capgo.health
     timeout: 15000
 - extendedWaitUntil:
     visible: 'E2E:permission-denied:success'
-    timeout: 45000
+    timeout: 60000

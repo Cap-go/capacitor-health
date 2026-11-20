@@ -34,14 +34,14 @@ run_flow() {
   fi
   if ! maestro test --config "$CONFIG" "$flow_path"; then
     echo "logcat tail after Maestro failure (${label}):" >&2
-    adb logcat -d 2>/dev/null | tail -n 200 >&2 || true
+    adb logcat -d 2>/dev/null | grep -iE 'app\\.capgo\\.health|Capacitor|chromium|Console' | tail -n 200 >&2 || \
+      adb logcat -d 2>/dev/null | tail -n 200 >&2 || true
     return 1
   fi
   echo "Maestro Android flow ${label} finished in $(( $(date +%s) - started ))s"
 }
 
 run_android_e2e() {
-  bash "$ROOT_DIR/scripts/ci/prepare-android-health-connect-emulator.sh"
   bash "$ROOT_DIR/scripts/ci/prepare-android-health-connect-emulator.sh"
   if ! run_flow permission-denied "$PERMISSION_FLOW"; then
     return 1
