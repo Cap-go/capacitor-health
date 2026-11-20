@@ -81,19 +81,6 @@ jobs:
       - name: Verify packed package in example app (iOS)
         shell: bash
         run: bash ./.github/scripts/verify-packed-example.sh ios
-  ios_unit_tests:
-    runs-on: macOS-latest
-    timeout-minutes: 10
-    steps:
-      - name: Check out
-        uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 26.x
-      - name: Install dependencies
-        run: bun i
       - name: Run HealthPlugin XCTests
         run: bun run test:ios:unit
   maestro_android_apk:

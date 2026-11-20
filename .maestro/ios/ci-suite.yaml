@@ -4,17 +4,17 @@ appId: app.capgo.health
     clearState: true
 - extendedWaitUntil:
     visible: '@capgo/capacitor-health Demo'
-    timeout: 90000
+    timeout: 60000
 - scrollUntilVisible:
     element:
       text: Run iOS unsupported types E2E
     direction: DOWN
-    timeout: 90000
+    timeout: 60000
 - tapOn:
     text: Run iOS unsupported types E2E
 - extendedWaitUntil:
     visible: 'E2E:ios-unsupported:success'
-    timeout: 90000
+    timeout: 60000
 - scrollUntilVisible:
     element:
       text: Run iOS permission denied E2E
@@ -24,7 +24,7 @@ appId: app.capgo.health
     text: Run iOS permission denied E2E
 - extendedWaitUntil:
     visible: 'E2E:permission-denied:success'
-    timeout: 90000
+    timeout: 60000
 - scrollUntilVisible:
     element:
       text: Run iOS kill relaunch prep
@@ -40,7 +40,7 @@ appId: app.capgo.health
     clearState: false
 - extendedWaitUntil:
     visible: '@capgo/capacitor-health Demo'
-    timeout: 90000
+    timeout: 60000
 - scrollUntilVisible:
     element:
       text: Run iOS kill relaunch verify
@@ -50,4 +50,4 @@ appId: app.capgo.health
     text: Run iOS kill relaunch verify
 - extendedWaitUntil:
     visible: 'E2E:kill-relaunch:success'
-    timeout: 90000
+    timeout: 60000
