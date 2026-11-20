@@ -468,7 +468,7 @@ e2eIosKillRelaunchVerifyButton?.addEventListener('click', () => {
 
 setDefaultDateRanges();
 
-if (Capacitor.isNativePlatform()) {
+if (Capacitor.isNativePlatform() && !__CAPGO_MAESTRO_E2E__) {
   CapacitorUpdater.notifyAppReady().catch((error) => {
     console.error('Capgo notifyAppReady failed', error);
   });
