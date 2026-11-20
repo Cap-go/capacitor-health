@@ -343,7 +343,7 @@ class HealthPlugin : Plugin() {
         call.launchSafely {
             val client = getClientOrReject(this) ?: return@launchSafely
             try {
-                resolve(sampleDeleter.delete(client, input))
+                resolve(sampleDeleter.delete(client, input, context.packageName))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: SecurityException) {
@@ -528,7 +528,7 @@ class HealthPlugin : Plugin() {
         call.launchSafely {
             val client = getClientOrReject(this) ?: return@launchSafely
             try {
-                resolve(workoutWriter.save(client, input))
+                resolve(workoutWriter.save(client, input, context.packageName))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: SecurityException) {

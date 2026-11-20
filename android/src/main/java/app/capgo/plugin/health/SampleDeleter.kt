@@ -63,7 +63,7 @@ class SampleDeleter {
      * (`<id>:distance`, `<id>:energy`, `<id>:hr`) are deleted too, for the types the app can still
      * write; a companion the workout was saved without is skipped.
      */
-    suspend fun delete(client: HealthConnectClient, input: DeleteInput): JSObject = WorkoutWriter.WRITE_LOCK.withLock {
+    suspend fun delete(client: HealthConnectClient, input: DeleteInput, packageName: String): JSObject = WorkoutWriter.WRITE_LOCK.withLock {
         val granted = client.permissionController.getGrantedPermissions()
         if (HealthPermission.getWritePermission(input.recordClass) !in granted) {
             throw SecurityException(
@@ -81,6 +81,7 @@ class SampleDeleter {
                     WorkoutWriter.deleteCompanionRecords(
                         client,
                         recordClass,
+                        packageName,
                         input.clientRecordIds.map { WorkoutWriter.companionClientRecordId(it, idSuffix) },
                     )
                 }

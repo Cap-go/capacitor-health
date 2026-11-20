@@ -1,7 +1,6 @@
 package app.capgo.plugin.health
 
-import android.os.RemoteException
-import android.util.Log
+import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -11,12 +10,16 @@ import androidx.health.connect.client.records.ExerciseSegment
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.Record
+import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.request.ReadRecordsRequest
+import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Length
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
+import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -24,7 +27,6 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeParseException
 import kotlin.math.roundToLong
 import kotlin.reflect.KClass
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
@@ -254,10 +256,10 @@ class WorkoutWriter {
      * the caller no longer sends) are then deleted, for the types the app can write, so a
      * replacement does not keep them from the earlier save.
      */
-    suspend fun save(client: HealthConnectClient, input: WorkoutInput): JSObject =
-        WRITE_LOCK.withLock { insert(client, input) }
+    suspend fun save(client: HealthConnectClient, input: WorkoutInput, packageName: String): JSObject =
+        WRITE_LOCK.withLock { insert(client, input, packageName) }
 
-    private suspend fun insert(client: HealthConnectClient, input: WorkoutInput): JSObject {
+    private suspend fun insert(client: HealthConnectClient, input: WorkoutInput, packageName: String): JSObject {
         val granted = client.permissionController.getGrantedPermissions()
 
         if (EXERCISE_WRITE_PERMISSION !in granted) {
@@ -345,13 +347,7 @@ class WorkoutWriter {
             )
             COMPANION_RECORDS.forEach { (recordClass, idSuffix) ->
                 if (recordClass !in written && HealthPermission.getWritePermission(recordClass) in granted) {
-                    try {
-                        deleteCompanionRecords(client, recordClass, listOf(companionClientRecordId(id, idSuffix)))
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        Log.d(TAG, "Skipped deleting omitted ${recordClass.simpleName} companion after save: ${e.message}")
-                    }
+                    deleteCompanionRecords(client, recordClass, packageName, listOf(companionClientRecordId(id, idSuffix)))
                 }
             }
         }
@@ -452,8 +448,6 @@ class WorkoutWriter {
 
         private val PHONE_DEVICE = Device(type = Device.TYPE_PHONE)
 
-        private const val TAG = "WorkoutWriter"
-
         /** Suffixes of the companion records' clientRecordIds (`<id>:distance`, ...). */
         private const val DISTANCE_ID_SUFFIX = "distance"
         private const val ENERGY_ID_SUFFIX = "energy"
@@ -476,48 +470,70 @@ class WorkoutWriter {
         internal fun companionClientRecordId(clientRecordId: String, idSuffix: String): String = "$clientRecordId:$idSuffix"
 
         /**
-         * Deletes the companion records with [clientRecordIds] of [recordClass], skipping the ids that
-         * match nothing.
+         * Deletes the companion records with [clientRecordIds] of [recordClass] that exist, and only those.
          *
-         * A workout only has the companions it was saved with, and Health Connect documents that a
-         * delete fails as a whole when an id does not exist (the platform on Android 14+ ignores such
-         * ids). So when the call fails, each id is deleted on its own and a failing one is logged and
-         * skipped: the workout itself is already saved or deleted at this point.
+         * A workout only has the companions it was saved with, and Health Connect documents that deleting
+         * a non-existing id fails the whole call with a `RemoteException`, the same exception as an IPC
+         * failure. So the ids that exist are looked up first ([existingClientRecordIds]) and only those are
+         * deleted: an absent companion is not an error, while any failure of the lookup or of the delete
+         * propagates.
          */
         internal suspend fun deleteCompanionRecords(
             client: HealthConnectClient,
             recordClass: KClass<out Record>,
+            packageName: String,
             clientRecordIds: List<String>,
         ) {
-            if (clientRecordIds.isEmpty() || tryDelete(client, recordClass, clientRecordIds) || clientRecordIds.size == 1) {
+            if (clientRecordIds.isEmpty()) {
                 return
             }
-            clientRecordIds.forEach { id -> tryDelete(client, recordClass, listOf(id)) }
-        }
-
-        private suspend fun tryDelete(client: HealthConnectClient, recordClass: KClass<out Record>, clientRecordIds: List<String>): Boolean {
-            return try {
-                client.deleteRecords(recordClass, emptyList(), clientRecordIds)
-                true
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: IllegalArgumentException) {
-                Log.d(TAG, "Skipped deleting ${recordClass.simpleName} $clientRecordIds (it may not exist): ${e.message}")
-                false
-            } catch (e: RemoteException) {
-                if (isMissingRecord(e)) {
-                    Log.d(TAG, "Skipped deleting ${recordClass.simpleName} $clientRecordIds (it may not exist): ${e.message}")
-                    false
-                } else {
-                    throw e
-                }
+            val existing = existingClientRecordIds(client, recordClass, packageName, clientRecordIds.toSet())
+            if (existing.isNotEmpty()) {
+                client.deleteRecords(recordClass, emptyList(), existing.toList())
             }
         }
 
-        private fun isMissingRecord(error: RemoteException): Boolean {
-            val message = error.message?.lowercase() ?: return false
-            return message.contains("not found") || message.contains("does not exist") || message.contains("no record")
+        /**
+         * The ids among [clientRecordIds] of records of [recordClass] this app ([packageName]) wrote.
+         *
+         * Health Connect has no read by `clientRecordId`, so this pages through the app's own records of
+         * the type (`dataOriginFilter`) until every id is found. An app may read the records it wrote with
+         * only the write permission. Android 14+ has no history limit on an app's own data; Android 13
+         * and lower only read the last 30 days, so older companions there are not found (and not deleted).
+         */
+        private suspend fun existingClientRecordIds(
+            client: HealthConnectClient,
+            recordClass: KClass<out Record>,
+            packageName: String,
+            clientRecordIds: Set<String>,
+        ): Set<String> {
+            val readableFrom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                Instant.EPOCH
+            } else {
+                Instant.now().minus(LEGACY_OWN_DATA_READ_WINDOW)
+            }
+            val found = mutableSetOf<String>()
+            var pageToken: String? = null
+            do {
+                val response = client.readRecords(
+                    ReadRecordsRequest(
+                        recordType = recordClass,
+                        timeRangeFilter = TimeRangeFilter.after(readableFrom),
+                        dataOriginFilter = setOf(DataOrigin(packageName)),
+                        pageToken = pageToken,
+                    )
+                )
+                response.records.forEach { record ->
+                    record.metadata.clientRecordId?.takeIf { it in clientRecordIds }?.let { found.add(it) }
+                }
+                // Some Health Connect versions end pagination with "" instead of null.
+                pageToken = response.pageToken?.takeIf { it.isNotEmpty() }
+            } while (pageToken != null && found.size < clientRecordIds.size)
+            return found
         }
+
+        /** How far back Android 13 and lower let an app read its own data without the history permission. */
+        private val LEGACY_OWN_DATA_READ_WINDOW: Duration = Duration.ofDays(30)
 
         /** Scopes ids for record classes that share one Health Connect type (for example nutrition). */
         internal fun scopeClientRecordId(dataType: HealthDataType, clientRecordId: String): String {
