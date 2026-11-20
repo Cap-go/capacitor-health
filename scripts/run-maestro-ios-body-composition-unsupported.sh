@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXAMPLE_DIR="$ROOT_DIR/example-app"
-FLOW_PATH="$ROOT_DIR/.maestro/ios/body-composition-unsupported.yaml"
+FLOW_PATH="${CAPGO_MAESTRO_IOS_FLOW:-$ROOT_DIR/.maestro/ios/body-composition-unsupported.yaml}"
 SKIP_BUILD="${CAPGO_MAESTRO_SKIP_BUILD:-0}"
 DERIVED_DATA_PATH="${CAPGO_MAESTRO_IOS_DERIVED_DATA_PATH:-$ROOT_DIR/maestro-ios-derived-data}"
 APP_PATH="$DERIVED_DATA_PATH/Build/Products/Debug-iphonesimulator/App.app"

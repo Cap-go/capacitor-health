@@ -50,7 +50,10 @@
     "example:install": "cd example-app && bun install --frozen-lockfile",
     "example:build": "bun run build && cd example-app && bun install --frozen-lockfile && bun run build",
     "test:maestro:android:body-composition": "./scripts/run-maestro-android-body-composition.sh",
+    "test:maestro:android:ci": "./scripts/run-maestro-android-ci.sh",
     "test:maestro:ios:body-composition-unsupported": "./scripts/run-maestro-ios-body-composition-unsupported.sh",
+    "test:maestro:ios:ci": "./scripts/run-maestro-ios-ci.sh",
+    "test:ios:unit": "bash ./scripts/ci/run-ios-unit-tests.sh",
     "changelog:ai": "node scripts/generate-ai-changelog.mjs"
   },
   "devDependencies": {

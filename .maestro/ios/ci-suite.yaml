@@ -1,0 +1,43 @@
+appId: app.capgo.health
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: '@capgo/capacitor-health Demo'
+    timeout: 90000
+- scrollUntilVisible:
+    element:
+      text: Run iOS unsupported types E2E
+    direction: DOWN
+    timeout: 90000
+- tapOn:
+    text: Run iOS unsupported types E2E
+- extendedWaitUntil:
+    visible: 'E2E:ios-unsupported:success'
+    timeout: 90000
+- scrollUntilVisible:
+    element:
+      text: Run iOS permission denied E2E
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    text: Run iOS permission denied E2E
+- extendedWaitUntil:
+    visible: 'E2E:permission-denied:success'
+    timeout: 90000
+- scrollUntilVisible:
+    element:
+      text: Run iOS kill relaunch prep
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    text: Run iOS kill relaunch prep
+- extendedWaitUntil:
+    visible: 'E2E:kill-relaunch:prepped'
+    timeout: 60000
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'E2E:kill-relaunch:success'
+    timeout: 90000

@@ -28,8 +28,14 @@ const samplesContainer = document.getElementById('samplesContainer');
 const readTypeCheckboxes = Array.from(document.querySelectorAll('.read-type'));
 const writeTypeCheckboxes = Array.from(document.querySelectorAll('.write-type'));
 const e2eAndroidButton = document.getElementById('e2e-body-composition-android');
+const e2eAndroidPermissionDeniedButton = document.getElementById('e2e-android-permission-denied');
+const e2eAndroidKillRelaunchPrepButton = document.getElementById('e2e-android-kill-relaunch-prep');
 const e2eIosUnsupportedButton = document.getElementById('e2e-body-composition-ios-unsupported');
+const e2eIosPermissionDeniedButton = document.getElementById('e2e-ios-permission-denied');
+const e2eIosKillRelaunchPrepButton = document.getElementById('e2e-ios-kill-relaunch-prep');
 const e2eMarkerPane = document.getElementById('e2eMarkerPane');
+
+const E2E_KILL_RELAUNCH_KEY = 'capgo_health_e2e_kill_relaunch';
 
 const bodyCompositionTypes = ['leanBodyMass', 'boneMass', 'bodyWaterMass'];
 
@@ -267,6 +273,65 @@ e2eAndroidButton?.addEventListener('click', async () => {
   }
 });
 
+const looksLikePermissionDenied = (message) => {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('permission') ||
+    normalized.includes('denied') ||
+    normalized.includes('authorization') ||
+    normalized.includes('not authorized') ||
+    normalized.includes('unauthorized') ||
+    normalized.includes('not determined') ||
+    normalized.includes('healthkit') ||
+    normalized.includes('sharing')
+  );
+};
+
+const runAndroidPermissionDeniedE2e = async () => {
+  if (Capacitor.getPlatform() !== 'android') {
+    setE2eMarker('E2E:permission-denied:skipped-not-android');
+    return;
+  }
+
+  setE2eMarker('E2E:permission-denied:running');
+
+  try {
+    const now = new Date().toISOString();
+    await Health.readSamples({
+      dataType: 'leanBodyMass',
+      startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      endDate: now,
+      limit: 1,
+    });
+    throw new Error('readSamples should fail without Health Connect permissions');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!looksLikePermissionDenied(message)) {
+      throw error;
+    }
+    setE2eMarker('E2E:permission-denied:success');
+    setStatus('Android permission denied E2E passed');
+  }
+};
+
+e2eAndroidPermissionDeniedButton?.addEventListener('click', () => {
+  runAndroidPermissionDeniedE2e().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    setE2eMarker(`E2E:permission-denied:failed:${message}`);
+    setStatus('Android permission denied E2E failed');
+  });
+});
+
+e2eAndroidKillRelaunchPrepButton?.addEventListener('click', () => {
+  if (Capacitor.getPlatform() !== 'android') {
+    setE2eMarker('E2E:kill-relaunch:skipped-not-android');
+    return;
+  }
+  window.localStorage.setItem(E2E_KILL_RELAUNCH_KEY, 'android');
+  setE2eMarker('E2E:kill-relaunch:prepped');
+  setStatus('Android kill relaunch prep stored');
+});
+
 e2eIosUnsupportedButton?.addEventListener('click', async () => {
   if (Capacitor.getPlatform() !== 'ios') {
     setE2eMarker('E2E:ios-unsupported:skipped-not-ios');
@@ -305,7 +370,83 @@ e2eIosUnsupportedButton?.addEventListener('click', async () => {
   }
 });
 
+const runIosPermissionDeniedE2e = async () => {
+  if (Capacitor.getPlatform() !== 'ios') {
+    setE2eMarker('E2E:permission-denied:skipped-not-ios');
+    return;
+  }
+
+  setE2eMarker('E2E:permission-denied:running');
+
+  try {
+    const now = new Date().toISOString();
+    await Health.saveSample({
+      dataType: 'weight',
+      value: 70,
+      unit: 'kilogram',
+      startDate: now,
+      endDate: now,
+    });
+    throw new Error('saveSample should fail without HealthKit write permission');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!looksLikePermissionDenied(message)) {
+      throw error;
+    }
+    setE2eMarker('E2E:permission-denied:success');
+    setStatus('iOS permission denied E2E passed');
+  }
+};
+
+e2eIosPermissionDeniedButton?.addEventListener('click', () => {
+  runIosPermissionDeniedE2e().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    setE2eMarker(`E2E:permission-denied:failed:${message}`);
+    setStatus('iOS permission denied E2E failed');
+  });
+});
+
+e2eIosKillRelaunchPrepButton?.addEventListener('click', () => {
+  if (Capacitor.getPlatform() !== 'ios') {
+    setE2eMarker('E2E:kill-relaunch:skipped-not-ios');
+    return;
+  }
+  window.localStorage.setItem(E2E_KILL_RELAUNCH_KEY, 'ios');
+  setE2eMarker('E2E:kill-relaunch:prepped');
+  setStatus('iOS kill relaunch prep stored');
+});
+
+const completeKillRelaunchIfNeeded = async () => {
+  if (!Capacitor.isNativePlatform()) {
+    return;
+  }
+  const pending = window.localStorage.getItem(E2E_KILL_RELAUNCH_KEY);
+  if (!pending) {
+    return;
+  }
+  window.localStorage.removeItem(E2E_KILL_RELAUNCH_KEY);
+  if (pending === 'android' && Capacitor.getPlatform() !== 'android') {
+    return;
+  }
+  if (pending === 'ios' && Capacitor.getPlatform() !== 'ios') {
+    return;
+  }
+  try {
+    const availability = await Health.isAvailable();
+    if (!availability.available) {
+      throw new Error(availability.reason ?? 'Health unavailable after relaunch');
+    }
+    setE2eMarker('E2E:kill-relaunch:success');
+    setStatus('Kill relaunch E2E passed');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    setE2eMarker(`E2E:kill-relaunch:failed:${message}`);
+    setStatus('Kill relaunch E2E failed');
+  }
+};
+
 setDefaultDateRanges();
+completeKillRelaunchIfNeeded();
 
 if (Capacitor.isNativePlatform()) {
   CapacitorUpdater.notifyAppReady().catch((error) => {

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXAMPLE_DIR="$ROOT_DIR/example-app"
 APK_PATH="$EXAMPLE_DIR/android/app/build/outputs/apk/debug/app-debug.apk"
-FLOW_PATH="$ROOT_DIR/.maestro/android/body-composition.yaml"
+FLOW_PATH="${CAPGO_MAESTRO_ANDROID_FLOW:-$ROOT_DIR/.maestro/android/body-composition.yaml}"
 SKIP_BUILD="${CAPGO_MAESTRO_SKIP_BUILD:-0}"
 
 export PATH="$HOME/.maestro/bin:${PATH:-}"
