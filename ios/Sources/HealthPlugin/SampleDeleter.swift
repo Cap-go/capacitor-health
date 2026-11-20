@@ -48,6 +48,9 @@ final class SampleDeleter {
         case .workouts:
             resolveWorkoutSerializerKeys(for: request) { [weak self] result in
                 guard let self = self else {
+                    completion(.failure(HealthWriteError.deleteFailed(
+                        "The plugin was released before the workouts could be deleted."
+                    )))
                     return
                 }
                 switch result {
