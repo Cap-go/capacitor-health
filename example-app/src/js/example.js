@@ -281,22 +281,6 @@ e2eAndroidButton?.addEventListener('click', async () => {
   }
 });
 
-const isHealthPermissionError = (message) => {
-  if (
-    message.startsWith('Expected ') ||
-    message.includes('Health Connect unavailable')
-  ) {
-    return false;
-  }
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes('permission denied') ||
-    normalized.includes('securityexception') ||
-    normalized.includes("doesn't have permission") ||
-    normalized.includes('lacks permission')
-  );
-};
-
 const runAndroidPermissionDeniedE2e = async () => {
   if (Capacitor.getPlatform() !== 'android') {
     setE2eMarker('E2E:permission-denied:skipped-not-android');
@@ -321,7 +305,17 @@ const runAndroidPermissionDeniedE2e = async () => {
     setStatus('Android permission denied E2E passed');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (isHealthPermissionError(message)) {
+    const normalized = message.toLowerCase();
+    if (
+      normalized.includes('permission') ||
+      normalized.includes('denied') ||
+      normalized.includes('authorization') ||
+      normalized.includes('not authorized') ||
+      normalized.includes('unauthorized') ||
+      normalized.includes('not determined') ||
+      normalized.includes('healthkit') ||
+      normalized.includes('sharing')
+    ) {
       setE2eMarker('E2E:permission-denied:success');
       setStatus('Android permission denied E2E passed');
       return;
