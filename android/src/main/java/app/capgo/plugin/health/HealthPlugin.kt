@@ -306,6 +306,13 @@ class HealthPlugin : Plugin() {
             call.reject("clientRecordId must not be blank")
             return
         }
+        if (clientRecordId != null && WorkoutWriter.isReservedCompanionClientRecordId(clientRecordId)) {
+            call.reject(
+                "clientRecordId must not end with a workout companion suffix " +
+                    "(:distance, :energy, :hr, :route, optionally followed by :<n>): $clientRecordId"
+            )
+            return
+        }
         // Omitted keeps the previous behaviour: a manual entry.
         val manualEntry = when (val recordingMethod = call.getString("recordingMethod")) {
             null, "manualEntry" -> true

@@ -469,6 +469,16 @@ class WorkoutWriter {
 
         internal fun companionClientRecordId(clientRecordId: String, idSuffix: String): String = "$clientRecordId:$idSuffix"
 
+        /** Companion id shapes of both platforms: `<id>:distance`, `:energy`, `:hr`, `:route`, optionally `:<n>`. */
+        private val RESERVED_COMPANION_ID = Regex(":(distance|energy|hr|route)(:\\d+)?$")
+
+        /**
+         * True when [clientRecordId] has the shape of a workout companion id. saveSample rejects such
+         * ids, so a later saveWorkout of the prefix cannot take a standalone sample for its companion.
+         */
+        internal fun isReservedCompanionClientRecordId(clientRecordId: String): Boolean =
+            RESERVED_COMPANION_ID.containsMatchIn(clientRecordId)
+
         /**
          * Deletes the companion records with [clientRecordIds] of [recordClass] that exist, and only those.
          *

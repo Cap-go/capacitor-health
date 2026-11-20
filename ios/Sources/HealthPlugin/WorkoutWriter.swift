@@ -217,6 +217,13 @@ final class WorkoutWriter {
         ) != nil
     }
 
+    /// True when `id` has the shape of a companion sync identifier (`<anything>:distance`, `:energy`,
+    /// `:hr`, `:route`, optionally followed by `:<n>`). `saveSample` rejects such ids, so a later
+    /// `saveWorkout` of `<anything>` cannot take a standalone sample for one of its companions.
+    static func isReservedCompanionId(_ id: String) -> Bool {
+        return id.range(of: #":(distance|energy|hr|route)(:\d+)?$"#, options: .regularExpression) != nil
+    }
+
     static func belongsToWorkout(_ sample: HKSample, clientRecordId: String) -> Bool {
         if let parent = sample.metadata?[WorkoutWriter.workoutParentClientRecordIdKey] as? String {
             return parent == clientRecordId
@@ -637,6 +644,12 @@ enum SyncMetadata {
     static func forSample(clientRecordId: String?, recordingMethod: String?) throws -> [String: Any] {
         if let clientRecordId = clientRecordId, clientRecordId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw HealthWriteError.invalidOption("clientRecordId must not be blank")
+        }
+        if let clientRecordId = clientRecordId, WorkoutWriter.isReservedCompanionId(clientRecordId) {
+            throw HealthWriteError.invalidOption(
+                "clientRecordId must not end with a workout companion suffix "
+                    + "(:distance, :energy, :hr, :route, optionally followed by :<n>): \(clientRecordId)"
+            )
         }
         switch recordingMethod {
         case nil, "activelyRecorded"?, "manualEntry"?:

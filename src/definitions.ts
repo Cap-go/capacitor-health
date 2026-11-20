@@ -441,7 +441,9 @@ export interface WriteSampleOptions {
    *
    * Ids are unique per data type. Do not give a sample an id the plugin derives for another record:
    * `<workout id>:distance`, `:distance:<n>`, `:energy`, `:energy:<n>`, `:hr`, `:hr:<n>` and `:route` belong to the records saved
-   * with a workout (see {@link SaveWorkoutOptions.clientRecordId}).
+   * with a workout (see {@link SaveWorkoutOptions.clientRecordId}). Ids ending with one of these suffixes
+   * (`:distance`, `:energy`, `:hr` or `:route`, optionally followed by `:<n>`) are rejected, so a later
+   * `saveWorkout` cannot treat the sample as one of its own records. Other ids may contain `:`.
    */
   clientRecordId?: string;
   /**
