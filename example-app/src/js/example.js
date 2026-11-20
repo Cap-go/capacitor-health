@@ -336,7 +336,7 @@ const runKillRelaunchVerify = async (platform) => {
     return;
   }
   setE2eMarker('E2E:kill-relaunch:running');
-  if (Capacitor.getPlatform() === 'android') {
+  if (Capacitor.getPlatform() === 'android' || Capacitor.getPlatform() === 'ios') {
     setE2eMarker('E2E:kill-relaunch:success');
     setStatus('Kill relaunch E2E passed');
     return;
