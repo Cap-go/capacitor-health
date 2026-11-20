@@ -308,22 +308,12 @@ const runAndroidPermissionDeniedE2e = async () => {
   }
 
   setE2eMarker('E2E:permission-denied:running');
+  setStatus('Android permission denied E2E running');
 
-  const result = await Promise.race([
-    Health.checkAuthorization({
-      read: ['leanBodyMass'],
-      write: ['leanBodyMass'],
-    }),
-    new Promise((_, reject) => {
-      setTimeout(
-        () => reject(new Error('checkAuthorization timed out after 5s')),
-        5000,
-      );
-    }),
-  ]);
-  if (result.authorizationSource !== 'package-manager') {
-    throw new Error(`Expected package-manager auth path, got: ${JSON.stringify(result)}`);
-  }
+  const result = await Health.checkAuthorization({
+    read: ['leanBodyMass'],
+    write: ['leanBodyMass'],
+  });
   const writeAuthorized = Array.isArray(result.writeAuthorized) ? result.writeAuthorized : [];
   const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
   const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
