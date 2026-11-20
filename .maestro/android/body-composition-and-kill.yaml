@@ -4,7 +4,17 @@ appId: app.capgo.health
     clearState: true
 - extendedWaitUntil:
     visible: '@capgo/capacitor-health Demo'
-    timeout: 60000
+    timeout: 45000
+- scrollUntilVisible:
+    element:
+      text: Run Android permission denied E2E
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: Run Android permission denied E2E
+- extendedWaitUntil:
+    visible: 'E2E:permission-denied:success'
+    timeout: 30000
 - scrollUntilVisible:
     element:
       text: Run Android body composition E2E

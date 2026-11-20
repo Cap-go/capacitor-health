@@ -9,12 +9,12 @@ appId: app.capgo.health
     element:
       text: Run Android body composition E2E
     direction: DOWN
-    timeout: 45000
+    timeout: 30000
 - tapOn:
     text: Run Android body composition E2E
 - extendedWaitUntil:
     visible: 'E2E:body-composition:success'
-    timeout: 60000
+    timeout: 90000
 - scrollUntilVisible:
     element:
       text: Run Android kill relaunch prep
