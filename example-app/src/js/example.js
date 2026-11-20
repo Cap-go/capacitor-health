@@ -235,26 +235,37 @@ e2eAndroidButton?.addEventListener('click', async () => {
     const savedAt = new Date();
     const now = savedAt.toISOString();
     const queryEnd = new Date(savedAt.getTime() + 1000).toISOString();
-    const sample = { dataType: 'leanBodyMass', value: 61.2 };
-    await Health.saveSample({
-      dataType: sample.dataType,
-      value: sample.value,
-      unit: 'kilogram',
-      startDate: now,
-      endDate: now,
-    });
+    const samplesToSave = [
+      { dataType: 'leanBodyMass', value: 61.2 },
+      { dataType: 'boneMass', value: 2.9 },
+      { dataType: 'bodyWaterMass', value: 41.5 },
+    ];
 
-    const readBack = await Health.readSamples({
-      dataType: sample.dataType,
-      startDate: new Date(savedAt.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      endDate: queryEnd,
-      limit: 5,
-    });
-    if (!readBack.samples.some((row) => row.dataType === sample.dataType && row.value === sample.value)) {
-      throw new Error(`Could not read back ${sample.dataType}`);
+    for (const sample of samplesToSave) {
+      await Health.saveSample({
+        dataType: sample.dataType,
+        value: sample.value,
+        unit: 'kilogram',
+        startDate: now,
+        endDate: now,
+      });
     }
 
-    setOutput({ auth, readBack, saved: sample });
+    const readBack = {};
+    for (const sample of samplesToSave) {
+      const result = await Health.readSamples({
+        dataType: sample.dataType,
+        startDate: new Date(savedAt.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: queryEnd,
+        limit: 5,
+      });
+      if (!result.samples.some((row) => row.dataType === sample.dataType && row.value === sample.value)) {
+        throw new Error(`Could not read back ${sample.dataType}`);
+      }
+      readBack[sample.dataType] = result;
+    }
+
+    setOutput({ auth, readBack, saved: samplesToSave });
     setE2eMarker('E2E:body-composition:success');
     setStatus('Android body composition E2E passed');
   } catch (error) {
@@ -277,14 +288,19 @@ const runAndroidPermissionDeniedE2e = async () => {
     throw new Error(availability.reason ?? 'Health Connect unavailable');
   }
 
-  const result = await Health.checkAuthorization({ read: ['workouts'] });
-  const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
-  const readAuthorized = Array.isArray(result.readAuthorized) ? result.readAuthorized : [];
-  if (readAuthorized.includes('workouts')) {
-    throw new Error('workouts should not be authorized');
-  }
-  if (!readDenied.includes('workouts')) {
-    throw new Error('workouts read not denied');
+  const result = await Health.checkAuthorization({
+    read: bodyCompositionTypes,
+    write: bodyCompositionTypes,
+  });
+  const allDenied = bodyCompositionTypes.every(
+    (type) =>
+      result.readDenied?.includes(type) &&
+      result.writeDenied?.includes(type) &&
+      !result.readAuthorized?.includes(type) &&
+      !result.writeAuthorized?.includes(type),
+  );
+  if (!allDenied) {
+    throw new Error('Body composition permissions should start denied');
   }
   setOutput(result);
   setE2eMarker('E2E:permission-denied:success');
