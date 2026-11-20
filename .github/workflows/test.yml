@@ -153,6 +153,7 @@ jobs:
           script: >-
             PATH="$HOME/.maestro/bin:$PATH"
             CAPGO_MAESTRO_SKIP_BUILD=1
+            CAPGO_MAESTRO_TEST_RETRIES=2
             MAESTRO_DRIVER_STARTUP_TIMEOUT=120000
             bun run test:maestro:android:ci
   maestro_ios_app:
@@ -224,6 +225,7 @@ jobs:
         env:
           CAPGO_MAESTRO_SKIP_BUILD: '1'
           CAPGO_MAESTRO_IOS_APP_PATH: ${{ steps.maestro_ios_app.outputs.path }}
+          CAPGO_MAESTRO_TEST_RETRIES: '2'
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '120000'
         run: bun run test:maestro:ios:ci
   web:

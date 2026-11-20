@@ -1,0 +1,43 @@
+appId: app.capgo.health
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: '@capgo/capacitor-health Demo'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: Run Android body composition E2E
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    text: Run Android body composition E2E
+- extendedWaitUntil:
+    visible: 'E2E:body-composition:success'
+    timeout: 120000
+- scrollUntilVisible:
+    element:
+      text: Run Android kill relaunch prep
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    text: Run Android kill relaunch prep
+- extendedWaitUntil:
+    visible: 'E2E:kill-relaunch:prepped'
+    timeout: 60000
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: '@capgo/capacitor-health Demo'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: Run Android kill relaunch verify
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    text: Run Android kill relaunch verify
+- extendedWaitUntil:
+    visible: 'E2E:kill-relaunch:success'
+    timeout: 60000

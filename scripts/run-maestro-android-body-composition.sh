@@ -33,4 +33,8 @@ until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "
 done
 adb install -r "$APK_PATH"
 
+if [[ "${CAPGO_MAESTRO_INSTALL_ONLY:-0}" == "1" ]]; then
+  exit 0
+fi
+
 maestro test --config "$ROOT_DIR/.maestro/config.yaml" "$FLOW_PATH"
