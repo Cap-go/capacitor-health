@@ -18,7 +18,7 @@ if grep -q 'src="/assets/' dist/index.html 2>/dev/null; then
   echo "Maestro web bundle must use relative asset URLs (vite base: './')" >&2
   exit 1
 fi
-if ! grep -rq "write permission not granted" dist/assets/*.js 2>/dev/null; then
+if ! grep -rq "permission-denied:success" dist/assets/*.js 2>/dev/null; then
   echo "Maestro web bundle missing Android permission-denied E2E strings" >&2
   exit 1
 fi
