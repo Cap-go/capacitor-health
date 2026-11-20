@@ -290,11 +290,6 @@ const runAndroidPermissionDeniedE2e = async () => {
   setE2eMarker('E2E:permission-denied:running');
 
   try {
-    const availability = await Health.isAvailable();
-    if (!availability.available) {
-      throw new Error(availability.reason ?? 'Health Connect unavailable');
-    }
-
     const result = await Health.checkAuthorization({ read: ['vo2Max'] });
     const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
     if (!readDenied.includes('vo2Max')) {
