@@ -226,20 +226,26 @@ e2eAndroidButton?.addEventListener('click', async () => {
       throw new Error(availability.reason ?? 'Health Connect unavailable');
     }
 
-    const auth = await Health.requestAuthorization({
+    let auth = await Health.checkAuthorization({
       read: bodyCompositionTypes,
       write: bodyCompositionTypes,
     });
+    const needsAuthorization = bodyCompositionTypes.some(
+      (type) =>
+        !auth.readAuthorized?.includes(type) || !auth.writeAuthorized?.includes(type),
+    );
+    if (needsAuthorization) {
+      auth = await Health.requestAuthorization({
+        read: bodyCompositionTypes,
+        write: bodyCompositionTypes,
+      });
+    }
     setOutput({ auth });
 
     const savedAt = new Date();
     const now = savedAt.toISOString();
     const queryEnd = new Date(savedAt.getTime() + 1000).toISOString();
-    const samplesToSave = [
-      { dataType: 'leanBodyMass', value: 61.2 },
-      { dataType: 'boneMass', value: 2.9 },
-      { dataType: 'bodyWaterMass', value: 41.5 },
-    ];
+    const samplesToSave = [{ dataType: 'leanBodyMass', value: 61.2 }];
 
     for (const sample of samplesToSave) {
       await Health.saveSample({
