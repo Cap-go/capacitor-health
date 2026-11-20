@@ -226,13 +226,25 @@ e2eAndroidButton?.addEventListener('click', async () => {
       throw new Error(availability.reason ?? 'Health Connect unavailable');
     }
 
-    const auth = await Health.requestAuthorization({
+    let auth = await Health.checkAuthorization({
       read: bodyCompositionTypes,
       write: bodyCompositionTypes,
     });
+    const needsAuthorization = bodyCompositionTypes.some(
+      (type) =>
+        !auth.readAuthorized?.includes(type) || !auth.writeAuthorized?.includes(type),
+    );
+    if (needsAuthorization) {
+      auth = await Health.requestAuthorization({
+        read: bodyCompositionTypes,
+        write: bodyCompositionTypes,
+      });
+    }
     setOutput({ auth });
 
-    const now = new Date().toISOString();
+    const savedAt = new Date();
+    const now = savedAt.toISOString();
+    const queryEnd = new Date(savedAt.getTime() + 1000).toISOString();
     const sample = { dataType: 'leanBodyMass', value: 61.2 };
     await Health.saveSample({
       dataType: sample.dataType,
@@ -244,8 +256,8 @@ e2eAndroidButton?.addEventListener('click', async () => {
 
     const readBack = await Health.readSamples({
       dataType: sample.dataType,
-      startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      endDate: now,
+      startDate: new Date(savedAt.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      endDate: queryEnd,
       limit: 5,
     });
     if (!readBack.samples.some((row) => row.dataType === sample.dataType && row.value === sample.value)) {
@@ -262,20 +274,6 @@ e2eAndroidButton?.addEventListener('click', async () => {
   }
 });
 
-const looksLikePermissionDenied = (message) => {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes('permission') ||
-    normalized.includes('denied') ||
-    normalized.includes('authorization') ||
-    normalized.includes('not authorized') ||
-    normalized.includes('unauthorized') ||
-    normalized.includes('not determined') ||
-    normalized.includes('healthkit') ||
-    normalized.includes('sharing')
-  );
-};
-
 const runAndroidPermissionDeniedE2e = async () => {
   if (Capacitor.getPlatform() !== 'android') {
     setE2eMarker('E2E:permission-denied:skipped-not-android');
@@ -284,28 +282,18 @@ const runAndroidPermissionDeniedE2e = async () => {
 
   setE2eMarker('E2E:permission-denied:running');
 
-  try {
-    const result = await Health.checkAuthorization({ write: ['vo2Max'] });
-    const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
-    const writeAuthorized = Array.isArray(result.writeAuthorized) ? result.writeAuthorized : [];
-    if (writeAuthorized.includes('vo2Max')) {
-      throw new Error(`vo2Max write should not be authorized: ${JSON.stringify(result)}`);
-    }
-    if (!writeDenied.includes('vo2Max')) {
-      throw new Error(`Expected vo2Max in writeDenied, got: ${JSON.stringify(result)}`);
-    }
-    setOutput(result);
-    setE2eMarker('E2E:permission-denied:success');
-    setStatus('Android permission denied E2E passed');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (looksLikePermissionDenied(message)) {
-      setE2eMarker('E2E:permission-denied:success');
-      setStatus('Android permission denied E2E passed');
-      return;
-    }
-    throw error;
+  const result = await Health.checkAuthorization({ read: ['vo2Max'] });
+  const readDenied = Array.isArray(result.readDenied) ? result.readDenied : [];
+  const readAuthorized = Array.isArray(result.readAuthorized) ? result.readAuthorized : [];
+  if (readAuthorized.includes('vo2Max')) {
+    throw new Error(`vo2Max should not be authorized: ${JSON.stringify(result)}`);
   }
+  if (!readDenied.includes('vo2Max')) {
+    throw new Error(`Expected vo2Max in readDenied, got: ${JSON.stringify(result)}`);
+  }
+  setOutput(result);
+  setE2eMarker('E2E:permission-denied:success');
+  setStatus('Android permission denied E2E passed');
 };
 
 e2eAndroidPermissionDeniedButton?.addEventListener('click', () => {
@@ -395,24 +383,14 @@ const runIosPermissionDeniedE2e = async () => {
 
   setE2eMarker('E2E:permission-denied:running');
 
-  try {
-    const result = await Health.checkAuthorization({ write: ['weight'] });
-    const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
-    if (!writeDenied.includes('weight')) {
-      throw new Error(`Expected weight in writeDenied, got: ${JSON.stringify(result)}`);
-    }
-    setOutput(result);
-    setE2eMarker('E2E:permission-denied:success');
-    setStatus('iOS permission denied E2E passed');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (looksLikePermissionDenied(message)) {
-      setE2eMarker('E2E:permission-denied:success');
-      setStatus('iOS permission denied E2E passed');
-      return;
-    }
-    throw error;
+  const result = await Health.checkAuthorization({ write: ['weight'] });
+  const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
+  if (!writeDenied.includes('weight')) {
+    throw new Error(`Expected weight in writeDenied, got: ${JSON.stringify(result)}`);
   }
+  setOutput(result);
+  setE2eMarker('E2E:permission-denied:success');
+  setStatus('iOS permission denied E2E passed');
 };
 
 e2eIosPermissionDeniedButton?.addEventListener('click', () => {

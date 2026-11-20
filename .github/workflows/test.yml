@@ -130,11 +130,6 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 26.x
       - name: Setup Maestro
         uses: ./.github/actions/setup-maestro
         with:
@@ -153,6 +148,10 @@ jobs:
         shell: bash
         run: bash ./.github/scripts/ensure-android-emulator-sdk.sh
       - name: Run Android Maestro CI suite
+        env:
+          CAPGO_MAESTRO_SKIP_BUILD: '1'
+          CAPGO_MAESTRO_TEST_RETRIES: '1'
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '90000'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -163,12 +162,7 @@ jobs:
           emulator-boot-timeout: 300
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: >-
-            PATH="$HOME/.maestro/bin:$PATH"
-            CAPGO_MAESTRO_SKIP_BUILD=1
-            CAPGO_MAESTRO_TEST_RETRIES=1
-            MAESTRO_DRIVER_STARTUP_TIMEOUT=90000
-            bash ./scripts/run-maestro-android-ci.sh
+          script: PATH="$HOME/.maestro/bin:$PATH" bash ./scripts/run-maestro-android-ci.sh
   maestro_ios_app:
     runs-on: macOS-latest
     timeout-minutes: 10
@@ -237,6 +231,7 @@ jobs:
         env:
           CAPGO_MAESTRO_SKIP_BUILD: '1'
           CAPGO_MAESTRO_IOS_APP_PATH: ${{ steps.maestro_ios_app.outputs.path }}
+          CAPGO_MAESTRO_IOS_SIMULATOR_ID: ${{ env.CAPGO_MAESTRO_IOS_SIMULATOR_ID }}
           CAPGO_MAESTRO_TEST_RETRIES: '1'
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '90000'
         run: bash ./scripts/run-maestro-ios-ci.sh
