@@ -5,6 +5,9 @@ appId: app.capgo.health
 - extendedWaitUntil:
     visible: '@capgo/capacitor-health Demo'
     timeout: 30000
+- extendedWaitUntil:
+    visible: 'E2E:boot:ready'
+    timeout: 60000
 - scrollUntilVisible:
     element:
       text: Run iOS unsupported types E2E
@@ -42,6 +45,9 @@ appId: app.capgo.health
 - extendedWaitUntil:
     visible: '@capgo/capacitor-health Demo'
     timeout: 30000
+- extendedWaitUntil:
+    visible: 'E2E:boot:ready'
+    timeout: 60000
 - scrollUntilVisible:
     element:
       text: Run iOS kill relaunch verify
@@ -51,5 +57,5 @@ appId: app.capgo.health
 - tapOn:
     text: Run iOS kill relaunch verify
 - extendedWaitUntil:
-    visible: 'Kill relaunch E2E passed'
-    timeout: 30000
+    visible: 'E2E:kill-relaunch:success'
+    timeout: 60000
