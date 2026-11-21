@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CI_FLOW="$ROOT_DIR/.maestro/android/ci-suite.yaml"
+PERMISSION_FLOW="$ROOT_DIR/.maestro/android/permission-denied.yaml"
+BODY_FLOW="$ROOT_DIR/.maestro/android/body-composition-kill.yaml"
 CONFIG="$ROOT_DIR/.maestro/config.yaml"
 GRANT_SCRIPT="$ROOT_DIR/scripts/ci/grant-health-connect-e2e-permissions.sh"
 RETRIES="${CAPGO_MAESTRO_TEST_RETRIES:-1}"
@@ -38,20 +39,18 @@ start_app_for_maestro() {
   sleep 5
 }
 
-grant_when_permission_marker_logged() {
-  local timeout_seconds="${1:-180}"
+run_flow() {
+  local label="$1"
+  local flow_path="$2"
   local started
   started="$(date +%s)"
-  adb logcat -c 2>/dev/null || true
-  while (( $(date +%s) - started < timeout_seconds )); do
-    if adb logcat -d 2>/dev/null | grep -q 'E2E:permission-denied:success'; then
-      bash "$GRANT_SCRIPT"
-      return 0
-    fi
-    sleep 1
-  done
-  echo "Timed out waiting for E2E:permission-denied:success before granting Health Connect perms" >&2
-  return 1
+  if ! maestro test --config "$CONFIG" "$flow_path"; then
+    echo "logcat tail after Maestro failure (${label}):" >&2
+    adb logcat -d 2>/dev/null | grep -iE 'app\\.capgo\\.health|Capacitor|chromium|Console' | tail -n 200 >&2 || \
+      adb logcat -d 2>/dev/null | tail -n 200 >&2 || true
+    return 1
+  fi
+  echo "Maestro Android flow ${label} finished in $(( $(date +%s) - started ))s"
 }
 
 run_android_e2e() {
@@ -63,25 +62,15 @@ run_android_e2e() {
   fi
   start_app_for_maestro
 
-  local started grant_pid=0
+  local started
   started="$(date +%s)"
-  grant_when_permission_marker_logged 180 &
-  grant_pid=$!
-
-  if ! maestro test --config "$CONFIG" "$CI_FLOW"; then
-    kill "$grant_pid" 2>/dev/null || true
-    wait "$grant_pid" 2>/dev/null || true
-    echo "logcat tail after Maestro failure (ci-suite):" >&2
-    adb logcat -d 2>/dev/null | grep -iE 'app\\.capgo\\.health|Capacitor|chromium|Console' | tail -n 200 >&2 || \
-      adb logcat -d 2>/dev/null | tail -n 200 >&2 || true
+  if ! run_flow permission-denied "$PERMISSION_FLOW"; then
     return 1
   fi
-
-  if ! wait "$grant_pid"; then
-    echo "Health Connect grant watcher failed after Maestro success" >&2
+  bash "$GRANT_SCRIPT"
+  if ! run_flow body-composition-kill "$BODY_FLOW"; then
     return 1
   fi
-
   echo "Maestro Android CI suite finished in $(( $(date +%s) - started ))s"
 }
 

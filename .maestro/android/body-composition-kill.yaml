@@ -4,7 +4,7 @@ appId: app.capgo.health
     clearState: false
 - extendedWaitUntil:
     visible: '@capgo/capacitor-health Demo'
-    timeout: 45000
+    timeout: 30000
 - scrollUntilVisible:
     element:
       text: Run Android body composition E2E
