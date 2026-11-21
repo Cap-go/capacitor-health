@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PERMISSION_FLOW="$ROOT_DIR/.maestro/android/permission-denied.yaml"
-BODY_FLOW="$ROOT_DIR/.maestro/android/body-composition-kill.yaml"
+CI_FLOW="$ROOT_DIR/.maestro/android/ci-suite.yaml"
 CONFIG="$ROOT_DIR/.maestro/config.yaml"
+GRANT_SCRIPT="$ROOT_DIR/scripts/ci/grant-health-connect-e2e-permissions.sh"
 RETRIES="${CAPGO_MAESTRO_TEST_RETRIES:-1}"
 
 export PATH="$HOME/.maestro/bin:${PATH:-}"
@@ -35,43 +35,54 @@ revoke_health_permissions() {
 start_app_for_maestro() {
   adb shell am force-stop "$APP_ID" 2>/dev/null || true
   adb shell am start -W -n "$APP_ID/.MainActivity" >/dev/null
-  sleep 8
+  sleep 5
 }
 
-run_flow() {
-  local label="$1"
-  local flow_path="$2"
+grant_when_permission_marker_logged() {
+  local timeout_seconds="${1:-180}"
   local started
   started="$(date +%s)"
-  if [[ "$label" == "permission-denied" ]]; then
-    revoke_health_permissions
-    adb shell cmd healthconnect reset-app-permissions "$APP_ID" 2>/dev/null || true
-    if adb shell dumpsys package "$APP_ID" 2>/dev/null | grep -q "android.permission.health.WRITE_LEAN_BODY_MASS: granted=true"; then
-      echo "WRITE_LEAN_BODY_MASS still granted after revoke; permission-denied E2E cannot run" >&2
-      return 1
+  adb logcat -c 2>/dev/null || true
+  while (( $(date +%s) - started < timeout_seconds )); do
+    if adb logcat -d 2>/dev/null | grep -q 'E2E:permission-denied:success'; then
+      bash "$GRANT_SCRIPT"
+      return 0
     fi
-    start_app_for_maestro
-  elif [[ "$label" == "body-composition-kill" ]]; then
-    adb shell am force-stop "$APP_ID" 2>/dev/null || true
-    start_app_for_maestro
+    sleep 1
+  done
+  echo "Timed out waiting for E2E:permission-denied:success before granting Health Connect perms" >&2
+  return 1
+}
+
+run_android_e2e() {
+  revoke_health_permissions
+  adb shell cmd healthconnect reset-app-permissions "$APP_ID" 2>/dev/null || true
+  if adb shell dumpsys package "$APP_ID" 2>/dev/null | grep -q "android.permission.health.WRITE_LEAN_BODY_MASS: granted=true"; then
+    echo "WRITE_LEAN_BODY_MASS still granted after revoke; permission-denied E2E cannot run" >&2
+    return 1
   fi
-  if ! maestro test --config "$CONFIG" "$flow_path"; then
-    echo "logcat tail after Maestro failure (${label}):" >&2
+  start_app_for_maestro
+
+  local started grant_pid=0
+  started="$(date +%s)"
+  grant_when_permission_marker_logged 180 &
+  grant_pid=$!
+
+  if ! maestro test --config "$CONFIG" "$CI_FLOW"; then
+    kill "$grant_pid" 2>/dev/null || true
+    wait "$grant_pid" 2>/dev/null || true
+    echo "logcat tail after Maestro failure (ci-suite):" >&2
     adb logcat -d 2>/dev/null | grep -iE 'app\\.capgo\\.health|Capacitor|chromium|Console' | tail -n 200 >&2 || \
       adb logcat -d 2>/dev/null | tail -n 200 >&2 || true
     return 1
   fi
-  echo "Maestro Android flow ${label} finished in $(( $(date +%s) - started ))s"
-}
 
-run_android_e2e() {
-  if ! run_flow permission-denied "$PERMISSION_FLOW"; then
+  if ! wait "$grant_pid"; then
+    echo "Health Connect grant watcher failed after Maestro success" >&2
     return 1
   fi
-  bash "$ROOT_DIR/scripts/ci/grant-health-connect-e2e-permissions.sh"
-  if ! run_flow body-composition-kill "$BODY_FLOW"; then
-    return 1
-  fi
+
+  echo "Maestro Android CI suite finished in $(( $(date +%s) - started ))s"
 }
 
 for attempt in $(seq 1 "$RETRIES"); do
