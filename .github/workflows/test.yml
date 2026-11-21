@@ -165,6 +165,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -no-metrics
           script: PATH="$HOME/.maestro/bin:$PATH" bash ./scripts/run-maestro-android-ci.sh
+  # Build + Maestro on one macOS runner (avoids second sim boot, artifact round-trip, and job timeout).
   maestro_ios_app:
     runs-on: macOS-latest
     timeout-minutes: 10
@@ -178,34 +179,6 @@ jobs:
           node-version: 26.x
       - name: Install root dependencies
         run: bun i
-      - name: Select iOS simulator
-        run: |
-          simulator_id="$(./scripts/select-ios-simulator.sh)"
-          echo "CAPGO_MAESTRO_IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
-          xcrun simctl boot "$simulator_id" 2>/dev/null || true
-          xcrun simctl bootstatus "$simulator_id" -b
-      - name: Build example iOS app
-        run: bash ./scripts/ci/build-example-ios-app.sh
-      - name: Archive Maestro iOS app bundle
-        run: tar -czf maestro-ios-app.tar.gz -C maestro-ios-derived-data/Build/Products/Debug-iphonesimulator App.app
-      - name: Upload Maestro iOS app
-        uses: actions/upload-artifact@v7
-        with:
-          name: maestro-ios-app
-          path: maestro-ios-app.tar.gz
-          if-no-files-found: error
-  maestro_ios_e2e:
-    needs: maestro_ios_app
-    runs-on: macOS-latest
-    timeout-minutes: 10
-    steps:
-      - name: Check out
-        uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 26.x
       - name: Setup Maestro
         uses: ./.github/actions/setup-maestro
         with:
@@ -216,30 +189,27 @@ jobs:
           echo "CAPGO_MAESTRO_IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
           xcrun simctl boot "$simulator_id" 2>/dev/null || true
           xcrun simctl bootstatus "$simulator_id" -b
-      - name: Download Maestro iOS app
-        uses: actions/download-artifact@v8
-        with:
-          name: maestro-ios-app
-          path: .
-      - name: Extract Maestro iOS app bundle
-        run: tar -xzf maestro-ios-app.tar.gz
-      - name: Resolve Maestro iOS app path
-        id: maestro_ios_app
-        run: |
-          app_path="${GITHUB_WORKSPACE}/App.app"
-          if [[ ! -d "$app_path" ]]; then
-            echo "Missing App.app at $app_path" >&2
-            exit 1
-          fi
-          echo "path=$app_path" >> "$GITHUB_OUTPUT"
+      - name: Build example iOS app
+        run: bash ./scripts/ci/build-example-ios-app.sh
       - name: Run iOS Maestro CI suite
         env:
           CAPGO_MAESTRO_SKIP_BUILD: '1'
-          CAPGO_MAESTRO_IOS_APP_PATH: ${{ steps.maestro_ios_app.outputs.path }}
+          CAPGO_MAESTRO_SKIP_SIM_BOOT: '1'
+          CAPGO_MAESTRO_IOS_APP_PATH: ${{ github.workspace }}/maestro-ios-derived-data/Build/Products/Debug-iphonesimulator/App.app
           CAPGO_MAESTRO_IOS_SIMULATOR_ID: ${{ env.CAPGO_MAESTRO_IOS_SIMULATOR_ID }}
           CAPGO_MAESTRO_TEST_RETRIES: '1'
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '90000'
         run: bash ./scripts/run-maestro-ios-ci.sh
+      - name: Archive Maestro iOS app bundle
+        if: always()
+        run: tar -czf maestro-ios-app.tar.gz -C maestro-ios-derived-data/Build/Products/Debug-iphonesimulator App.app
+      - name: Upload Maestro iOS app
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-ios-app
+          path: maestro-ios-app.tar.gz
+          if-no-files-found: error
   web:
     runs-on: ubuntu-latest
     # Keep this job capped at 10 minutes; never raise it unless explicitly asked.
