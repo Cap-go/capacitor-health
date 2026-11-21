@@ -35,7 +35,7 @@ revoke_health_permissions() {
 start_app_for_maestro() {
   adb shell am force-stop "$APP_ID" 2>/dev/null || true
   adb shell am start -W -n "$APP_ID/.MainActivity" >/dev/null
-  sleep 12
+  sleep 8
 }
 
 run_flow() {
@@ -51,6 +51,9 @@ run_flow() {
       return 1
     fi
     start_app_for_maestro
+  elif [[ "$label" == "body-composition-kill" ]]; then
+    adb shell am force-stop "$APP_ID" 2>/dev/null || true
+    start_app_for_maestro
   fi
   if ! maestro test --config "$CONFIG" "$flow_path"; then
     echo "logcat tail after Maestro failure (${label}):" >&2
@@ -62,7 +65,6 @@ run_flow() {
 }
 
 run_android_e2e() {
-  bash "$ROOT_DIR/scripts/ci/prepare-android-health-connect-emulator.sh"
   if ! run_flow permission-denied "$PERMISSION_FLOW"; then
     return 1
   fi
