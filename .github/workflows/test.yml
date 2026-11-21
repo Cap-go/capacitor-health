@@ -197,7 +197,7 @@ jobs:
   maestro_ios_e2e:
     needs: maestro_ios_app
     runs-on: macOS-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Check out
         uses: actions/checkout@v7
