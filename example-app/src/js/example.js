@@ -50,6 +50,7 @@ const isSameSampleInstant = (savedIso, rowStart) => {
 const setE2eMarker = (message) => {
   if (e2eMarkerPane) {
     e2eMarkerPane.textContent = message;
+    e2eMarkerPane.setAttribute('aria-label', message);
   }
 };
 
