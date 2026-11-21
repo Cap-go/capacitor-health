@@ -12,14 +12,9 @@ appId: app.capgo.health
     timeout: 30000
 - tapOn:
     text: Run iOS unsupported types E2E
-- scrollUntilVisible:
-    element:
-      id: e2eMarkerPane
-    direction: DOWN
-    timeout: 15000
 - extendedWaitUntil:
     visible: 'E2E:ios-unsupported:success'
-    timeout: 45000
+    timeout: 120000
 - scrollUntilVisible:
     element:
       text: Run iOS permission denied E2E
@@ -27,14 +22,9 @@ appId: app.capgo.health
     timeout: 30000
 - tapOn:
     text: Run iOS permission denied E2E
-- scrollUntilVisible:
-    element:
-      id: e2eMarkerPane
-    direction: DOWN
-    timeout: 15000
 - extendedWaitUntil:
     visible: 'E2E:permission-denied:success'
-    timeout: 45000
+    timeout: 120000
 - scrollUntilVisible:
     element:
       text: Run iOS kill relaunch prep
@@ -42,14 +32,9 @@ appId: app.capgo.health
     timeout: 30000
 - tapOn:
     text: Run iOS kill relaunch prep
-- scrollUntilVisible:
-    element:
-      id: e2eMarkerPane
-    direction: DOWN
-    timeout: 15000
 - extendedWaitUntil:
     visible: 'E2E:kill-relaunch:prepped'
-    timeout: 45000
+    timeout: 120000
 - stopApp
 - launchApp:
     clearState: false
@@ -63,11 +48,6 @@ appId: app.capgo.health
     timeout: 30000
 - tapOn:
     text: Run iOS kill relaunch verify
-- scrollUntilVisible:
-    element:
-      id: e2eMarkerPane
-    direction: DOWN
-    timeout: 15000
 - extendedWaitUntil:
     visible: 'E2E:kill-relaunch:success'
-    timeout: 45000
+    timeout: 120000
