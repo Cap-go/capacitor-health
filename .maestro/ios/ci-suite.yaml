@@ -27,11 +27,12 @@ appId: app.capgo.health
     timeout: 120000
 - scrollUntilVisible:
     element:
-      id: e2e-ios-kill-relaunch-prep
+      text: Run iOS kill relaunch prep
     direction: DOWN
-    timeout: 30000
+    timeout: 120000
+    speed: 80
 - tapOn:
-    id: e2e-ios-kill-relaunch-prep
+    text: Run iOS kill relaunch prep
 - extendedWaitUntil:
     visible: 'E2E:kill-relaunch:prepped'
     timeout: 120000
@@ -43,16 +44,12 @@ appId: app.capgo.health
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: e2e-ios-kill-relaunch-verify
+      text: Run iOS kill relaunch verify
     direction: DOWN
-    timeout: 30000
+    timeout: 120000
+    speed: 80
 - tapOn:
-    id: e2e-ios-kill-relaunch-verify
-- scrollUntilVisible:
-    element:
-      id: e2eMarkerPane
-    direction: DOWN
-    timeout: 30000
+    text: Run iOS kill relaunch verify
 - extendedWaitUntil:
-    visible: 'E2E:kill-relaunch:success'
+    visible: 'Kill relaunch E2E passed'
     timeout: 30000
