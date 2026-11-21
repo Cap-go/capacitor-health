@@ -8,13 +8,13 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   plugins: {
     SplashScreen: {
-      launchAutoHide: false,
+      launchAutoHide: true,
     },
     CapacitorUpdater: {
       appId: 'app.capgo.health',
-      autoUpdate: true,
-      autoSplashscreen: true,
-      directUpdate: 'always',
+      autoUpdate: false,
+      autoSplashscreen: false,
+      directUpdate: 'never',
       version: pkg.version,
     },
   },

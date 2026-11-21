@@ -1,0 +1,4 @@
+appId: app.capgo.health
+platform:
+  ios:
+    disableAnimations: true
