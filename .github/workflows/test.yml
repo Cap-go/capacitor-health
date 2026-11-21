@@ -219,24 +219,13 @@ jobs:
         run: |
           simulator_id="$(./scripts/select-ios-simulator.sh)"
           echo "CAPGO_MAESTRO_IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
-          xcrun simctl boot "$simulator_id" 2>/dev/null || true
-          xcrun simctl bootstatus "$simulator_id" -b
-      - name: Download Maestro iOS app
-        uses: actions/download-artifact@v8
-        with:
-          name: maestro-ios-app
-          path: .
-      - name: Extract Maestro iOS app bundle
-        run: tar -xzf maestro-ios-app.tar.gz
+      - name: Boot simulator and download Maestro iOS app
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ./scripts/ci/prepare-maestro-ios-e2e-runner.sh
       - name: Resolve Maestro iOS app path
         id: maestro_ios_app
-        run: |
-          app_path="${GITHUB_WORKSPACE}/App.app"
-          if [[ ! -d "$app_path" ]]; then
-            echo "Missing App.app at $app_path" >&2
-            exit 1
-          fi
-          echo "path=$app_path" >> "$GITHUB_OUTPUT"
+        run: echo "path=${GITHUB_WORKSPACE}/App.app" >> "$GITHUB_OUTPUT"
       - name: Run iOS Maestro CI suite
         env:
           CAPGO_MAESTRO_SKIP_BUILD: '1'
