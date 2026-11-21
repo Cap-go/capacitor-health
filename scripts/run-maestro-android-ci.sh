@@ -36,7 +36,7 @@ revoke_health_permissions() {
 start_app_for_maestro() {
   adb shell am force-stop "$APP_ID" 2>/dev/null || true
   adb shell am start -W -n "$APP_ID/.MainActivity" >/dev/null
-  sleep 5
+  sleep 8
 }
 
 run_flow() {
