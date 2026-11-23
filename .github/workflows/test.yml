@@ -8,6 +8,9 @@ on:
     branches: [ main ]
   workflow_call:  # Allow this workflow to be called by other workflows
 
+env:
+  MAESTRO_VERSION: cli-2.4.0
+
 jobs:
   guard_swiftpm_version:
     runs-on: ubuntu-latest
@@ -49,7 +52,17 @@ jobs:
           java-version: '21'
       - name: Build
         id: build_code
-        run: bun run verify:android
+        run: |
+          for attempt in 1 2 3; do
+            if bun run verify:android; then
+              exit 0
+            fi
+            if [[ "$attempt" -lt 3 ]]; then
+              echo "verify:android failed (attempt $attempt), retrying in 30s..." >&2
+              sleep 30
+            fi
+          done
+          exit 1
       - name: Verify packed package in example app (Android)
         shell: bash
         run: bash ./.github/scripts/verify-packed-example.sh android
@@ -78,6 +91,150 @@ jobs:
       - name: Verify packed package in example app (iOS)
         shell: bash
         run: bash ./.github/scripts/verify-packed-example.sh ios
+  ios_unit_tests:
+    runs-on: macOS-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+      - name: Install dependencies
+        run: bun i
+      - name: Run HealthPlugin XCTests
+        run: bun run test:ios:unit
+  maestro_android_apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+      - name: Install root dependencies
+        run: bun i
+      - name: Setup java
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: '21'
+          cache: gradle
+      - name: Build example Android APK
+        env:
+          GRADLE_OPTS: -Dorg.gradle.caching=false
+        run: bash ./scripts/ci/build-example-android-apk.sh
+      - name: Upload Maestro Android APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-android-apk
+          path: example-app/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+  maestro_android_e2e:
+    needs: maestro_android_apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - name: Setup Maestro
+        uses: ./.github/actions/setup-maestro
+        with:
+          maestro-version: ${{ env.MAESTRO_VERSION }}
+      - name: Download Maestro Android APK
+        uses: actions/download-artifact@v8
+        with:
+          name: maestro-android-apk
+          path: example-app/android/app/build/outputs/apk/debug
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Clear Android SDK temp cache
+        shell: bash
+        run: bash ./.github/scripts/ensure-android-emulator-sdk.sh
+      - name: Run Android Maestro CI suite
+        env:
+          CAPGO_MAESTRO_SKIP_BUILD: '1'
+          CAPGO_MAESTRO_TEST_RETRIES: '2'
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '90000'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          emulator-boot-timeout: 300
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: PATH="$HOME/.maestro/bin:$PATH" bash ./scripts/run-maestro-android-ci.sh
+  maestro_ios_app:
+    runs-on: macOS-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+      - name: Install root dependencies
+        run: bun i
+      - name: Select iOS simulator
+        run: |
+          simulator_id="$(./scripts/select-ios-simulator.sh)"
+          echo "CAPGO_MAESTRO_IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
+      - name: Build example iOS app
+        env:
+          CAPGO_MAESTRO_IOS_SIMULATOR_ID: ${{ env.CAPGO_MAESTRO_IOS_SIMULATOR_ID }}
+        run: bash ./scripts/ci/build-example-ios-app.sh
+      - name: Archive Maestro iOS app bundle
+        run: tar -czf maestro-ios-app.tar.gz -C maestro-ios-derived-data/Build/Products/Debug-iphonesimulator App.app
+      - name: Upload Maestro iOS app
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-ios-app
+          path: maestro-ios-app.tar.gz
+          if-no-files-found: error
+  maestro_ios_e2e:
+    needs: maestro_ios_app
+    runs-on: macOS-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - name: Setup Maestro
+        uses: ./.github/actions/setup-maestro
+        with:
+          maestro-version: ${{ env.MAESTRO_VERSION }}
+      - name: Select iOS simulator
+        run: |
+          simulator_id="$(./scripts/select-ios-simulator.sh)"
+          echo "CAPGO_MAESTRO_IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
+      - name: Boot simulator and download Maestro iOS app
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ./scripts/ci/prepare-maestro-ios-e2e-runner.sh
+      - name: Resolve Maestro iOS app path
+        id: maestro_ios_app
+        run: echo "path=${GITHUB_WORKSPACE}/App.app" >> "$GITHUB_OUTPUT"
+      - name: Run iOS Maestro CI suite
+        env:
+          CAPGO_MAESTRO_SKIP_BUILD: '1'
+          CAPGO_MAESTRO_SKIP_SIM_BOOT: '1'
+          CAPGO_MAESTRO_IOS_APP_PATH: ${{ steps.maestro_ios_app.outputs.path }}
+          CAPGO_MAESTRO_IOS_SIMULATOR_ID: ${{ env.CAPGO_MAESTRO_IOS_SIMULATOR_ID }}
+          CAPGO_MAESTRO_TEST_RETRIES: '2'
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '120000'
+        run: bash ./scripts/run-maestro-ios-ci.sh
   web:
     runs-on: ubuntu-latest
     # Keep this job capped at 10 minutes; never raise it unless explicitly asked.

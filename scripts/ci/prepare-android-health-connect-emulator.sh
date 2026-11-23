@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_ID="${CAPGO_HEALTH_APP_ID:-app.capgo.health}"
+
+adb wait-for-device
+until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; do
+  sleep 1
+done
+
+revoke() {
+  adb shell pm revoke --user 0 "$APP_ID" "$1" 2>/dev/null || \
+    adb shell pm revoke "$APP_ID" "$1" 2>/dev/null || true
+}
+
+for permission in \
+  android.permission.health.READ_LEAN_BODY_MASS \
+  android.permission.health.WRITE_LEAN_BODY_MASS \
+  android.permission.health.READ_BONE_MASS \
+  android.permission.health.WRITE_BONE_MASS \
+  android.permission.health.READ_BODY_WATER_MASS \
+  android.permission.health.WRITE_BODY_WATER_MASS; do
+  revoke "$permission"
+done
+
+adb shell cmd healthconnect reset-app-permissions "$APP_ID" 2>/dev/null || \
+  adb shell cmd healthconnect clear-app-permissions "$APP_ID" 2>/dev/null || \
+  adb shell cmd healthconnect delete-data "$APP_ID" 2>/dev/null || true
+
+for permission in \
+  android.permission.health.READ_LEAN_BODY_MASS \
+  android.permission.health.WRITE_LEAN_BODY_MASS \
+  android.permission.health.READ_BONE_MASS \
+  android.permission.health.WRITE_BONE_MASS \
+  android.permission.health.READ_BODY_WATER_MASS \
+  android.permission.health.WRITE_BODY_WATER_MASS; do
+  revoke "$permission"
+done
+
+echo "WRITE_LEAN_BODY_MASS dump:"
+adb shell dumpsys package "$APP_ID" 2>/dev/null | grep -i "WRITE_LEAN_BODY_MASS" || true
+if adb shell dumpsys package "$APP_ID" 2>/dev/null | grep -q "android.permission.health.WRITE_LEAN_BODY_MASS: granted=true"; then
+  echo "WRITE_LEAN_BODY_MASS still granted after revoke; permission-denied E2E cannot run" >&2
+  exit 1
+fi
+
+adb shell am force-stop "$APP_ID" 2>/dev/null || true
+
+if adb shell pm path com.google.android.apps.healthdata >/dev/null 2>&1; then
+  adb shell am start -n com.google.android.apps.healthdata/.ui.deeplink.HomeDeepLinkActivity 2>/dev/null || \
+    adb shell am start -a android.health.connect.action.HEALTH_CONNECT_SETTINGS 2>/dev/null || \
+    adb shell monkey -p com.google.android.apps.healthdata -c android.intent.category.LAUNCHER 1 2>/dev/null || true
+  sleep 2
+  adb shell input keyevent KEYCODE_HOME 2>/dev/null || true
+fi

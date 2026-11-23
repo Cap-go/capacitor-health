@@ -2,6 +2,7 @@ package app.capgo.plugin.health
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
 import androidx.activity.result.ActivityResult
@@ -174,6 +175,11 @@ class HealthPlugin : Plugin() {
 
         val includeHistoryAccess = call.getBoolean("requestHistoryAccess") ?: false
 
+        if (!includeWorkouts && !includeHistoryAccess) {
+            call.resolve(manager.authorizationStatusFromPackageManager(context, readTypes, writeTypes))
+            return
+        }
+
         call.launchSafely {
             val client = getClientOrReject(this) ?: return@launchSafely
             val status = manager.authorizationStatus(client, readTypes, writeTypes, includeWorkouts, includeHistoryAccess)
@@ -271,6 +277,11 @@ class HealthPlugin : Plugin() {
 
         if (endInstant.isBefore(startInstant)) {
             call.reject("endDate must be greater than or equal to startDate")
+            return
+        }
+
+        if (context.checkSelfPermission(dataType.writePermission) != PackageManager.PERMISSION_GRANTED) {
+            call.reject("Health Connect write permission not granted for ${dataType.identifier}")
             return
         }
 

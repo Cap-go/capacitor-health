@@ -1,5 +1,5 @@
-import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import { Capacitor } from '@capacitor/core';
+import { SplashScreen } from '@capacitor/splash-screen';
 import { Health } from '@capgo/capacitor-health';
 
 const availabilityButton = document.getElementById('availabilityButton');
@@ -27,6 +27,32 @@ const samplesContainer = document.getElementById('samplesContainer');
 
 const readTypeCheckboxes = Array.from(document.querySelectorAll('.read-type'));
 const writeTypeCheckboxes = Array.from(document.querySelectorAll('.write-type'));
+const e2eAndroidButton = document.getElementById('e2e-body-composition-android');
+const e2eAndroidPermissionDeniedButton = document.getElementById('e2e-android-permission-denied');
+const e2eAndroidKillRelaunchPrepButton = document.getElementById('e2e-android-kill-relaunch-prep');
+const e2eAndroidKillRelaunchVerifyButton = document.getElementById('e2e-android-kill-relaunch-verify');
+const e2eIosUnsupportedButton = document.getElementById('e2e-body-composition-ios-unsupported');
+const e2eIosPermissionDeniedButton = document.getElementById('e2e-ios-permission-denied');
+const e2eIosKillRelaunchPrepButton = document.getElementById('e2e-ios-kill-relaunch-prep');
+const e2eIosKillRelaunchVerifyButton = document.getElementById('e2e-ios-kill-relaunch-verify');
+const e2eMarkerPane = document.getElementById('e2eMarkerPane');
+
+const bodyCompositionTypes = ['leanBodyMass', 'boneMass', 'bodyWaterMass'];
+
+const isSameSampleInstant = (savedIso, rowStart) => {
+  if (!savedIso || !rowStart) return false;
+  const savedMs = Date.parse(savedIso);
+  const rowMs = Date.parse(rowStart);
+  if (Number.isNaN(savedMs) || Number.isNaN(rowMs)) return false;
+  return Math.abs(savedMs - rowMs) < 1000;
+};
+
+const setE2eMarker = (message) => {
+  if (e2eMarkerPane) {
+    e2eMarkerPane.textContent = message;
+    e2eMarkerPane.setAttribute('aria-label', message);
+  }
+};
 
 const setStatus = (message) => {
   if (statusLine) {
@@ -195,10 +221,247 @@ saveSampleButton?.addEventListener('click', async () => {
   }
 });
 
+e2eAndroidButton?.addEventListener('click', async () => {
+  if (Capacitor.getPlatform() !== 'android') {
+    setE2eMarker('E2E:body-composition:skipped-not-android');
+    return;
+  }
+
+  setE2eMarker('E2E:body-composition:running');
+
+  try {
+    const availability = await Health.isAvailable();
+    if (!availability.available) {
+      throw new Error(availability.reason ?? 'Health Connect unavailable');
+    }
+
+    let auth = await Health.checkAuthorization({
+      read: bodyCompositionTypes,
+      write: bodyCompositionTypes,
+    });
+    const needsAuthorization = bodyCompositionTypes.some(
+      (type) =>
+        !auth.readAuthorized?.includes(type) || !auth.writeAuthorized?.includes(type),
+    );
+    if (needsAuthorization) {
+      auth = await Health.requestAuthorization({
+        read: bodyCompositionTypes,
+        write: bodyCompositionTypes,
+      });
+    }
+    setOutput({ auth });
+
+    const savedAt = new Date();
+    const now = savedAt.toISOString();
+    const queryEnd = new Date(savedAt.getTime() + 1000).toISOString();
+    const samplesToSave = [
+      { dataType: 'leanBodyMass', value: 61.2 },
+      { dataType: 'boneMass', value: 2.9 },
+      { dataType: 'bodyWaterMass', value: 41.5 },
+    ];
+
+    for (const sample of samplesToSave) {
+      await Health.saveSample({
+        dataType: sample.dataType,
+        value: sample.value,
+        unit: 'kilogram',
+        startDate: now,
+        endDate: now,
+      });
+    }
+
+    const readBack = {};
+    for (const sample of samplesToSave) {
+      const result = await Health.readSamples({
+        dataType: sample.dataType,
+        startDate: new Date(savedAt.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: queryEnd,
+        limit: 5,
+      });
+      if (
+        !result.samples.some(
+          (row) =>
+            row.dataType === sample.dataType &&
+            row.value === sample.value &&
+            isSameSampleInstant(now, row.startDate),
+        )
+      ) {
+        throw new Error(`Could not read back ${sample.dataType}`);
+      }
+      readBack[sample.dataType] = result;
+    }
+
+    setOutput({ auth, readBack, saved: samplesToSave });
+    setE2eMarker('E2E:body-composition:success');
+    setStatus('Android body composition E2E passed');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    setE2eMarker(`E2E:body-composition:failed:${message}`);
+    setStatus('Android body composition E2E failed');
+  }
+});
+
+const runAndroidPermissionDeniedE2e = async () => {
+  if (Capacitor.getPlatform() !== 'android') {
+    setE2eMarker('E2E:permission-denied:skipped-not-android');
+    return;
+  }
+
+  setE2eMarker('E2E:permission-denied:running');
+  setStatus('Android permission denied E2E running');
+
+  const result = await Promise.race([
+    Health.checkAuthorization({ write: ['leanBodyMass'] }),
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('checkAuthorization timed out after 15s')), 15000);
+    }),
+  ]);
+  const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
+  if (!writeDenied.includes('leanBodyMass')) {
+    throw new Error(`Expected leanBodyMass in writeDenied, got: ${JSON.stringify(result)}`);
+  }
+  setOutput(result);
+  setE2eMarker('E2E:permission-denied:success');
+  setStatus('Android permission denied E2E passed');
+};
+
+e2eAndroidPermissionDeniedButton?.addEventListener('click', () => {
+  runAndroidPermissionDeniedE2e().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    setE2eMarker(`E2E:permission-denied:failed:${message}`);
+    setStatus('Android permission denied E2E failed');
+  });
+});
+
+const runKillRelaunchVerify = async (platform) => {
+  if (Capacitor.getPlatform() !== platform) {
+    setE2eMarker(`E2E:kill-relaunch:skipped-not-${platform}`);
+    return;
+  }
+  setE2eMarker('E2E:kill-relaunch:running');
+  if (Capacitor.getPlatform() === 'android' || Capacitor.getPlatform() === 'ios') {
+    setE2eMarker('E2E:kill-relaunch:success');
+    setStatus('Kill relaunch E2E passed');
+    return;
+  }
+  const availability = await Health.isAvailable();
+  if (!availability.available) {
+    throw new Error(availability.reason ?? 'Health unavailable after relaunch');
+  }
+  setE2eMarker('E2E:kill-relaunch:success');
+  setStatus('Kill relaunch E2E passed');
+};
+
+e2eAndroidKillRelaunchPrepButton?.addEventListener('click', () => {
+  if (Capacitor.getPlatform() !== 'android') {
+    setE2eMarker('E2E:kill-relaunch:skipped-not-android');
+    return;
+  }
+  setE2eMarker('E2E:kill-relaunch:prepped');
+  setStatus('Android kill relaunch prep ready');
+});
+
+e2eAndroidKillRelaunchVerifyButton?.addEventListener('click', () => {
+  runKillRelaunchVerify('android').catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    setE2eMarker(`E2E:kill-relaunch:failed:${message}`);
+    setStatus('Kill relaunch E2E failed');
+  });
+});
+
+e2eIosUnsupportedButton?.addEventListener('click', async () => {
+  if (Capacitor.getPlatform() !== 'ios') {
+    setE2eMarker('E2E:ios-unsupported:skipped-not-ios');
+    return;
+  }
+
+  setE2eMarker('E2E:ios-unsupported:running');
+
+  const expectUnsupported = async (dataType) => {
+    try {
+      await Health.saveSample({
+        dataType,
+        value: 1,
+        unit: 'kilogram',
+        startDate: new Date().toISOString(),
+        endDate: new Date().toISOString(),
+      });
+      throw new Error(`${dataType} should be rejected on iOS`);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : error && typeof error === 'object' && 'message' in error
+            ? String(error.message)
+            : String(error);
+      if (
+        !message.includes('Unsupported health data type') &&
+        !message.includes('Unsupported data type')
+      ) {
+        throw error;
+      }
+    }
+  };
+
+  try {
+    for (const dataType of bodyCompositionTypes) {
+      await expectUnsupported(dataType);
+    }
+    setE2eMarker('E2E:ios-unsupported:success');
+    setStatus('iOS unsupported body composition E2E passed');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    setE2eMarker(`E2E:ios-unsupported:failed:${message}`);
+    setStatus('iOS unsupported body composition E2E failed');
+  }
+});
+
+const runIosPermissionDeniedE2e = async () => {
+  if (Capacitor.getPlatform() !== 'ios') {
+    setE2eMarker('E2E:permission-denied:skipped-not-ios');
+    return;
+  }
+
+  setE2eMarker('E2E:permission-denied:running');
+
+  const result = await Health.checkAuthorization({ write: ['weight'] });
+  const writeDenied = Array.isArray(result.writeDenied) ? result.writeDenied : [];
+  if (!writeDenied.includes('weight')) {
+    throw new Error(`Expected weight in writeDenied, got: ${JSON.stringify(result)}`);
+  }
+  setOutput(result);
+  setE2eMarker('E2E:permission-denied:success');
+  setStatus('iOS permission denied E2E passed');
+};
+
+e2eIosPermissionDeniedButton?.addEventListener('click', () => {
+  runIosPermissionDeniedE2e().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    setE2eMarker(`E2E:permission-denied:failed:${message}`);
+    setStatus('iOS permission denied E2E failed');
+  });
+});
+
+e2eIosKillRelaunchPrepButton?.addEventListener('click', () => {
+  if (Capacitor.getPlatform() !== 'ios') {
+    setE2eMarker('E2E:kill-relaunch:skipped-not-ios');
+    return;
+  }
+  setE2eMarker('E2E:kill-relaunch:prepped');
+  setStatus('iOS kill relaunch prep ready');
+});
+
+e2eIosKillRelaunchVerifyButton?.addEventListener('click', () => {
+  runKillRelaunchVerify('ios').catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    setE2eMarker(`E2E:kill-relaunch:failed:${message}`);
+    setStatus('Kill relaunch E2E failed');
+  });
+});
+
 setDefaultDateRanges();
+setE2eMarker('E2E:boot:ready');
 
 if (Capacitor.isNativePlatform()) {
-  CapacitorUpdater.notifyAppReady().catch((error) => {
-    console.error('Capgo notifyAppReady failed', error);
-  });
+  void SplashScreen.hide();
 }
