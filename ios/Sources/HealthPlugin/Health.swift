@@ -260,10 +260,8 @@ enum WorkoutType: String, CaseIterable {
             return .traditionalStrengthTraining
         case .surfing, .surfingSports:
             return .surfingSports
-        case .swimming, .swimmingPool:
+        case .swimming, .swimmingPool, .swimmingOpenWater:
             return .swimming
-        case .swimmingOpenWater:
-            return .waterSports
         case .tableTennis:
             return .tableTennis
         case .tennis:
@@ -376,6 +374,21 @@ enum WorkoutType: String, CaseIterable {
              .paraGliding, .plank, .upperTwist, .other:
             return .other
         }
+    }
+
+    static func from(workout: HKWorkout) -> WorkoutType {
+        if workout.workoutActivityType == .swimming {
+            let rawLocation = (workout.metadata?[HKMetadataKeySwimmingLocationType] as? NSNumber)?.intValue
+            switch rawLocation.flatMap(HKWorkoutSwimmingLocationType.init(rawValue:)) {
+            case .pool?:
+                return .swimmingPool
+            case .openWater?:
+                return .swimmingOpenWater
+            default:
+                return .swimming
+            }
+        }
+        return fromHKWorkoutActivityType(workout.workoutActivityType)
     }
 
     static func fromHKWorkoutActivityType(_ hkType: HKWorkoutActivityType) -> WorkoutType {
@@ -814,19 +827,25 @@ struct AuthorizationStatusPayload {
     let readDenied: [String]
     let writeAuthorized: [String]
     let writeDenied: [String]
+    let workoutRouteWriteAuthorized: Bool?
 
     func toDictionary() -> [String: Any] {
-        return [
+        var dictionary: [String: Any] = [
             "readAuthorized": readAuthorized,
             "readDenied": readDenied,
             "writeAuthorized": writeAuthorized,
             "writeDenied": writeDenied
         ]
+        if let workoutRouteWriteAuthorized = workoutRouteWriteAuthorized {
+            dictionary["workoutRouteWriteAuthorized"] = workoutRouteWriteAuthorized
+        }
+        return dictionary
     }
 }
 
 final class Health {
-    private let healthStore = HKHealthStore()
+    /// Shared with WorkoutWriter so the plugin keeps a single store.
+    let healthStore = HKHealthStore()
     private let isoFormatter: ISO8601DateFormatter
     private let emptyWriteTypesSet = Set<HKSampleType>()
     
@@ -864,7 +883,9 @@ final class Health {
         do {
             // Separate "workouts" from regular health data types
             let (readTypes, includeWorkouts) = try parseTypesWithWorkouts(readIdentifiers)
-            let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
+            // `workouts` / `workoutRoute` write access (saveWorkout) is handled by WorkoutWriter
+            let (writeDataTypeIdentifiers, workoutWriteIdentifiers) = WorkoutWriter.splitWriteIdentifiers(writeIdentifiers)
+            let writeTypes = try HealthDataType.parseMany(writeDataTypeIdentifiers)
             try rejectReadOnlyWriteTypes(writeTypes)
 
             var readObjectTypes = try readAuthorizationObjectTypes(for: readTypes)
@@ -872,7 +893,10 @@ final class Health {
             if includeWorkouts {
                 readObjectTypes.insert(HKObjectType.workoutType())
             }
+            // Routes need read + share access to workouts and routes (Apple, "Creating a workout route")
+            readObjectTypes.formUnion(WorkoutWriter.readTypes(forWriteIdentifiers: workoutWriteIdentifiers))
             let writeSampleTypes = try sampleTypes(for: writeTypes)
+                .union(WorkoutWriter.shareTypes(forWriteIdentifiers: workoutWriteIdentifiers))
 
             healthStore.requestAuthorization(toShare: writeSampleTypes, read: readObjectTypes) { [weak self] success, error in
                 guard let self = self else { return }
@@ -883,8 +907,9 @@ final class Health {
                 }
 
                 if success {
+                    let healthStore = self.healthStore
                     self.evaluateAuthorizationStatus(readTypes: readTypes, includeWorkouts: includeWorkouts, writeTypes: writeTypes) { result in
-                        completion(.success(result))
+                        completion(.success(WorkoutWriter.addingWriteStatus(of: workoutWriteIdentifiers, to: result, healthStore: healthStore)))
                     }
                 } else {
                     completion(.failure(HealthManagerError.operationFailed("Authorization request was not granted.")))
@@ -898,11 +923,13 @@ final class Health {
     func checkAuthorization(readIdentifiers: [String], writeIdentifiers: [String], completion: @escaping (Result<AuthorizationStatusPayload, Error>) -> Void) {
         do {
             let (readTypes, includeWorkouts) = try parseTypesWithWorkouts(readIdentifiers)
-            let writeTypes = try HealthDataType.parseMany(writeIdentifiers)
+            let (writeDataTypeIdentifiers, workoutWriteIdentifiers) = WorkoutWriter.splitWriteIdentifiers(writeIdentifiers)
+            let writeTypes = try HealthDataType.parseMany(writeDataTypeIdentifiers)
             try rejectReadOnlyWriteTypes(writeTypes)
 
+            let healthStore = self.healthStore
             evaluateAuthorizationStatus(readTypes: readTypes, includeWorkouts: includeWorkouts, writeTypes: writeTypes) { payload in
-                completion(.success(payload))
+                completion(.success(WorkoutWriter.addingWriteStatus(of: workoutWriteIdentifiers, to: payload, healthStore: healthStore)))
             }
         } catch {
             completion(.failure(error))
@@ -1245,7 +1272,7 @@ final class Health {
         }
     }
 
-    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, completion: @escaping (Result<Void, Error>) -> Void) throws {
+    func saveSample(dataTypeIdentifier: String, value: Double, unitIdentifier: String?, startDateString: String?, endDateString: String?, metadata: [String: String]?, systolic: Double?, diastolic: Double?, clientRecordId: String?, recordingMethod: String?, completion: @escaping (Result<Void, Error>) -> Void) throws {
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthManagerError.healthDataUnavailable
         }
@@ -1264,6 +1291,11 @@ final class Health {
             metadataDictionary = metadata.reduce(into: [String: Any]()) { result, entry in
                 result[entry.key] = entry.value
             }
+        }
+        // clientRecordId / recordingMethod: sync identifier and user-entered flag (see SyncMetadata)
+        let syncMetadata = try SyncMetadata.forSample(clientRecordId: clientRecordId, recordingMethod: recordingMethod)
+        if !syncMetadata.isEmpty {
+            metadataDictionary = (metadataDictionary ?? [:]).merging(syncMetadata) { _, syncValue in syncValue }
         }
 
         // Handle sleep as a category sample
@@ -1328,8 +1360,11 @@ final class Health {
             let systolicQuantity = HKQuantity(unit: HKUnit.millimeterOfMercury(), doubleValue: systolicValue)
             let diastolicQuantity = HKQuantity(unit: HKUnit.millimeterOfMercury(), doubleValue: diastolicValue)
             
-            let systolicSample = HKQuantitySample(type: systolicType, quantity: systolicQuantity, start: startDate, end: endDate)
-            let diastolicSample = HKQuantitySample(type: diastolicType, quantity: diastolicQuantity, start: startDate, end: endDate)
+            // With a clientRecordId the two samples get derived sync identifiers too (see SyncMetadata.part)
+            let systolicSample = HKQuantitySample(type: systolicType, quantity: systolicQuantity, start: startDate, end: endDate,
+                                                  metadata: SyncMetadata.part("systolic", of: syncMetadata))
+            let diastolicSample = HKQuantitySample(type: diastolicType, quantity: diastolicQuantity, start: startDate, end: endDate,
+                                                   metadata: SyncMetadata.part("diastolic", of: syncMetadata))
             
             let correlation = HKCorrelation(type: correlationType, start: startDate, end: endDate, objects: [systolicSample, diastolicSample], metadata: metadataDictionary)
             
@@ -1384,7 +1419,8 @@ final class Health {
                 readAuthorized: readAuthorized,
                 readDenied: readDenied,
                 writeAuthorized: writeStatus.authorized.map { $0.rawValue },
-                writeDenied: writeStatus.denied.map { $0.rawValue }
+                writeDenied: writeStatus.denied.map { $0.rawValue },
+                workoutRouteWriteAuthorized: nil
             )
             completion(payload)
         }
@@ -1810,6 +1846,22 @@ final class Health {
                     HKQuery.predicateForWorkouts(with: .wheelchairRunPace),
                     HKQuery.predicateForWorkouts(with: .wheelchairWalkPace),
                 ])
+            } else if workoutType == .swimmingPool {
+                typePredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    HKQuery.predicateForWorkouts(with: .swimming),
+                    HKQuery.predicateForObjects(
+                        withMetadataKey: HKMetadataKeySwimmingLocationType,
+                        allowedValues: [NSNumber(value: HKWorkoutSwimmingLocationType.pool.rawValue)]
+                    ),
+                ])
+            } else if workoutType == .swimmingOpenWater {
+                typePredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    HKQuery.predicateForWorkouts(with: .swimming),
+                    HKQuery.predicateForObjects(
+                        withMetadataKey: HKMetadataKeySwimmingLocationType,
+                        allowedValues: [NSNumber(value: HKWorkoutSwimmingLocationType.openWater.rawValue)]
+                    ),
+                ])
             } else {
                 typePredicate = HKQuery.predicateForWorkouts(with: workoutType.hkWorkoutActivityType())
             }
@@ -1859,7 +1911,7 @@ final class Health {
     
     private func workoutToPayload(_ workout: HKWorkout) -> [String: Any] {
         var payload: [String: Any] = [
-            "workoutType": WorkoutType.fromHKWorkoutActivityType(workout.workoutActivityType).rawValue,
+            "workoutType": WorkoutType.from(workout: workout).rawValue,
             "duration": Int(workout.duration),
             "startDate": isoFormatter.string(from: workout.startDate),
             "endDate": isoFormatter.string(from: workout.endDate)
