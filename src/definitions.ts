@@ -38,6 +38,7 @@ export type HealthUnit =
   | 'kilogram'
   | 'gram'
   | 'minute'
+  /** Percent values (for example SpO2 or body fat) are always on a 0-100 scale on every platform. */
   | 'percent'
   | 'millisecond'
   | 'mL/min/kg'
@@ -133,6 +134,11 @@ export interface SleepStage {
 
 export interface HealthSample {
   dataType: HealthDataType;
+  /**
+   * Numeric magnitude in the sample's `unit`. When `unit` is `percent`, the value is 0-100 (not a 0-1 fraction).
+   * On iOS, `oxygenSaturation` and `bodyFat` previously used a 0-1 HealthKit fraction;
+   * multiply cached fractional iOS values by 100 to match the current scale, or call `readSamples` again after upgrading.
+   */
   value: number;
   unit: HealthUnit;
   startDate: string;
@@ -395,10 +401,16 @@ export interface QueryWorkoutsResult {
 
 export interface WriteSampleOptions {
   dataType: HealthDataType;
+  /**
+   * Sample magnitude in the data type's default unit (or `unit` when provided).
+   * For `oxygenSaturation` and `bodyFat`, use 0-100 (for example `97` for 97% SpO2).
+   * On iOS, previously cached fractional values for those types must be multiplied by 100 before saving after upgrading.
+   */
   value: number;
   /**
-   * Optional unit override. If omitted, the default unit for the data type is used
+   * Optional unit label. If omitted, the default unit for the data type is used
    * (count for `steps`, meter for `distance`, kilocalorie for `calories`, bpm for `heartRate`, kilogram for `weight`).
+   * When provided, it must match that data type's default unit or the write is rejected (same on iOS and Android).
    */
   unit?: HealthUnit;
   /** ISO 8601 start date for the sample. Defaults to now. */
