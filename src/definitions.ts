@@ -38,6 +38,7 @@ export type HealthUnit =
   | 'kilogram'
   | 'gram'
   | 'minute'
+  /** Percent values (for example SpO2 or body fat) are always on a 0-100 scale on every platform. */
   | 'percent'
   | 'millisecond'
   | 'mL/min/kg'
@@ -133,6 +134,7 @@ export interface SleepStage {
 
 export interface HealthSample {
   dataType: HealthDataType;
+  /** Numeric magnitude in the sample's `unit`. When `unit` is `percent`, the value is 0-100 (not a 0-1 fraction). */
   value: number;
   unit: HealthUnit;
   startDate: string;
@@ -395,6 +397,10 @@ export interface QueryWorkoutsResult {
 
 export interface WriteSampleOptions {
   dataType: HealthDataType;
+  /**
+   * Sample magnitude in the data type's default unit (or `unit` when provided).
+   * For `oxygenSaturation` and `bodyFat`, use 0-100 (for example `97` for 97% SpO2).
+   */
   value: number;
   /**
    * Optional unit override. If omitted, the default unit for the data type is used

@@ -799,6 +799,29 @@ enum HealthDataType: String, CaseIterable {
         }
     }
 
+    /// HealthKit `HKUnit.percent()` uses a 0.0-1.0 fraction; the plugin exposes 0-100 on all platforms.
+    var usesPluginPercentScale: Bool {
+        unitIdentifier == "percent"
+    }
+
+    func pluginValue(fromHealthKit healthKitValue: Double) -> Double {
+        usesPluginPercentScale ? healthKitValue * 100.0 : healthKitValue
+    }
+
+    func healthKitValue(fromPlugin pluginValue: Double) throws -> Double {
+        try validatePluginValue(pluginValue)
+        return usesPluginPercentScale ? pluginValue / 100.0 : pluginValue
+    }
+
+    func validatePluginValue(_ value: Double) throws {
+        guard value.isFinite else {
+            throw HealthManagerError.operationFailed("Value must be a finite number.")
+        }
+        if usesPluginPercentScale, value < 0.0 || value > 100.0 {
+            throw HealthManagerError.operationFailed("Percent values must be between 0 and 100, got \(value).")
+        }
+    }
+
     static func parseMany(_ identifiers: [String]) throws -> [HealthDataType] {
         try identifiers.map { identifier in
             guard let type = HealthDataType(rawValue: identifier) else {
@@ -1175,7 +1198,8 @@ final class Health {
             }
 
             let results = quantitySamples.compactMap { sample -> [String: Any]? in
-                let value = sample.quantity.doubleValue(for: dataType.defaultUnit)
+                let rawValue = sample.quantity.doubleValue(for: dataType.defaultUnit)
+                let value = dataType.pluginValue(fromHealthKit: rawValue)
                 guard var payload = self.readSamplePayload(
                     dataType: dataType,
                     value: value,
@@ -1351,7 +1375,8 @@ final class Health {
         // Handle quantity samples
         let sampleType = try dataType.quantityType()
         let unit = unit(for: unitIdentifier, dataType: dataType)
-        let quantity = HKQuantity(unit: unit, doubleValue: value)
+        let healthKitValue = try dataType.healthKitValue(fromPlugin: value)
+        let quantity = HKQuantity(unit: unit, doubleValue: healthKitValue)
         let sample = HKQuantitySample(type: sampleType, quantity: quantity, start: startDate, end: endDate, metadata: metadataDictionary)
 
         healthStore.save(sample) { success, error in
@@ -1747,9 +1772,10 @@ final class Health {
                         }
 
                         if let value = value {
-                            values[aggregation] = value
+                            let pluginValue = dataType.pluginValue(fromHealthKit: value)
+                            values[aggregation] = pluginValue
                             if primaryValue == nil {
-                                primaryValue = value
+                                primaryValue = pluginValue
                             }
                         }
                     }

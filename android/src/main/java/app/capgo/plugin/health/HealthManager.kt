@@ -263,7 +263,7 @@ class HealthManager {
                     dataType,
                     record.time,
                     record.time,
-                    record.percentage.value,
+                    PercentValueScale.toPluginValue(record.percentage.value),
                     record.metadata
                 )
                 samples.add(record.time to payload)
@@ -366,7 +366,7 @@ class HealthManager {
                     dataType,
                     record.time,
                     record.time,
-                    record.percentage.value,
+                    PercentValueScale.toPluginValue(record.percentage.value),
                     record.metadata
                 )
                 samples.add(record.time to payload)
@@ -591,10 +591,11 @@ class HealthManager {
                 client.insertRecords(listOf(record))
             }
             HealthDataType.OXYGEN_SATURATION -> {
+                val percentValue = PercentValueScale.toHealthConnectValue(value)
                 val record = OxygenSaturationRecord(
                     time = startTime,
                     zoneOffset = zoneOffset(startTime),
-                    percentage = Percentage(value),
+                    percentage = Percentage(percentValue),
                     metadata = recordMetadata
                 )
                 client.insertRecords(listOf(record))
@@ -689,10 +690,11 @@ class HealthManager {
                 client.insertRecords(listOf(record))
             }
             HealthDataType.BODY_FAT -> {
+                val percentValue = PercentValueScale.toHealthConnectValue(value)
                 val record = BodyFatRecord(
                     time = startTime,
                     zoneOffset = zoneOffset(startTime),
-                    percentage = Percentage(value),
+                    percentage = Percentage(percentValue),
                     metadata = recordMetadata
                 )
                 client.insertRecords(listOf(record))

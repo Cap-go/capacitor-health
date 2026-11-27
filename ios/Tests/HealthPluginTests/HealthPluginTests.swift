@@ -9,15 +9,16 @@ class HealthTests: XCTestCase {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 
+        let pluginValue = HealthDataType.oxygenSaturation.pluginValue(fromHealthKit: 0.96)
         let payload = implementation.readSamplePayload(
             dataType: .oxygenSaturation,
-            value: 0.96,
+            value: pluginValue,
             startDate: startDate,
             endDate: endDate
         )
 
         XCTAssertEqual(payload?["dataType"] as? String, "oxygenSaturation")
-        XCTAssertEqual(payload?["value"] as? Double, 0.96)
+        XCTAssertEqual(payload?["value"] as? Double, 96.0)
         XCTAssertEqual(payload?["unit"] as? String, "percent")
 
         let startDateString = try XCTUnwrap(payload?["startDate"] as? String)
@@ -69,5 +70,21 @@ class HealthTests: XCTestCase {
         )
 
         XCTAssertNil(payload)
+    }
+
+    func testPluginPercentScaleConvertsHealthKitFractionToZeroToHundred() {
+        XCTAssertEqual(HealthDataType.oxygenSaturation.pluginValue(fromHealthKit: 0.97), 97.0, accuracy: 0.0001)
+        XCTAssertEqual(HealthDataType.bodyFat.pluginValue(fromHealthKit: 0.215), 21.5, accuracy: 0.0001)
+        XCTAssertEqual(HealthDataType.heartRate.pluginValue(fromHealthKit: 72.0), 72.0, accuracy: 0.0001)
+    }
+
+    func testHealthKitPercentScaleConvertsPluginZeroToHundredToFraction() throws {
+        XCTAssertEqual(try HealthDataType.oxygenSaturation.healthKitValue(fromPlugin: 97.0), 0.97, accuracy: 0.0001)
+        XCTAssertEqual(try HealthDataType.bodyFat.healthKitValue(fromPlugin: 21.5), 0.215, accuracy: 0.0001)
+    }
+
+    func testValidatePluginPercentValueRejectsOutOfRange() {
+        XCTAssertThrowsError(try HealthDataType.oxygenSaturation.validatePluginValue(101.0))
+        XCTAssertThrowsError(try HealthDataType.bodyFat.validatePluginValue(-0.1))
     }
 }
