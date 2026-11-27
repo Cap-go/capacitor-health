@@ -404,12 +404,13 @@ export interface WriteSampleOptions {
   /**
    * Sample magnitude in the data type's default unit (or `unit` when provided).
    * For `oxygenSaturation` and `bodyFat`, use 0-100 (for example `97` for 97% SpO2).
+   * On iOS, previously cached fractional values for those types must be multiplied by 100 before saving after upgrading.
    */
   value: number;
   /**
-   * Optional unit override. If omitted, the default unit for the data type is used
+   * Optional unit label. If omitted, the default unit for the data type is used
    * (count for `steps`, meter for `distance`, kilocalorie for `calories`, bpm for `heartRate`, kilogram for `weight`).
-   * When provided, the value must match that data type's default unit or the write is rejected (same on iOS and Android).
+   * When provided, it must match that data type's default unit or the write is rejected (same on iOS and Android).
    */
   unit?: HealthUnit;
   /** ISO 8601 start date for the sample. Defaults to now. */
