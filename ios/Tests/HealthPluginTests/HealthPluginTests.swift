@@ -87,4 +87,10 @@ class HealthTests: XCTestCase {
         XCTAssertThrowsError(try HealthDataType.oxygenSaturation.validatePluginValue(101.0))
         XCTAssertThrowsError(try HealthDataType.bodyFat.validatePluginValue(-0.1))
     }
+
+    func testWriteUnitRejectsMismatchedPluginUnit() {
+        XCTAssertThrowsError(try HealthDataType.weight.writeUnit(pluginUnitIdentifier: "gram"))
+        XCTAssertNoThrow(try HealthDataType.weight.writeUnit(pluginUnitIdentifier: "kilogram"))
+        XCTAssertNoThrow(try HealthDataType.weight.writeUnit(pluginUnitIdentifier: nil))
+    }
 }

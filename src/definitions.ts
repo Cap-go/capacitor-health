@@ -134,7 +134,11 @@ export interface SleepStage {
 
 export interface HealthSample {
   dataType: HealthDataType;
-  /** Numeric magnitude in the sample's `unit`. When `unit` is `percent`, the value is 0-100 (not a 0-1 fraction). */
+  /**
+   * Numeric magnitude in the sample's `unit`. When `unit` is `percent`, the value is 0-100 (not a 0-1 fraction).
+   * On iOS, `oxygenSaturation` and `bodyFat` previously used a 0-1 HealthKit fraction;
+   * multiply cached fractional iOS values by 100 to match the current scale, or call `readSamples` again after upgrading.
+   */
   value: number;
   unit: HealthUnit;
   startDate: string;
@@ -405,6 +409,7 @@ export interface WriteSampleOptions {
   /**
    * Optional unit override. If omitted, the default unit for the data type is used
    * (count for `steps`, meter for `distance`, kilocalorie for `calories`, bpm for `heartRate`, kilogram for `weight`).
+   * When provided, the value must match that data type's default unit or the write is rejected (same on iOS and Android).
    */
   unit?: HealthUnit;
   /** ISO 8601 start date for the sample. Defaults to now. */

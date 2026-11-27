@@ -822,6 +822,17 @@ enum HealthDataType: String, CaseIterable {
         }
     }
 
+    func writeUnit(pluginUnitIdentifier: String?) throws -> HKUnit {
+        if let pluginUnitIdentifier = pluginUnitIdentifier {
+            guard pluginUnitIdentifier == unitIdentifier else {
+                throw HealthManagerError.operationFailed(
+                    "Unsupported unit \(pluginUnitIdentifier) for \(rawValue). Expected \(unitIdentifier)."
+                )
+            }
+        }
+        return defaultUnit
+    }
+
     static func parseMany(_ identifiers: [String]) throws -> [HealthDataType] {
         try identifiers.map { identifier in
             guard let type = HealthDataType(rawValue: identifier) else {
@@ -1374,7 +1385,7 @@ final class Health {
 
         // Handle quantity samples
         let sampleType = try dataType.quantityType()
-        let unit = unit(for: unitIdentifier, dataType: dataType)
+        let unit = try dataType.writeUnit(pluginUnitIdentifier: unitIdentifier)
         let healthKitValue = try dataType.healthKitValue(fromPlugin: value)
         let quantity = HKQuantity(unit: unit, doubleValue: healthKitValue)
         let sample = HKQuantitySample(type: sampleType, quantity: quantity, start: startDate, end: endDate, metadata: metadataDictionary)
@@ -1550,35 +1561,6 @@ final class Health {
         }
 
         throw HealthManagerError.invalidDate(value)
-    }
-
-    private func unit(for identifier: String?, dataType: HealthDataType) -> HKUnit {
-        guard let identifier = identifier else {
-            return dataType.defaultUnit
-        }
-
-        switch identifier {
-        case "count":
-            return HKUnit.count()
-        case "meter":
-            return HKUnit.meter()
-        case "kilocalorie":
-            return HKUnit.kilocalorie()
-        case "bpm":
-            return HKUnit.count().unitDivided(by: HKUnit.minute())
-        case "kilogram":
-            return HKUnit.gramUnit(with: .kilo)
-        case "percent":
-            return HKUnit.percent()
-        case "millisecond":
-            return HKUnit.secondUnit(with: .milli)
-        case "minute":
-            return HKUnit.minute()
-        case "liter":
-            return HKUnit.liter()
-        default:
-            return dataType.defaultUnit
-        }
     }
 
     private func readAuthorizationObjectTypes(for dataType: HealthDataType) throws -> Set<HKObjectType> {
